@@ -621,7 +621,7 @@ def sync_individual_ticket(username, password, company_name, ticket_folio, fecha
                     page.wait_for_timeout(800)
 
                     # Filtrar responsable — usar get_by_placeholder como selector primario
-                    robot_log("Filtrando por 'oscar'...")
+                    robot_log("Filtrando por 'soporte'...")
                     filtrar_loc = None
                     for loc_fn in [
                         lambda: page.get_by_placeholder("Filtrar"),
@@ -639,16 +639,16 @@ def sync_individual_ticket(username, password, company_name, ticket_folio, fecha
                             continue
 
                     if filtrar_loc:
-                        filtrar_loc.fill("oscar")
-                        robot_log("[Asignar/Cierre] Campo 'Filtrar' llenado con 'oscar'.")
+                        filtrar_loc.fill("soporte")
+                        robot_log("[Asignar/Cierre] Campo 'Filtrar' llenado con 'soporte'.")
                     else:
                         # Último fallback: escribir en cualquier input visible dentro del diálogo
-                        page.keyboard.type("oscar")
+                        page.keyboard.type("soporte")
                         robot_log("[Asignar/Cierre] Filtrar llenado vía keyboard (fallback).")
                     page.wait_for_timeout(1500)
 
-                    # Doble clic en Oscar Posadas Mendieta para seleccionarlo y cerrar el catálogo automáticamente
-                    page.get_by_role("gridcell", name="Oscar Posadas Mendieta").dblclick()
+                    # Doble clic en soporte Mao para seleccionarlo y cerrar el catálogo automáticamente
+                    page.get_by_role("gridcell", name="MAO Soporte").dblclick()
                     page.wait_for_timeout(1000)
 
                     take_screenshot(page, "06_modal_cierre_llenado")
