@@ -135,6 +135,20 @@ class GrupoTicketAdmin(admin.ModelAdmin):
 
         return render(request, "admin/callcenter/grupoticket/importar_modal.html", {"grupo": grupo})
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            # Cluster recién creado: agregarlo automáticamente al DashboardConfig activo
+            from .models import DashboardConfig
+            config = DashboardConfig.get_active()
+            config.clusters.add(obj)
+            # Si el dashboard estaba en modo "mostrar todos", pasarlo a manual
+            # para que el nuevo cluster sea el foco
+            if config.mostrar_todos_clusters:
+                config.mostrar_todos_clusters = False
+                config.save(update_fields=['mostrar_todos_clusters'])
+            self.message_user(request, f"✅ Cluster '{obj.correlativo}' agregado automáticamente al Dashboard público.", level='success')
+
     def get_queryset(self, request):
         from django.db.models import Count, Sum, Q
         return super().get_queryset(request).select_related('departamento').annotate(
