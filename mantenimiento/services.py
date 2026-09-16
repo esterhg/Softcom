@@ -53,8 +53,8 @@ class WorkOrderService:
         ).annotate(
             color_horario=Subquery(color_subquery)
         ).values(
-            'id', 'rutina__nombre', 'ubicacion__nombre', 'ubicacion_id', 
-            'rutina__tipo_id', 'inicio_programado', 'estado', 
+            'id', 'codigo_de_orden', 'rutina__nombre', 'ubicacion__nombre', 'ubicacion_id',
+            'rutina__tipo_id', 'inicio_programado', 'estado',
             'color_horario', 'programacion_id', 'rutina__es_invasiva'
         )
         
@@ -146,12 +146,16 @@ class WorkOrderService:
             # Determine grouping week (0-51)
             dia_año = ot['inicio_programado'].timetuple().tm_yday
             semana_idx = min((dia_año - 1) // 7, 51)
-            
+
             if view_mode == 'ubicacion':
                 root_edificio = get_edificio_root(ot['ubicacion_id'])
-                if not ubicacion_id and not root_edificio: continue
-                group_label = root_edificio.nombre if root_edificio else (ot['ubicacion__nombre'] or "S/U")
-                sub_label = "General" if root_edificio and (ot['ubicacion__nombre'] == root_edificio.nombre) else (ot['ubicacion__nombre'] or "General")
+                # Fallback: si no hay edificio raíz con tipo=EDIFICIO, usar la raíz jerárquica
+                if not root_edificio:
+                    root_edificio = get_any_root(ot['ubicacion_id'])
+                group_label = root_edificio.nombre if root_edificio else (ot['ubicacion__nombre'] or "Sin Ubicación")
+                sub_label = (ot['ubicacion__nombre'] or "General")
+                if root_edificio and ot['ubicacion__nombre'] == root_edificio.nombre:
+                    sub_label = "General"
             else:
                 cat_id = ot['rutina__tipo_id']
                 if cat_id and cat_id in categorias:
@@ -159,10 +163,14 @@ class WorkOrderService:
                     group_label = root.nombre
                     sub_label = categorias[cat_id].nombre if categorias[cat_id].id != root.id else "General"
                 else:
-                    group_label = "General / Otros"
-                    sub_label = "Sin Tipo"
-                    
-            grupos_dict[group_label][sub_label][ot['rutina__nombre'] or "General"][semana_idx].append(ot)
+                    # OTs sin rutina o sin tipo: agrupar por ubicación para que sean visibles
+                    ubi = loc_map.get(ot['ubicacion_id'])
+                    root_ubi = get_any_root(ot['ubicacion_id'])
+                    group_label = root_ubi.nombre if root_ubi else "Sin Ubicación"
+                    sub_label = ubi.nombre if ubi and ubi != root_ubi else "General"
+
+            rutina_label = ot['rutina__nombre'] or ot.get('codigo_de_orden') or f"OT-{ot['id']}"
+            grupos_dict[group_label][sub_label][rutina_label][semana_idx].append(ot)
             
         return {
             'grupos_dict': grupos_dict,
