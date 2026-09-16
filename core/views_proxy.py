@@ -35,4 +35,4 @@ def media_proxy(request, path):
         return HttpResponseNotFound("Archivo no encontrado.")
     except Exception as e:
         logger.error(f"Error fatal en MinIO Proxy [{clean_path}]: {str(e)}")
-        return HttpResponseNotFound(f"Error al acceder al archivo.")
+        return HttpResponseNotFound("Error al acceder al archivo.")
