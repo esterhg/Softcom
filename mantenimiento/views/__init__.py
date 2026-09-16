@@ -19,6 +19,7 @@ from .api import (
     api_get_assets_wizard,
     generar_ordenes_programacion,
     api_generar_orden_individual,
+    sincronizar_cronograma,
     api_search_ordenes,
     api_get_ot_detail,
     api_get_ot_related,

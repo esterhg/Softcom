@@ -486,6 +486,10 @@
                 style="background: #ef4444; color: white; border-color: #dc2626;">
                 <ion-icon name="document-text-outline"></ion-icon> Exportar PDF
             </button>
+            <button id="btnSincronizar" onclick="sincronizarCronograma()" class="btn"
+                style="background: linear-gradient(135deg, #107e3e 0%, #0d6b34 100%); color: white; border: none; box-shadow: 0 4px 6px -1px rgba(16,126,62,0.3);">
+                <ion-icon name="sync-outline"></ion-icon> Sincronizar
+            </button>
             <a href="{% url 'mantenimiento:wizard_mensual' %}" class="btn"
                 style="background: linear-gradient(135deg, #0f172a 0%, #334155 100%); color: white; border: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
                 <ion-icon name="options-outline"></ion-icon> Asistente Mensual
@@ -674,6 +678,37 @@
                 }
             } catch (error) {
                 alert('Error de conexión');
+            }
+        }
+
+        async function sincronizarCronograma() {
+            const btn = document.getElementById('btnSincronizar');
+            if (!confirm('¿Sincronizar el cronograma? Esto generará las órdenes de trabajo pendientes para el año {{ year }}.')) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<ion-icon name="sync-outline" style="animation: spin 1s linear infinite;"></ion-icon> Sincronizando...';
+
+            try {
+                const response = await fetch("{% url 'mantenimiento:sincronizar_cronograma' %}?year={{ year }}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    btn.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon> ¡Listo!';
+                    btn.style.background = '#0070f2';
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1200);
+                } else {
+                    alert('Error: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = '<ion-icon name="sync-outline"></ion-icon> Sincronizar';
+                }
+            } catch (error) {
+                alert('Error de conexión al sincronizar.');
+                btn.disabled = false;
+                btn.innerHTML = '<ion-icon name="sync-outline"></ion-icon> Sincronizar';
             }
         }
 

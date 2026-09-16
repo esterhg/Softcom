@@ -41,6 +41,7 @@ urlpatterns = [
     # Proyecciones
     path('proyeccion/<int:pk>/', views.visualizador_proyecciones, name='visualizador_proyecciones'),
     path('proyeccion-generar/<int:pk>/', views.generar_ordenes_programacion, name='generar_ordenes_programacion'),
+    path('cronograma/sincronizar/', views.sincronizar_cronograma, name='sincronizar_cronograma'),
     path('app/ot/<int:pk>/', views.mobile_ot_detalle, name='mobile_ot_detalle'),
     path('app/ot/<int:pk>/update-ajax/', views.mobile_ot_update_ajax, name='mobile_ot_update_ajax'),
     path('app/ot/<int:pk>/vincular-activo/', views.mobile_ot_vincular_activo, name='mobile_ot_vincular_activo'),
