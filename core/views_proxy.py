@@ -1,6 +1,7 @@
 from django.core.files.storage import default_storage
 from django.http import FileResponse, HttpResponseNotFound
 from django.contrib.auth.decorators import login_required
+import mimetypes
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,19 +14,25 @@ def media_proxy(request, path):
     para saltarse el error 403 Forbidden.
     """
     clean_path = path.lstrip('/')
-    
+
     try:
-        # Verificamos si el archivo existe usando el driver oficial de S3/MinIO
-        if not default_storage.exists(clean_path):
-            logger.warning(f"Archivo no encontrado en MinIO: {clean_path}")
-            return HttpResponseNotFound("Archivo no encontrado en el servidor de almacenamiento.")
-        
-        # Abrimos el archivo. Boto3 se encarga de la autenticación automáticamente.
+        # Abrir directamente sin exists() previo — más rápido y evita
+        # doble llamada a MinIO que puede causar timeouts.
         file_obj = default_storage.open(clean_path)
-        
-        # Servimos el archivo directamente al navegador
-        return FileResponse(file_obj)
-            
+
+        # Detectar Content-Type por extensión para que el navegador
+        # muestre imágenes correctamente en lugar de descargarlas.
+        content_type, _ = mimetypes.guess_type(clean_path)
+        content_type = content_type or 'application/octet-stream'
+
+        response = FileResponse(file_obj, content_type=content_type)
+        # Cache en el navegador por 1 hora para no recargar en cada visita
+        response['Cache-Control'] = 'private, max-age=3600'
+        return response
+
+    except FileNotFoundError:
+        logger.warning(f"Archivo no encontrado en MinIO: {clean_path}")
+        return HttpResponseNotFound("Archivo no encontrado.")
     except Exception as e:
-        logger.error(f"Error fatal en MinIO Proxy: {str(e)}")
-        return HttpResponseNotFound(f"Error al acceder al archivo: {str(e)}")
+        logger.error(f"Error fatal en MinIO Proxy [{clean_path}]: {str(e)}")
+        return HttpResponseNotFound(f"Error al acceder al archivo.")
