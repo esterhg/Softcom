@@ -1,4 +1,4 @@
-from django.shortcuts import render
+﻿from django.shortcuts import render
 from django.urls import reverse
 from django.db import models
 from django.contrib import admin, messages
@@ -1002,6 +1002,83 @@ class ActivoAdminCustom(ImportExportActionModelAdmin):
             
         return JsonResponse(response_data)
 
+    # ─── MODO ACTUALIZACIÓN MASIVA (solo update, nunca inserta) ──────────────
+
+    def update_background(self, request):
+        """Vista de la página para actualización masiva de activos (solo update)."""
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'Actualización Masiva de Activos',
+        }
+        return render(request, 'admin/activos/activo/bulk_update.html', context)
+
+    def update_process(self, request):
+        """Recibe el archivo y dispara la tarea Celery en modo update_only=True."""
+        if request.method == 'POST' and request.FILES.get('import_file'):
+            import os, uuid
+            from django.core.files.storage import default_storage
+            from django.core.files.base import ContentFile
+            from django.http import JsonResponse
+            from .tasks import import_activos_task
+
+            myfile = request.FILES['import_file']
+            file_name = myfile.name
+            file_format = file_name.split('.')[-1].lower()
+
+            import_id = str(uuid.uuid4())
+            temp_path = f'tmp/activo_upd_{import_id}.{file_format}'
+
+            path = default_storage.save(temp_path, ContentFile(myfile.read()))
+            try:
+                abs_path = default_storage.path(path)
+            except NotImplementedError:
+                abs_path = path
+
+            task = import_activos_task.delay(
+                abs_path,
+                file_format,
+                user_id=request.user.id,
+                import_name=f"Actualizacion masiva {file_name}",
+                update_only=True,
+            )
+            return JsonResponse({'status': 'started', 'task_id': task.id})
+
+        return JsonResponse({'status': 'error', 'message': 'No se recibio archivo'}, status=400)
+
+    def update_progress(self, request):
+        """Polling de progreso para el modo actualizacion masiva."""
+        from celery.result import AsyncResult
+        from django.http import JsonResponse
+        from django.core.cache import cache
+
+        task_id = request.GET.get('task_id')
+        if not task_id:
+            return JsonResponse({'status': 'error', 'message': 'Falta task_id'}, status=400)
+
+        res = AsyncResult(task_id)
+        cache_data = cache.get(f"import_progress_{request.user.id}")
+
+        response_data = {'state': res.state, 'status': 'Procesando...', 'percent': 0}
+
+        if cache_data:
+            if isinstance(cache_data, dict):
+                response_data.update(cache_data)
+                if 'current' in cache_data and 'total' in cache_data and cache_data['total'] > 0:
+                    response_data['percent'] = int((cache_data['current'] / cache_data['total']) * 100)
+            else:
+                response_data['percent'] = cache_data
+
+        if res.state == 'SUCCESS':
+            if isinstance(res.result, dict):
+                response_data.update(res.result)
+            response_data['state'] = 'COMPLETED'
+            response_data['percent'] = 100
+        elif res.state == 'FAILURE':
+            response_data['error'] = str(res.result)
+
+        return JsonResponse(response_data)
+
+
 
     class NombreStartsWithFilter(admin.SimpleListFilter):
         title = 'Nombre comienza con'
@@ -1884,6 +1961,9 @@ class ActivoAdminCustom(ImportExportActionModelAdmin):
             path('import-process/', self.admin_site.admin_view(self.import_process), name='activos_activo_import_process'),
             path('import-progress/', self.admin_site.admin_view(self.import_progress), name='activos_activo_import_progress'),
             path('export-admin-background/', self.admin_site.admin_view(self.export_admin_background), name='activos_activo_export_admin_background'),
+            path('update-background/', self.admin_site.admin_view(self.update_background), name='activos_activo_update_background'),
+            path('update-process/', self.admin_site.admin_view(self.update_process), name='activos_activo_update_process'),
+            path('update-progress/', self.admin_site.admin_view(self.update_progress), name='activos_activo_update_progress'),
         ]
         return custom_urls + urls
 
