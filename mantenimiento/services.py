@@ -140,6 +140,21 @@ class WorkOrderService:
                 curr = loc_map.get(curr.padre_id)
             return None
 
+        def get_any_root(loc_id):
+            """Retorna la ubicación raíz (sin padre) independiente del tipo."""
+            curr = loc_map.get(loc_id)
+            root = curr
+            visited = set()
+            while curr and curr.padre_id:
+                if curr.id in visited:
+                    break
+                visited.add(curr.id)
+                parent = loc_map.get(curr.padre_id)
+                if parent:
+                    root = parent
+                curr = parent
+            return root
+
         grupos_dict = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(list))))
         
         for ot in ordenes_list:
