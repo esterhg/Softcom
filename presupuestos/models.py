@@ -1685,3 +1685,59 @@ class DashboardView(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.name}"
+
+
+class ConfiguracionFlujoAprobacion(models.Model):
+    """
+    Configuración global del flujo de aprobación de requisiciones.
+    Singleton — solo debe existir una fila. Se edita desde el admin de Django.
+    """
+    aprobador_nombre = models.CharField(
+        max_length=200,
+        verbose_name="Nombre completo del Aprobador",
+        default="Ricardo Enrique Zerrate Torres",
+        help_text="Nombre que aparece en el correo de aprobación de Power Automate.",
+    )
+    aprobador_email = models.EmailField(
+        verbose_name="Email del Aprobador",
+        default="ricardo.zerrate@gia.mx",
+        help_text="Email al que Power Automate enviará la solicitud de aprobación.",
+    )
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+    actualizado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Actualizado por",
+    )
+
+    class Meta:
+        verbose_name = "Configuración de Flujo de Aprobación"
+        verbose_name_plural = "Configuración de Flujo de Aprobación"
+
+    def __str__(self):
+        return f"Aprobador: {self.aprobador_nombre} <{self.aprobador_email}>"
+
+    @classmethod
+    def get_config(cls):
+        """
+        Devuelve la única instancia de configuración.
+        Si no existe, la crea con los valores por defecto.
+        """
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                'aprobador_nombre': 'Ricardo Enrique Zerrate Torres',
+                'aprobador_email': 'ricardo.zerrate@gia.mx',
+            }
+        )
+        return obj
+
+    def save(self, *args, **kwargs):
+        # Forzar pk=1 para garantizar singleton
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # No permitir borrar el singleton
+        pass

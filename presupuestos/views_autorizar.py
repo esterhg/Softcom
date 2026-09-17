@@ -44,9 +44,11 @@ def requisicion_autorizar(request, pk):
             if ps.nombre not in proveedores_nombres:
                 proveedores_nombres.append(ps.nombre)
 
-        # Aprobador fijo: Ing. Ricardo Zerrate (único aprobador del flujo)
-        APROBADOR_NOMBRE = "Ricardo Enrique Zerrate Torres"
-        APROBADOR_EMAIL  = "ricardo.zerrate@gia.mx"
+        # Aprobador configurable desde admin → Presupuestos → Configuración de Flujo de Aprobación
+        from .models import ConfiguracionFlujoAprobacion
+        _cfg = ConfiguracionFlujoAprobacion.get_config()
+        APROBADOR_NOMBRE = _cfg.aprobador_nombre
+        APROBADOR_EMAIL  = _cfg.aprobador_email
 
         # Payload Extendido para Power Automate
         payload = {
