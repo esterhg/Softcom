@@ -11,6 +11,7 @@ from .models import (
     OrdenCompra, OrdenCompraArticulo, CentroCosto,
     Cotizacion, ItemCotizacion, ItemPredefinido,
     CodigoExoneracion, GrupoRequisicion,
+    ConfiguracionFlujoAprobacion,
 )
 from .resources import RequisicionResource, CodigoExoneracionResource
 
@@ -749,3 +750,42 @@ class CodigoExoneracionAdmin(ImportExportModelAdmin):
     def get_export_queryset(self, request):
         """Fix para django-import-export que pasa file_format como query param."""
         return self.model.objects.all()
+
+
+@admin.register(ConfiguracionFlujoAprobacion)
+class ConfiguracionFlujoAprobacionAdmin(admin.ModelAdmin):
+    """
+    Admin singleton para configurar el aprobador del flujo de Power Automate.
+    Solo superusuarios pueden modificarlo. No se puede agregar ni borrar — solo editar.
+    """
+    fields = ('aprobador_nombre', 'aprobador_email', 'actualizado_por', 'actualizado_en')
+    readonly_fields = ('actualizado_en',)
+
+    def has_add_permission(self, request):
+        # Solo permitir agregar si aún no existe la fila singleton
+        return not ConfiguracionFlujoAprobacion.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def save_model(self, request, obj, form, change):
+        obj.actualizado_por = request.user
+        super().save_model(request, obj, form, change)
+
+    def changelist_view(self, request, extra_context=None):
+        """Redirige directamente al formulario de edición del singleton."""
+        from django.shortcuts import redirect
+        from django.urls import reverse
+        obj, _ = ConfiguracionFlujoAprobacion.objects.get_or_create(
+            pk=1,
+            defaults={
+                'aprobador_nombre': 'Ricardo Enrique Zerrate Torres',
+                'aprobador_email': 'ricardo.zerrate@gia.mx',
+            }
+        )
+        return redirect(
+            reverse('admin:presupuestos_configuracionflujoaprobacion_change', args=[obj.pk])
+        )
