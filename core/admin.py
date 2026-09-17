@@ -394,7 +394,8 @@ class PuestoTrabajoInline(admin.TabularInline):
 
 @admin.register(Departamento)
 class DepartamentoAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'codigo', 'correo', 'responsable', 'aprobador', 'descripcion')
+    list_display = ('nombre', 'codigo', 'correo', 'responsable', 'aprobador', 'aprobador_global', 'descripcion')
+    list_editable = ('aprobador_global',)
     search_fields = ('nombre', 'codigo', 'correo', 'responsable__username', 'responsable__first_name', 'responsable__last_name', 'aprobador__username', 'aprobador__first_name', 'aprobador__last_name')
     autocomplete_fields = ('responsable', 'aprobador')
     inlines = [MiembroDepartamentoInline, PuestoTrabajoInline]

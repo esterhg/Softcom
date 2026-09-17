@@ -224,6 +224,15 @@ class Departamento(models.Model):
     responsable = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='departamentos_a_cargo', verbose_name="Responsable / Jefe de departamento")
     aprobador = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='departamentos_a_aprobar', verbose_name="Aprobador de Requisiciones")
     correo = models.EmailField(max_length=255, blank=True, null=True, verbose_name="Correo del Departamento")
+    aprobador_global = models.BooleanField(
+        default=False,
+        verbose_name="Aprobador Global de Requisiciones",
+        help_text=(
+            "Marca este departamento como la fuente del aprobador global para el flujo "
+            "de Power Automate. Solo un departamento debe tener esta opción activa. "
+            "El campo 'Aprobador de Requisiciones' de este departamento será usado."
+        ),
+    )
 
     def __str__(self):
         return self.nombre
