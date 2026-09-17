@@ -35,8 +35,9 @@ class RequisicionForm(forms.ModelForm):
     class Meta:
         model = Requisicion
         fields = [
-            'cr8ca_requisicion', 'fecha', 'fecha_aprobacion', 'partida', 'item_presupuesto', 'usuario_solicitante', 'usuario_en_nombre_de', 'aprobador', 'cr8ca_asunto', 'cr8ca_prioridad', 
+            'cr8ca_requisicion', 'fecha', 'fecha_aprobacion', 'partida', 'item_presupuesto', 'usuario_solicitante', 'usuario_en_nombre_de', 'aprobador', 'cr8ca_asunto', 'cr8ca_prioridad',
             'cr8ca_motivo', 'cr8ca_comentarios', 'cr8ca_id_oc', 'wizard_step', 'estado_requisicion', 'cr8ca_totalenarticulos', 'isv',
+            'moneda_req',
             'proveedor', 'proveedores_sugeridos', 'proveedores_sugeridos_notas', 'tipo', 'grupo', 'forma_pago'
         ]
         widgets = {
@@ -56,6 +57,7 @@ class RequisicionForm(forms.ModelForm):
             'estado_requisicion': forms.Select(attrs={'class': 'form-control', 'disabled': 'disabled'}),
             'cr8ca_totalenarticulos': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'step': '0.01'}),
             'isv': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'step': '0.01'}),
+            'moneda_req': forms.Select(attrs={'class': 'form-control', 'id': 'id_moneda_req'}),
             'proveedor': forms.Select(attrs={'class': 'form-control select2-material'}),
             'proveedores_sugeridos': forms.SelectMultiple(attrs={
                 'class': 'form-control select2-material',
@@ -78,6 +80,11 @@ class RequisicionForm(forms.ModelForm):
             self.fields['estado_requisicion'].required = False
         if 'usuario_solicitante' in self.fields:
             self.fields['usuario_solicitante'].required = False
+        if 'moneda_req' in self.fields:
+            from .models import Moneda
+            self.fields['moneda_req'].required = False
+            self.fields['moneda_req'].empty_label = '— Seleccionar moneda —'
+            self.fields['moneda_req'].queryset = Moneda.objects.all().order_by('codigo')
         if 'aprobador' in self.fields:
             self.fields['aprobador'].required = False
             if self.instance and not getattr(self.instance, 'aprobador_id', None):

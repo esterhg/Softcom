@@ -510,6 +510,15 @@ class Requisicion(models.Model):
     )
     cr8ca_totalenarticulos = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name="Total en Artículos")
     isv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, default=0, verbose_name="ISV (Impuesto Sobre Ventas)")
+    moneda_req = models.ForeignKey(
+        'Moneda',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisiciones_directas',
+        verbose_name="Moneda",
+        help_text="Moneda en la que se expresan los montos de esta requisición (Lempiras o Dólares)."
+    )
     cr8ca_prioridad = models.IntegerField(choices=PRIORIDAD_CHOICES, default=2, null=True, blank=True, verbose_name="Prioridad")
     cr8ca_id_oc = models.CharField(max_length=100, null=True, blank=True, verbose_name="ID OC (Orden de Compra)")
     
@@ -720,9 +729,17 @@ class Requisicion(models.Model):
 
     @property
     def moneda(self):
+        """Retorna la moneda directa de la requisición; si no tiene, la hereda de la partida presupuestaria."""
+        if self.moneda_req_id:
+            return self.moneda_req
         if self.partida and self.partida.presupuesto_anual:
             return self.partida.presupuesto_anual.moneda
         return None
+
+    @property
+    def moneda_simbolo(self):
+        m = self.moneda
+        return m.simbolo if m else 'L'
 
     @property
     def total_estimado(self):

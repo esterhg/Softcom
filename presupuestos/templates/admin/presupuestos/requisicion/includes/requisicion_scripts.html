@@ -1076,6 +1076,23 @@
             {% endif %}
 
             // ========== CALCULATE ROW TOTALS, SUBTOTAL, GRAND TOTAL ==========
+            function getMonedaSimbolo() {
+                // Lee el símbolo desde el select de moneda si ya eligieron; si no, usa el valor inicial del hidden
+                const monedaSelect = document.getElementById('id_moneda_req');
+                if (monedaSelect && monedaSelect.selectedOptions.length > 0) {
+                    const selectedText = monedaSelect.selectedOptions[0].text.trim();
+                    // El texto de la opción es el código de moneda (ej: "HNL - Lempira")
+                    // El símbolo lo guardamos en el data-simbolo del option si existe,
+                    // si no caemos al valor inicial del hidden input
+                }
+                return document.getElementById('moneda-simbolo')?.value || 'L';
+            }
+
+            function formatMonto(valor) {
+                const simbolo = getMonedaSimbolo();
+                return simbolo + '. ' + valor.toFixed(2);
+            }
+
             function recalcTotals() {
                 let subtotal = 0;
                 $('#articles-container .article-row').each(function () {
@@ -1087,19 +1104,43 @@
                     $row.find('.row-total').text(total.toFixed(2));
                     subtotal += total;
                 });
-                $('#subtotal').text('L. ' + subtotal.toFixed(2));
+                $('#subtotal').text(formatMonto(subtotal));
 
                 const isv = parseFloat($('#id_isv').val()) || 0;
-                $('#isv-display').text('L. ' + isv.toFixed(2));
+                $('#isv-display').text(formatMonto(isv));
 
                 const grandTotal = subtotal + isv;
-                $('#grand-total').text('L. ' + grandTotal.toFixed(2));
+                $('#grand-total').text(formatMonto(grandTotal));
             }
 
             $(document).on('input', '[name$="-cr8ca_cantidad"], [name$="-cr8ca_costoaproximado"]', recalcTotals);
             $(document).on('input', '#id_isv', recalcTotals);
             $(document).on('click', '.delete-row, .remove-new-row', function () {
                 setTimeout(recalcTotals, 50);
+            });
+
+            // Cuando cambia la moneda, actualizar el hidden y recalcular totales
+            $(document).on('change', '#id_moneda_req', function() {
+                const selectedOpt = this.options[this.selectedIndex];
+                // Obtener símbolo desde el servidor vía API o parsear del texto
+                // El modelo Moneda tiene: nombre, codigo, simbolo
+                // El label del option es el __str__ del modelo = codigo (ej: "HNL")
+                // Hacemos fetch para obtener el símbolo real
+                const monedaId = this.value;
+                if (monedaId) {
+                    fetch('/presupuestos/api/moneda-simbolo/?id=' + monedaId)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.simbolo) {
+                                document.getElementById('moneda-simbolo').value = data.simbolo;
+                                recalcTotals();
+                            }
+                        })
+                        .catch(() => recalcTotals());
+                } else {
+                    document.getElementById('moneda-simbolo').value = 'L';
+                    recalcTotals();
+                }
             });
 
             // Observer for dynamically added rows

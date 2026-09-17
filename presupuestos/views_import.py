@@ -526,6 +526,21 @@ def requisicion_upsert(request, pk=None):
     else:
         presupuestos_disponibles = PresupuestoAnual.objects.all().order_by('-anio', 'nombre')
 
+    # Determinar si Procura puede generar OC:
+    # - Estado normal: AUTORIZADO, VISTO_PROCURA, PROCURA_PROCESANDO
+    # - Excepción: PENDIENTE con aprobación parcial de Ricardo ya en historial
+    _ESTADOS_OC = ['AUTORIZADO', 'VISTO_PROCURA', 'PROCURA_PROCESANDO']
+    _KEYWORDS_RICARDO = ["Ricardo", "Zerrate", "[APROBACION_PARCIAL]", "Aprobación parcial"]
+    puede_generar_oc = False
+    if instance:
+        if instance.estado_requisicion in _ESTADOS_OC:
+            puede_generar_oc = True
+        elif instance.estado_requisicion == 'PENDIENTE':
+            puede_generar_oc = any(
+                instance.historial.filter(descripcion__icontains=kw).exists()
+                for kw in _KEYWORDS_RICARDO
+            )
+
     context = {
         'form': form,
         'articulo_formset': articulo_formset,
@@ -540,6 +555,7 @@ def requisicion_upsert(request, pk=None):
         'presupuestos_disponibles': presupuestos_disponibles,
         'es_procura': request.user.groups.filter(name__in=['Procura', 'PROCURA']).exists(),
         'es_procura_tecnica': request.user.groups.filter(name__in=['Procura_Tecnica', 'PROCURA_TECNICA']).exists(),
+        'puede_generar_oc': puede_generar_oc,
     }
     return render(request, 'admin/presupuestos/requisicion/requisicion_form.html', context)
 
@@ -766,6 +782,20 @@ def api_get_partida_items(request, partida_id):
     from .models import ItemPresupuesto
     items = ItemPresupuesto.objects.filter(partida_id=partida_id).values('id', 'concepto')
     return JsonResponse({'items': list(items)})
+
+
+@login_required
+def api_moneda_simbolo(request):
+    """Retorna el símbolo de una moneda dado su ID."""
+    from .models import Moneda
+    moneda_id = request.GET.get('id')
+    if not moneda_id:
+        return JsonResponse({'simbolo': 'L', 'codigo': '', 'nombre': ''})
+    try:
+        moneda = Moneda.objects.get(pk=moneda_id)
+        return JsonResponse({'simbolo': moneda.simbolo, 'codigo': moneda.codigo, 'nombre': moneda.nombre})
+    except Moneda.DoesNotExist:
+        return JsonResponse({'simbolo': 'L', 'codigo': '', 'nombre': ''})
 
 @staff_member_required
 def import_requisiciones_json(request):

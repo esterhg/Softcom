@@ -58,6 +58,7 @@ urlpatterns = [
     path('requisiciones/import-json/', views_import.import_requisiciones_json, name='import_requisiciones_json'),
     path('requisiciones/import-json/trigger-cloud-sync/', views_import.trigger_power_automate_sync, name='trigger_cloud_sync'),
     path('api/partida/<int:partida_id>/items/', views_import.api_get_partida_items, name='api_get_partida_items'),
+    path('api/moneda-simbolo/', views_import.api_moneda_simbolo, name='api_moneda_simbolo'),
     
     # Pagos Dashboard
     path('pagos/dashboard/', views_pagos.dashboard_pagos, name='dashboard_pagos'),

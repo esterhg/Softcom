@@ -150,6 +150,7 @@
         {% csrf_token %}
         <input type="hidden" name="target_step" id="target_step" value="{{ current_step }}">
         <input type="hidden" name="final_save" id="final_save" value="false">
+        <input type="hidden" id="moneda-simbolo" value="{{ instance.moneda_simbolo }}">
 
         <!-- Paso 1: Información General -->
         <div class="form-card {% if current_step == 1 %}active{% endif %}" id="card-step-1">
@@ -254,9 +255,18 @@
                             <small class="form-hint">Seleccione el ítem específico del cronograma</small>
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Costo Aproximado</label>
-                            {{ form.cr8ca_totalenarticulos }}
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label class="form-label">Costo Aproximado</label>
+                                {{ form.cr8ca_totalenarticulos }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="display:flex; align-items:center; gap:6px;">
+                                    <span>💱</span> Moneda
+                                </label>
+                                {{ form.moneda_req }}
+                                <small class="form-hint">Moneda en que se expresan los montos</small>
+                            </div>
                         </div>
 
                         <div class="form-group"><label class="form-label">Asunto</label>{{ form.cr8ca_asunto }}</div>
@@ -396,7 +406,7 @@
                 <div style="margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--border);">
                     <div class="inline-row" style="font-weight: 600; font-size: 0.9rem;">
                         <span></span><span></span><span></span><span style="text-align: right;">Subtotal:</span>
-                        <span id="subtotal" style="text-align: right;">L. 0.00</span><span></span>
+                        <span id="subtotal" style="text-align: right;">{{ instance.moneda_simbolo }}. 0.00</span><span></span>
                     </div>
                     <div class="inline-row" style="font-size: 0.9rem;">
                         <span></span><span></span><span></span><span style="text-align: right;">ISV:</span>
@@ -404,7 +414,7 @@
                     </div>
                     <div class="inline-row" style="font-weight: 700; font-size: 1rem; color: var(--primary-dark);">
                         <span></span><span></span><span></span><span style="text-align: right;">Total General:</span>
-                        <span id="grand-total" style="text-align: right;">L. 0.00</span><span></span>
+                        <span id="grand-total" style="text-align: right;">{{ instance.moneda_simbolo }}. 0.00</span><span></span>
                     </div>
                 </div>
             </div>
@@ -566,6 +576,16 @@
                         <span class="review-label">Forma de Pago</span>
                         <span class="review-value">{{ instance.get_forma_pago_display|default:"Al Contado" }}</span>
                     </div>
+                    <div class="review-item">
+                        <span class="review-label">💱 Moneda</span>
+                        <span class="review-value" style="font-weight: 700; color: var(--primary);">
+                            {% if instance.moneda %}
+                                {{ instance.moneda.nombre }} ({{ instance.moneda.simbolo }})
+                            {% else %}
+                                <span style="color:#94a3b8;">No especificada</span>
+                            {% endif %}
+                        </span>
+                    </div>
                     {% if instance.proveedor %}
                     <div class="review-item">
                         <span class="review-label">Proveedor Asignado</span>
@@ -683,7 +703,7 @@
                                     Subtotal Proveedor:</td>
                                 <td
                                     style="padding: 12px 10px; text-align: right; font-weight: 800; color: var(--primary-dark);">
-                                    L. {{ item.subtotal|floatformat:2 }}</td>
+                                    {{ instance.moneda_simbolo }}. {{ item.subtotal|floatformat:2 }}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -695,17 +715,17 @@
                     <div style="display: flex; justify-content: flex-end; align-items: center; gap: 60px;">
                         <div style="text-align: right;">
                             <span style="display: block; font-size: 0.9rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Subtotal</span>
-                            <span style="font-size: 1.3rem; font-weight: 700; color: var(--text-main);">L. {{ instance.total_estimado|default:0|floatformat:2 }}</span>
+                            <span style="font-size: 1.3rem; font-weight: 700; color: var(--text-main);">{{ instance.moneda_simbolo }}. {{ instance.total_estimado|default:0|floatformat:2 }}</span>
                         </div>
                         <div style="text-align: right;">
                             <span style="display: block; font-size: 0.9rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">ISV</span>
-                            <span style="font-size: 1.3rem; font-weight: 700; color: var(--text-main);">L. {{ instance.isv|default:0|floatformat:2 }}</span>
+                            <span style="font-size: 1.3rem; font-weight: 700; color: var(--text-main);">{{ instance.moneda_simbolo }}. {{ instance.isv|default:0|floatformat:2 }}</span>
                         </div>
                         <div style="text-align: right;">
                             <span
                                 style="display: block; font-size: 0.9rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total
                                 Estimado Requisición</span>
-                            <span style="font-size: 2rem; font-weight: 800; color: var(--primary-dark);">L. {{ instance.total_estimado|default:0|add:instance.isv|default:0|floatformat:2 }}</span>
+                            <span style="font-size: 2rem; font-weight: 800; color: var(--primary-dark);">{{ instance.moneda_simbolo }}. {{ instance.total_estimado|default:0|add:instance.isv|default:0|floatformat:2 }}</span>
                         </div>
                     </div>
                 </div>
