@@ -44,6 +44,10 @@ def requisicion_autorizar(request, pk):
             if ps.nombre not in proveedores_nombres:
                 proveedores_nombres.append(ps.nombre)
 
+        # Aprobador fijo: Ing. Ricardo Zerrate (único aprobador del flujo)
+        APROBADOR_NOMBRE = "Ricardo Enrique Zerrate Torres"
+        APROBADOR_EMAIL  = "ricardo.zerrate@gia.mx"
+
         # Payload Extendido para Power Automate
         payload = {
             "numero_requisicion": requisicion.cr8ca_requisicion,
@@ -56,8 +60,8 @@ def requisicion_autorizar(request, pk):
             "gerente_nombre": f"{responsable.first_name or ''} {responsable.last_name or ''}".strip() if responsable else "No asignado",
             "gerente_email": (responsable.email or "N/A") if responsable else "N/A",
             "gerente_telefono": (perfil_resp.telefono or "N/A") if perfil_resp else "N/A",
-            "aprobador_nombre": f"{aprobador.first_name or ''} {aprobador.last_name or ''}".strip() if aprobador else "No asignado",
-            "aprobador_email": (aprobador.email or "N/A") if aprobador else "N/A",
+            "aprobador_nombre": APROBADOR_NOMBRE,
+            "aprobador_email": APROBADOR_EMAIL,
             "aprobador_telefono": (perfil_aprobador.telefono or "N/A") if perfil_aprobador else "N/A",
             "proveedores": ", ".join(proveedores_nombres),
             "vinculo_aprobacion": f"{settings.SITE_URL}{reverse('presupuestos:requisicion_editar', kwargs={'pk': requisicion.pk})}?step=4",

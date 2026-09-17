@@ -84,17 +84,24 @@ def requisicion_webhook_update(request):
             tipo_notif = 'ERROR'
             mensaje_usuario = 'rechazada'
         elif accion == 'REGISTRAR':
-            # Solo registra en el historial sin cambiar estado (aprobación parcial/intermedia)
+            # Solo registra en el historial sin cambiar estado (aprobación parcial/intermedia).
+            # Prefijo estructurado [APROBACION_PARCIAL] usado por el template para detectar este tipo.
             from .models import RequisicionHistorial
-            desc_parts = ["✅ Aprobación parcial"]
+
+            # Campo opcional: quién todavía falta por aprobar (Power Automate puede enviarlo)
+            pendiente_aprobadores = data.get('pendiente_aprobadores', '').strip()
+
+            desc_parts = ["[APROBACION_PARCIAL]"]
             if aprobado_por:
-                desc_parts.append(f"por {aprobado_por}")
+                desc_parts.append(f"Aprobado por: {aprobado_por}")
             if timestamp_pa:
                 desc_parts.append(f"({timestamp_pa})")
             if comentarios:
-                desc_parts.append(f"- {comentarios}")
+                desc_parts.append(f"— {comentarios}")
+            if pendiente_aprobadores:
+                desc_parts.append(f"| Pendiente: {pendiente_aprobadores}")
             descripcion_registro = " ".join(desc_parts)
-            
+
             # Crear historial directamente (sin la validación de estado_anterior == estado_nuevo)
             RequisicionHistorial.objects.create(
                 requisicion=requisicion,
@@ -103,17 +110,19 @@ def requisicion_webhook_update(request):
                 usuario=None,
                 descripcion=descripcion_registro,
             )
-            
+
             # Agregar al campo de comentarios también
             from django.utils import timezone
             ts = timezone.now().strftime("%Y-%m-%d %H:%M")
             nuevo_comentario = f"[{ts}] ✅ Aprobado por: {aprobado_por or 'Gerente'}"
             if comentarios:
                 nuevo_comentario += f" — {comentarios}"
+            if pendiente_aprobadores:
+                nuevo_comentario += f" | Pendiente: {pendiente_aprobadores}"
             existing = requisicion.cr8ca_comentarios or ""
             requisicion.cr8ca_comentarios = f"{existing}\n{nuevo_comentario}".strip()
             requisicion.save(update_fields=['cr8ca_comentarios'])
-            
+
             logger.info(f"Requisición {numero_requisicion}: aprobación parcial registrada por {aprobado_por}")
             return JsonResponse({
                 'success': True,
@@ -122,6 +131,7 @@ def requisicion_webhook_update(request):
                     'numero_requisicion': numero_requisicion,
                     'accion': 'REGISTRAR',
                     'aprobado_por': aprobado_por,
+                    'pendiente_aprobadores': pendiente_aprobadores,
                 }
             }, status=200)
         else:
