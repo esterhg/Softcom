@@ -44,20 +44,11 @@ def requisicion_autorizar(request, pk):
             if ps.nombre not in proveedores_nombres:
                 proveedores_nombres.append(ps.nombre)
 
-        # Aprobador global: se lee del Departamento marcado como "aprobador_global" en el admin.
-        # Si no hay ninguno marcado, cae al modelo ConfiguracionFlujoAprobacion como fallback.
-        from core.models import Departamento
-        dept_global = Departamento.objects.filter(aprobador_global=True).select_related('aprobador').first()
-        if dept_global and dept_global.aprobador:
-            _aprobador_user = dept_global.aprobador
-            APROBADOR_NOMBRE = _aprobador_user.get_full_name() or _aprobador_user.username
-            APROBADOR_EMAIL  = _aprobador_user.email or "N/A"
-        else:
-            # Fallback: modelo ConfiguracionFlujoAprobacion
-            from .models import ConfiguracionFlujoAprobacion
-            _cfg = ConfiguracionFlujoAprobacion.get_config()
-            APROBADOR_NOMBRE = _cfg.aprobador_nombre
-            APROBADOR_EMAIL  = _cfg.aprobador_email
+        # Aprobador configurable desde /admin/core/configuracionflujoaprobacion/
+        from .models import ConfiguracionFlujoAprobacion
+        _cfg = ConfiguracionFlujoAprobacion.get_config()
+        APROBADOR_NOMBRE = _cfg.aprobador_nombre
+        APROBADOR_EMAIL  = _cfg.aprobador_email
 
         # Payload Extendido para Power Automate
         payload = {

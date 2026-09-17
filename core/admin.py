@@ -22,7 +22,6 @@ from .models import (
     AdminNavMenu, AdminNavColumn, AdminNavItem,
 )
 from mantenimiento.models import PuestoTrabajo
-
 @admin.register(ConfiguracionUI)
 class ConfiguracionUIAdmin(admin.ModelAdmin):
     fieldsets = (
@@ -519,3 +518,38 @@ class AdminNavColumnAdmin(admin.ModelAdmin):
     list_filter = ("menu",)
     ordering = ("menu", "order")
     inlines = [ColumnAdminNavItemInline]
+
+
+# ── Aprobador Global de Requisiciones ─────────────────────────────────────────
+from presupuestos.models import ConfiguracionFlujoAprobacion
+
+class ConfiguracionFlujoAprobacionAdmin(admin.ModelAdmin):
+    """
+    Configuración del aprobador del flujo de Power Automate.
+    Editable por cualquier usuario con acceso al admin.
+    Solo existe una fila — al entrar redirige directo al formulario.
+    """
+    fields = ('aprobador_nombre', 'aprobador_email', 'actualizado_en')
+    readonly_fields = ('actualizado_en',)
+
+    def has_add_permission(self, request):
+        return not ConfiguracionFlujoAprobacion.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        """Redirige directo al formulario del singleton."""
+        from django.shortcuts import redirect
+        obj, _ = ConfiguracionFlujoAprobacion.objects.get_or_create(
+            pk=1,
+            defaults={
+                'aprobador_nombre': 'Ricardo Enrique Zerrate Torres',
+                'aprobador_email': 'ricardo.zerrate@gia.mx',
+            }
+        )
+        return redirect(
+            reverse('admin:core_configuracionflujoaprobacion_change', args=[obj.pk])
+        )
+
+admin.site.register(ConfiguracionFlujoAprobacion, ConfiguracionFlujoAprobacionAdmin)
