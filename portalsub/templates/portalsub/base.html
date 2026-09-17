@@ -75,11 +75,11 @@
             margin: 0;
         }
         .card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: var(--sap-border-radius);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            box-shadow: var(--sap-card-shadow);
             padding: 16px;
-            border: 1px solid var(--sap-card-border);
+            border: 1px solid var(--sap-border-color);
         }
         .card-title {
             font-size: 14px;
@@ -154,11 +154,11 @@
             gap: 12px;
         }
         .stat-card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: var(--sap-border-radius);
             padding: 16px;
             text-align: center;
-            border: 1px solid var(--sap-card-border);
+            border: 1px solid var(--sap-border-color);
         }
         .stat-card .stat-value {
             font-size: 28px;
@@ -197,7 +197,7 @@
         }
         .table th {
             font-weight: 600;
-            color: #666;
+            color: var(--sap-text-muted);
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -218,12 +218,12 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             display: flex;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid var(--sap-border-color);
             padding: 6px 0 calc(6px + var(--safe-area-bottom));
             z-index: 200;
-            box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+            box-shadow: var(--sap-card-shadow);
         }
         .bottom-nav a {
             flex: 1;
@@ -233,11 +233,11 @@
             gap: 2px;
             padding: 6px 0;
             text-decoration: none;
-            color: #999;
+            color: var(--sap-text-muted);
             font-size: 10px;
             transition: color 0.2s;
         }
-        .bottom-nav a.active { color: var(--sap-primary); }
+        .bottom-nav a.active { color: var(--sap-brand-color); }
         .bottom-nav a ion-icon { font-size: 22px; }
         .alert {
             padding: 12px 16px;
@@ -388,6 +388,43 @@
     });
 </script>
 {% endif %}
+
+<!-- Botón flotante de cambio de tema (Modo Oscuro/Claro) -->
+<button id="theme-toggle-btn" onclick="toggleTheme()" 
+        style="
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 9999;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: var(--sap-card-bg);
+            color: var(--sap-text-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: transform 0.2s, background 0.2s;
+        "
+        title="Cambiar tema">
+    <i class="fas fa-moon"></i>
+</button>
+<script>
+    // Actualizar icono inicial del botón
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) {
+            const icon = btn.querySelector('i');
+            if (icon && window.getCurrentTheme) {
+                icon.className = window.getCurrentTheme() === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+    });
+</script>
 
 </body>
 </html>
