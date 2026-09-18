@@ -390,8 +390,16 @@
                 </select>
             </div>
 
-            <div class="form-group">
-                <label>Orden de Trabajo <span style="color:var(--sap-error); font-weight:700;">*</span></label>
+            <div class="form-group" style="margin-bottom: 8px;">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; background:#f8fafc; border:1px solid var(--sap-border); border-radius:4px;">
+                    <input type="checkbox" id="chk-no-tecnica" style="width:18px; height:18px; accent-color:var(--sapPrimaryColor); cursor:pointer;">
+                    <span style="font-size:13px; font-weight:600; color:var(--sap-text);">Solicitud No Técnica</span>
+                    <span style="font-size:11px; color:var(--sap-text-sub); margin-left:auto;">No requiere Orden de Trabajo</span>
+                </label>
+            </div>
+
+            <div class="form-group" id="ot-section">
+                <label>Orden de Trabajo <span id="ot-required-star" style="color:var(--sap-error); font-weight:700;">*</span></label>
                 <input type="hidden" id="orden_trabajo" value="">
                 <div style="position:relative;">
                     <div style="display:flex; gap:8px;">
@@ -418,6 +426,26 @@
             <div class="form-group" style="margin-bottom:0;">
                 <label>Descripción / Motivo <span id="desc-required" style="color:var(--sap-error); font-weight:700; display:none;">*</span></label>
                 <textarea id="comentarios" class="form-control" rows="2" placeholder="Describa el motivo de la solicitud..."></textarea>
+            </div>
+
+            <div class="form-group" style="margin-top:12px;">
+                <label>Entregar A:</label>
+                <div style="position:relative;">
+                    <input type="text" id="entregar-search" class="form-control" placeholder="🔍 Buscar personal por nombre..." autocomplete="off">
+                    <input type="hidden" id="entregar_a_id" value="">
+                    <div id="entregar-selected" style="display:none; margin-top:6px; padding:10px; background:#f0fdf4; border-radius:4px; border:1px solid #bbf7d0; font-size:13px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <ion-icon name="person-circle-outline" style="font-size:18px; vertical-align:middle; color:#107e3e;"></ion-icon>
+                                <strong id="entregar-selected-name" style="margin-left:4px;"></strong>
+                            </div>
+                            <button type="button" onclick="clearEntregarA()" style="border:none; background:none; color:var(--sap-error); font-size:18px; cursor:pointer; padding:0 4px;">
+                                <ion-icon name="close-circle"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="entregar-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #d9d9d9; border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
             </div>
         </div>
 
@@ -529,6 +557,19 @@
             let html5QrScanner = null;
             let currentCategoryId = "";
             let lastResults = [];
+            let isNoTecnica = false;
+
+            // Toggle "Solicitud No Técnica"
+            $('#chk-no-tecnica').on('change', function() {
+                isNoTecnica = $(this).is(':checked');
+                if (isNoTecnica) {
+                    $('#ot-section').slideUp(200);
+                    $('#orden_trabajo').val('');
+                    clearOT();
+                } else {
+                    $('#ot-section').slideDown(200);
+                }
+            });
 
             window.openSelector = function() {
                 $('#selectorOverlay').addClass('active');
@@ -658,14 +699,64 @@
             };
 
             window.crearOtRapida = function() {
-                // Abrir la interfaz completa de crear OT en nueva pestaña
-                window.open('/mantenimiento/app/ot/crear-no-programada/', '_blank');
+                // Limpiar posible OT anterior en localStorage
+                localStorage.removeItem('ot_creada_id');
+                localStorage.removeItem('ot_creada_codigo');
+
+                // Abrir la interfaz de crear OT en nueva pestaña
+                window.open('/mantenimiento/app/ot/crear-no-programada/?callback=solicitud', '_blank');
+                
                 Swal.fire({
                     icon: 'info',
-                    title: 'Crear OT',
-                    html: 'Se abrió el formulario de <b>Nueva OT</b> en otra pestaña.<br><br>Una vez creada, búscala aquí por su código.',
-                    confirmButtonText: 'Entendido',
-                    confirmButtonColor: '#0070f2',
+                    title: 'Creando OT...',
+                    html: 'Se abrió el formulario de <b>Nueva OT</b> en otra pestaña.<br><br>Cuando la guardes, se vinculará automáticamente aquí.',
+                    confirmButtonText: 'Ya la creé, vincular',
+                    showCancelButton: true,
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#107e3e',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Intentar leer la OT del localStorage
+                        const otId = localStorage.getItem('ot_creada_id');
+                        const otCodigo = localStorage.getItem('ot_creada_codigo');
+                        if (otId && otCodigo) {
+                            $('#orden_trabajo').val(otId);
+                            $('#ot-search').hide();
+                            $('#ot-selected-code').text(otCodigo);
+                            $('#ot-selected-name').text('(Recién creada)');
+                            $('#ot-selected').show();
+                            $('#btn-crear-ot-rapida').hide();
+                            toggleDescRequired();
+                            localStorage.removeItem('ot_creada_id');
+                            localStorage.removeItem('ot_creada_codigo');
+                            Swal.fire({ toast: true, position: 'top', icon: 'success', title: `OT ${otCodigo} vinculada`, showConfirmButton: false, timer: 1500 });
+                        } else {
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'OT no detectada',
+                                html: 'No se detectó la OT automáticamente. Puedes buscarla por código en el campo de búsqueda.',
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    }
+                });
+
+                // Escuchar cambios en localStorage (cuando la otra pestaña guarda la OT)
+                window.addEventListener('storage', function otListener(e) {
+                    if (e.key === 'ot_creada_id' && e.newValue) {
+                        const otId = e.newValue;
+                        const otCodigo = localStorage.getItem('ot_creada_codigo') || 'OT Nueva';
+                        $('#orden_trabajo').val(otId);
+                        $('#ot-search').hide();
+                        $('#ot-selected-code').text(otCodigo);
+                        $('#ot-selected-name').text('(Recién creada)');
+                        $('#ot-selected').show();
+                        $('#btn-crear-ot-rapida').hide();
+                        toggleDescRequired();
+                        Swal.close();
+                        Swal.fire({ toast: true, position: 'top', icon: 'success', title: `OT ${otCodigo} vinculada`, showConfirmButton: false, timer: 1500 });
+                        window.removeEventListener('storage', otListener);
+                    }
                 });
             };
 
@@ -674,7 +765,56 @@
                 if (!$(e.target).closest('#ot-search, #ot-results').length) {
                     $('#ot-results').hide();
                 }
+                if (!$(e.target).closest('#entregar-search, #entregar-results').length) {
+                    $('#entregar-results').hide();
+                }
             });
+
+            // --- Buscador "Entregar A" (personal) ---
+            let personalCache = null;
+
+            $('#entregar-search').on('input', async function() {
+                const q = $(this).val().trim().toLowerCase();
+                if (q.length < 2) { $('#entregar-results').hide(); return; }
+
+                // Cargar cache de usuarios si no existe
+                if (!personalCache) {
+                    try {
+                        const res = await fetch('/callcenter/get-assignable-users/');
+                        const data = await res.json();
+                        personalCache = Object.entries(data).map(([id, nombre]) => ({ id, nombre }));
+                    } catch(e) { return; }
+                }
+
+                // Filtrar localmente
+                const filtered = personalCache.filter(p => p.nombre.toLowerCase().includes(q)).slice(0, 10);
+                if (filtered.length === 0) { $('#entregar-results').hide(); return; }
+
+                let html = '';
+                filtered.forEach(p => {
+                    html += `<div class="entregar-item" data-id="${p.id}" data-name="${p.nombre}" style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:13px; display:flex; align-items:center; gap:8px;">
+                        <ion-icon name="person-outline" style="font-size:16px; color:#6a6d70;"></ion-icon>
+                        ${p.nombre}
+                    </div>`;
+                });
+                $('#entregar-results').html(html).show();
+
+                $('.entregar-item').on('click', function() {
+                    const id = $(this).data('id');
+                    const name = $(this).data('name');
+                    $('#entregar_a_id').val(id);
+                    $('#entregar-search').hide();
+                    $('#entregar-selected-name').text(name);
+                    $('#entregar-selected').show();
+                    $('#entregar-results').hide();
+                });
+            });
+
+            window.clearEntregarA = function() {
+                $('#entregar_a_id').val('');
+                $('#entregar-search').val('').show();
+                $('#entregar-selected').hide();
+            };
 
             // Mostrar/ocultar asterisco de obligatoriedad en la descripción
             function toggleDescRequired() {
@@ -726,8 +866,8 @@
                         lastResults.forEach((m, index) => {
                             const mid = String(m.id);
                             const isAdded = window.selectedItems.has(mid);
-                            const allowedStyle = m.is_allowed ? '' : 'opacity:0.5; filter:grayscale(1);';
-                            const disabledAttr = m.is_allowed ? '' : 'data-disabled="true"';
+                            const allowedStyle = '';
+                            const approvalBadge = !m.is_allowed ? '<p style="font-size:10px; color:#e9730c; margin:2px 0 0;">⚠️ Requiere aprobación del departamento responsable</p>' : '';
                             const addedBadge = isAdded ? '<span style="background:#0a6ed1; color:white; font-size:9px; padding:2px 6px; border-radius:2px; margin-left:6px;">✓ Añadido</span>' : '';
                             const iconName = isAdded ? 'checkmark-circle' : 'add-circle';
                             const iconColor = isAdded ? '#2b7d2b' : '#0a6ed1';
@@ -735,7 +875,7 @@
                             const descSnippet = m.descripcion ? `<p style="font-size:11px; margin:2px 0 0; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.descripcion.substring(0, 60)}${m.descripcion.length > 60 ? '...' : ''}</p>` : '';
                             
                             html += `
-                                <div class="material-item" data-index="${index}" style="border:1px solid #e8eaed; border-radius:4px; margin-bottom:8px; display:flex; padding:12px; align-items:center; cursor:pointer; ${allowedStyle}" ${disabledAttr}>
+                                <div class="material-item" data-index="${index}" data-needs-approval="${!m.is_allowed}" style="border:1px solid #e8eaed; border-radius:4px; margin-bottom:8px; display:flex; padding:12px; align-items:center; cursor:pointer; ${allowedStyle}">
                                     <img src="${m.image_url}" alt="" style="width:48px; height:48px; border-radius:6px; object-fit:cover; margin-right:12px; flex-shrink:0; background:#f0f4f8;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                                     <div style="width:48px; height:48px; background:#f0f4f8; border-radius:6px; display:none; align-items:center; justify-content:center; margin-right:12px; flex-shrink:0;">
                                         <ion-icon name="cube-outline" style="font-size:22px; color:#8a9bb5;"></ion-icon>
@@ -744,7 +884,7 @@
                                         <p style="font-size:14px; margin:0; font-weight:700;">${m.nombre}${addedBadge}</p>
                                         <p style="font-size:11px; margin:0; color:#666; margin-top:2px;">${m.sku} | Stock: ${m.stock}${stockWarning}</p>
                                         ${descSnippet}
-                                        ${!m.is_allowed ? '<p style="font-size:10px; color:#bb0000; margin:2px 0 0;">No autorizado para tu depto.</p>' : ''}
+                                        ${approvalBadge}
                                     </div>
                                     <ion-icon name="${iconName}" style="color:${iconColor}; font-size:30px; pointer-events:none; flex-shrink:0;"></ion-icon>
                                 </div>
@@ -762,13 +902,14 @@
             // Click en material — bind al drawer, NO al document
             $drawer.on('click', '.material-item', function(e) {
                 e.preventDefault();
-                if ($(this).attr('data-disabled') === 'true') {
-                    Swal.fire('Restringido', 'No autorizado para tu departamento.', 'error');
-                    return;
-                }
                 const index = parseInt($(this).attr('data-index'));
                 const mat = lastResults[index];
                 if (!mat) return;
+
+                // Si requiere aprobación, advertir pero permitir agregar
+                if ($(this).attr('data-needs-approval') === 'true') {
+                    Swal.fire({ toast: true, position: 'top', icon: 'warning', title: 'Requiere aprobación del depto. responsable', showConfirmButton: false, timer: 2000 });
+                }
 
                 const mid = String(mat.id);
                 if (window.selectedItems.has(mid)) {
@@ -785,7 +926,8 @@
                     image_url: mat.image_url || '',
                     unidad: mat.unidad,
                     stock: mat.stock || 0,
-                    cantidad: 1
+                    cantidad: 1,
+                    es_tecnico: mat.es_tecnico || false
                 });
                 renderItems();
 
@@ -807,6 +949,7 @@
                 window.selectedItems.forEach(item => {
                     const itemDesc = item.descripcion ? `<div style="font-size:11px; color:#888; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.descripcion.substring(0, 50)}${item.descripcion.length > 50 ? '...' : ''}</div>` : '';
                     const stockColor = item.stock > 0 ? '#107e3e' : '#bb0000';
+                    const tecnicoBadge = item.es_tecnico ? '<span style="display:inline-block; background:#fef3c7; color:#92400e; font-size:9px; font-weight:700; padding:1px 6px; border-radius:3px; margin-left:6px;">⚙️ TÉCNICO</span>' : '';
                     html += `
                         <div class="item-row" data-id="${item.id}">
                             <div class="item-main">
@@ -815,7 +958,7 @@
                                     <div style="font-size:9px; color:#6a6d70; text-transform:uppercase; font-weight:600;">stock</div>
                                 </div>
                                 <div style="flex:1; min-width:0;">
-                                    <div style="font-weight:700; font-size:15px;">${item.nombre}</div>
+                                    <div style="font-weight:700; font-size:15px;">${item.nombre}${tecnicoBadge}</div>
                                     <div style="font-size:11px; color:#666;">${item.sku} · ${item.unidad}</div>
                                     ${itemDesc}
                                 </div>
@@ -888,9 +1031,43 @@
                     return;
                 }
                 if (!otId && !comentarios) {
-                    Swal.fire('Orden de Trabajo requerida', 'Debe seleccionar o crear una Orden de Trabajo para vincular la solicitud.', 'warning');
-                    $('#ot-search').focus();
+                    // Si es no técnica, solo requiere comentarios
+                    if (isNoTecnica) {
+                        Swal.fire('Descripción requerida', 'Debe escribir un motivo/descripción para solicitudes no técnicas.', 'warning');
+                        $('#comentarios').focus();
+                        return;
+                    }
+                    // Verificar si hay materiales técnicos
+                    const tecnicos = Array.from(window.selectedItems.values()).filter(i => i.es_tecnico);
+                    if (tecnicos.length > 0) {
+                        const nombres = tecnicos.slice(0, 3).map(t => t.nombre).join(', ');
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Orden de Trabajo requerida',
+                            html: `Los siguientes materiales son <strong>técnicos</strong> y requieren vincularse con una OT:<br><br><em>${nombres}</em>${tecnicos.length > 3 ? ` y ${tecnicos.length - 3} más...` : ''}`,
+                            confirmButtonText: 'Entendido'
+                        });
+                        $('#ot-search').focus();
+                        return;
+                    }
+                    Swal.fire('Descripción requerida', 'Si no vincula una OT, debe escribir un motivo/descripción.', 'warning');
+                    $('#comentarios').focus();
                     return;
+                }
+                // Validar materiales técnicos incluso si hay comentarios pero no OT
+                if (!otId && !isNoTecnica) {
+                    const tecnicos = Array.from(window.selectedItems.values()).filter(i => i.es_tecnico);
+                    if (tecnicos.length > 0) {
+                        const nombres = tecnicos.slice(0, 3).map(t => t.nombre).join(', ');
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Orden de Trabajo obligatoria',
+                            html: `Los siguientes materiales son <strong>técnicos</strong> y requieren vincularse con una OT:<br><br><em>${nombres}</em>${tecnicos.length > 3 ? ` y ${tecnicos.length - 3} más...` : ''}`,
+                            confirmButtonText: 'Entendido'
+                        });
+                        $('#ot-search').focus();
+                        return;
+                    }
                 }
                 
                 Swal.fire({
@@ -920,6 +1097,7 @@
                 const comentarios = $('#comentarios').val().trim();
                 const edificioId = $('#edificio_destino').val();
                 const nivelId = $('#nivel_destino').val();
+                const entregarAId = $('#entregar_a_id').val();
                 const itemsArr = Array.from(window.selectedItems.values()).map(it => ({ material_id: it.id, cantidad: it.cantidad }));
 
                 $.ajax({
@@ -931,6 +1109,7 @@
                         edificio_destino: edificioId,
                         nivel_destino: nivelId,
                         orden_trabajo: otId,
+                        entregar_a: entregarAId,
                         comentarios: comentarios,
                         estado: estado,
                         ajax_mode: 'true',

@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import datetime
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.admin.views.decorators import staff_member_required
@@ -256,6 +257,51 @@ def api_generar_orden_individual(request):
         c = prog.generar_ordenes(fecha_corte=fc)
         return JsonResponse({'status': 'success', 'count': c, 'message': f'Se generaron {c} órdenes.'})
     except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@staff_member_required
+def sincronizar_cronograma(request):
+    """
+    Genera OTs reales para todas las programaciones activas del año actual.
+    Llamado desde el botón 'Sincronizar' del cronograma.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST requerido.'}, status=405)
+
+    from datetime import date
+    from ..models import Programacion
+
+    year = int(request.GET.get('year', date.today().year))
+    fecha_corte = date(year, 12, 31)
+
+    # Todas las programaciones cuyo rango cubre el año solicitado
+    programaciones = Programacion.objects.filter(
+        fecha_inicio__year__lte=year
+    ).filter(
+        Q(fecha_fin__isnull=True) | Q(fecha_fin__year__gte=year)
+    )
+
+    total_generadas = 0
+    total_programaciones = 0
+    errores = []
+
+    for prog in programaciones:
+        try:
+            c = prog.generar_ordenes(fecha_corte=fecha_corte)
+            total_generadas += c
+            total_programaciones += 1
+        except Exception as e:
+            errores.append(f"Prog #{prog.id}: {str(e)}")
+
+    return JsonResponse({
+        'status': 'success',
+        'total_generadas': total_generadas,
+        'total_programaciones': total_programaciones,
+        'errores': errores,
+        'message': f'Sincronización completa: {total_generadas} OTs generadas en {total_programaciones} programaciones.'
+    })
+
+
 @staff_member_required
 def api_search_ordenes(request):
     """

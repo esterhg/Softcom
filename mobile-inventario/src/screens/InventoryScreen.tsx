@@ -1,43 +1,147 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { searchMaterials, addInventoryCount, getCountsBySession } from '../db/database';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { addInventoryCount, getCountsBySession, getWarehouseLocations, getMaterialsByLocation, searchCatalogForLocation, createMaterialLocal } from '../db/database';
 import { useSync } from '../context/SyncContext';
 
 export default function InventoryScreen() {
   const [sessionId] = useState(() => `INV-${Date.now()}`);
+  const [step, setStep] = useState<'location' | 'materials'>('location');
+
+  // Ubicaciones
+  const [locations, setLocations] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+
+  // Materiales de la ubicación
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [counts, setCounts] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const [cantidadContada, setCantidadContada] = useState('');
+
+  // Conteos
+  const [counts, setCounts] = useState<any[]>([]);
   const { refreshPendingCount } = useSync();
 
+  // Crear material
+  const [creating, setCreating] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState('');
+  const [nuevaUnidad, setNuevaUnidad] = useState('Unidad');
+  const [nuevoCodBarras, setNuevoCodBarras] = useState('');
+  const [savingMat, setSavingMat] = useState(false);
+
+  // Scanner de código de barras
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [scanMode, setScanMode] = useState<'create' | 'search'>('create');
+  const [permission, requestPermission] = useCameraPermissions();
+
+  const abrirScanner = async (mode: 'create' | 'search') => {
+    if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) { Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para escanear.'); return; }
+    }
+    setScanMode(mode);
+    setScanned(false);
+    setScannerOpen(true);
+  };
+
+  const onBarcodeScanned = async ({ data }: { data: string }) => {
+    if (scanned) return;
+    setScanned(true);
+    setScannerOpen(false);
+
+    if (scanMode === 'create') {
+      setNuevoCodBarras(data);
+      return;
+    }
+
+    // Modo búsqueda: buscar el material por código de barras / sku en la ubicación
+    if (!selectedLocation) return;
+    setQuery(data);
+    const mats = await searchCatalogForLocation(selectedLocation.id, data);
+    if (mats.length === 1) {
+      setSelectedMaterial(mats[0]);
+      setMaterials([]);
+    } else if (mats.length > 1) {
+      setMaterials(mats);
+    } else {
+      setMaterials([]);
+      Alert.alert('No encontrado', `Código "${data}" no coincide con ningún material. Puedes crearlo con el botón "Crear material nuevo".`);
+    }
+  };
+
+  const crearMaterialNuevo = async () => {
+    if (!nuevoNombre.trim()) { Alert.alert('Error', 'Ingresa el nombre del material'); return; }
+    setSavingMat(true);
+    try {
+      // Crear localmente (funciona offline). Se sincroniza automáticamente al haber conexión.
+      const mat = await createMaterialLocal({
+        nombre: nuevoNombre.trim(),
+        unidad: nuevaUnidad.trim(),
+        codigo_barras: nuevoCodBarras.trim(),
+      });
+      await refreshPendingCount();
+      // Seleccionarlo para contar (con stock 0 en esta ubicación)
+      setSelectedMaterial({ id: mat.id, nombre: mat.nombre, sku: mat.sku, unidad: mat.unidad, stock_ubicacion: 0 });
+      setCreating(false);
+      setNuevoNombre('');
+      setNuevaUnidad('Unidad');
+      setNuevoCodBarras('');
+      Alert.alert('Material creado', `${mat.nombre} creado localmente. Se sincronizará con conexión. Ahora registra su conteo.`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo crear el material.');
+    } finally {
+      setSavingMat(false);
+    }
+  };
+
   useEffect(() => {
+    loadLocations();
     loadCounts();
   }, []);
+
+  const loadLocations = async () => {
+    const locs = await getWarehouseLocations();
+    setLocations(locs);
+  };
 
   const loadCounts = async () => {
     const c = await getCountsBySession(sessionId);
     setCounts(c);
   };
 
-  const buscar = async () => {
-    if (query.length < 2) return;
-    const r = await searchMaterials(query);
-    setResults(r);
+  const selectLocation = async (loc: any) => {
+    setSelectedLocation(loc);
+    setStep('materials');
+    const mats = await getMaterialsByLocation(loc.id);
+    setMaterials(mats);
+  };
+
+  const buscarEnUbicacion = async (text: string) => {
+    setQuery(text);
+    if (!selectedLocation) return;
+    if (text.trim().length === 0) {
+      // Sin texto: mostrar solo los que tienen stock en la ubicación
+      const mats = await getMaterialsByLocation(selectedLocation.id);
+      setMaterials(mats);
+    } else {
+      // Con texto: buscar en TODO el catálogo (permite agregar nuevos a la ubicación)
+      const mats = await searchCatalogForLocation(selectedLocation.id, text);
+      setMaterials(mats);
+    }
   };
 
   const registrarConteo = async () => {
-    if (!selectedMaterial) return;
+    if (!selectedMaterial || !selectedLocation) return;
     const contada = parseFloat(cantidadContada);
     if (isNaN(contada) || contada < 0) { Alert.alert('Error', 'Cantidad inválida'); return; }
 
     await addInventoryCount(
       sessionId,
       selectedMaterial.id,
-      1, // TODO: seleccionar ubicación
-      selectedMaterial.stock_total,
+      selectedLocation.id,
+      selectedMaterial.stock_ubicacion || 0,
       contada
     );
 
@@ -46,58 +150,178 @@ export default function InventoryScreen() {
     setSelectedMaterial(null);
     setCantidadContada('');
     setQuery('');
-    setResults([]);
+    // Refrescar materiales de la ubicación (los que tienen stock)
+    const mats = await getMaterialsByLocation(selectedLocation.id);
+    setMaterials(mats);
+    Alert.alert('Registrado', 'Conteo guardado. Se sincronizará con conexión.');
   };
 
-  const diferencia = selectedMaterial ? (parseFloat(cantidadContada || '0') - selectedMaterial.stock_total) : 0;
+  const volverAUbicaciones = () => {
+    setStep('location');
+    setSelectedLocation(null);
+    setSelectedMaterial(null);
+    setQuery('');
+    setMaterials([]);
+  };
 
+  const diferencia = selectedMaterial ? (parseFloat(cantidadContada || '0') - (selectedMaterial.stock_ubicacion || 0)) : 0;
+
+  // ===== PASO 1: SELECCIONAR UBICACIÓN =====
+  if (step === 'location') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sessionLabel}>Sesión: {sessionId}</Text>
+        <Text style={styles.stepTitle}>1. Selecciona la Ubicación a Contar</Text>
+
+        <FlatList
+          data={locations}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.locItem} onPress={() => selectLocation(item)}>
+              <Ionicons name="business-outline" size={22} color="#0070f2" style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{item.nombre}</Text>
+                {item.tipo ? <Text style={styles.itemSku}>{item.tipo}</Text> : null}
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="business-outline" size={40} color="#ccc" />
+              <Text style={{ color: '#94a3b8', marginTop: 8 }}>No hay ubicaciones. Sincroniza primero.</Text>
+            </View>
+          }
+        />
+
+        {counts.length > 0 && (
+          <View style={styles.countsBanner}>
+            <Ionicons name="checkmark-done-circle" size={18} color="#107e3e" />
+            <Text style={{ color: '#107e3e', fontWeight: '700', marginLeft: 6 }}>{counts.length} conteo(s) en esta sesión</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // ===== PASO 2: MATERIALES DE LA UBICACIÓN =====
   return (
     <View style={styles.container}>
-      <Text style={styles.sessionLabel}>Sesión: {sessionId}</Text>
+      <TouchableOpacity style={styles.backRow} onPress={volverAUbicaciones}>
+        <Ionicons name="arrow-back" size={20} color="#0070f2" />
+        <Text style={styles.backText}>Cambiar ubicación</Text>
+      </TouchableOpacity>
 
-      {/* Search */}
-      <View style={styles.searchRow}>
-        <TextInput style={styles.searchInput} placeholder="Buscar material para contar..." value={query} onChangeText={setQuery} onSubmitEditing={buscar} />
-        <TouchableOpacity onPress={buscar} style={styles.searchBtn}><Ionicons name="search" size={20} color="#fff" /></TouchableOpacity>
+      <View style={styles.locHeader}>
+        <Ionicons name="business" size={18} color="#0070f2" />
+        <Text style={styles.locHeaderText}>{selectedLocation?.nombre}</Text>
       </View>
 
-      {/* Search Results */}
-      {!selectedMaterial && results.map(item => (
-        <TouchableOpacity key={item.id} style={styles.item} onPress={() => { setSelectedMaterial(item); setResults([]); }}>
-          <Text style={styles.itemName}>{item.nombre}</Text>
-          <Text style={styles.itemSku}>{item.sku} · Sistema: {item.stock_total}</Text>
-        </TouchableOpacity>
-      ))}
-
-      {/* Counting Form */}
-      {selectedMaterial && (
+      {/* Formulario crear material nuevo */}
+      {creating && !selectedMaterial && (
         <View style={styles.countCard}>
-          <Text style={styles.countName}>{selectedMaterial.nombre}</Text>
-          <Text style={styles.countSku}>{selectedMaterial.sku}</Text>
-          <Text style={styles.countSystem}>Stock Sistema: <Text style={{ fontWeight: '800' }}>{selectedMaterial.stock_total}</Text></Text>
-          <TextInput style={styles.countInput} placeholder="Cantidad contada" keyboardType="decimal-pad" value={cantidadContada} onChangeText={setCantidadContada} autoFocus />
-          {cantidadContada !== '' && (
-            <Text style={[styles.diff, diferencia > 0 ? styles.diffPositive : diferencia < 0 ? styles.diffNegative : styles.diffZero]}>
-              Diferencia: {diferencia > 0 ? '+' : ''}{diferencia}
-            </Text>
-          )}
-          <TouchableOpacity style={styles.countBtn} onPress={registrarConteo}>
-            <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={styles.countBtnText}>Registrar Conteo</Text>
+          <Text style={styles.countName}>Nuevo Material</Text>
+          <Text style={styles.countSku}>Se crea offline y se sincroniza con conexión.</Text>
+          <TextInput style={styles.newInput} placeholder="Nombre del material *" value={nuevoNombre} onChangeText={setNuevoNombre} autoFocus />
+          <View style={styles.barcodeRow}>
+            <TextInput style={[styles.newInput, { flex: 1, marginBottom: 0 }]} placeholder="Código de barras (opcional)" value={nuevoCodBarras} onChangeText={setNuevoCodBarras} />
+            <TouchableOpacity style={styles.scanBtn} onPress={() => abrirScanner('create')}>
+              <Ionicons name="barcode-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <TextInput style={styles.newInput} placeholder="Unidad (ej. Unidad, Metro, Litro)" value={nuevaUnidad} onChangeText={setNuevaUnidad} />
+          <TouchableOpacity style={[styles.countBtn, savingMat && { opacity: 0.6 }]} onPress={crearMaterialNuevo} disabled={savingMat}>
+            <Ionicons name="add-circle" size={20} color="#fff" />
+            <Text style={styles.countBtnText}>{savingMat ? 'Creando...' : 'Crear Material'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { setSelectedMaterial(null); setCantidadContada(''); }}>
+          <TouchableOpacity onPress={() => { setCreating(false); setNuevoNombre(''); }}>
             <Text style={styles.cancelText}>Cancelar</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* History */}
+      {!selectedMaterial && !creating && (
+        <>
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar material o escanear..."
+              value={query}
+              onChangeText={buscarEnUbicacion}
+            />
+            <TouchableOpacity onPress={() => abrirScanner('search')} style={{ justifyContent: 'center', paddingHorizontal: 6 }}>
+              <Ionicons name="barcode-outline" size={24} color="#0070f2" />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.createMatBtn} onPress={() => setCreating(true)}>
+            <Ionicons name="add-circle-outline" size={18} color="#0070f2" />
+            <Text style={styles.createMatText}>Crear material nuevo</Text>
+          </TouchableOpacity>
+
+          {query.trim().length === 0 && (
+            <Text style={styles.hintText}>Mostrando materiales con existencia. Busca para agregar cualquier otro material a esta ubicación.</Text>
+          )}
+
+          <FlatList
+            data={materials}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.item} onPress={() => { setSelectedMaterial(item); }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemName}>{item.nombre}</Text>
+                  <Text style={styles.itemSku}>{item.sku}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.stockBig, item.stock_ubicacion == 0 ? { color: '#94a3b8' } : null]}>{item.stock_ubicacion}</Text>
+                  <Text style={styles.itemSku}>sistema</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Ionicons name="cube-outline" size={40} color="#ccc" />
+                <Text style={{ color: '#94a3b8', marginTop: 8 }}>
+                  {query.trim().length > 0 ? 'No se encontraron materiales.' : 'Sin materiales con existencia. Busca para agregar.'}
+                </Text>
+              </View>
+            }
+          />
+        </>
+      )}
+
+      {/* Formulario de conteo */}
+      {selectedMaterial && (
+        <ScrollView>
+          <View style={styles.countCard}>
+            <Text style={styles.countName}>{selectedMaterial.nombre}</Text>
+            <Text style={styles.countSku}>{selectedMaterial.sku}</Text>
+            <Text style={styles.countSystem}>Stock Sistema ({selectedLocation?.nombre}): <Text style={{ fontWeight: '800' }}>{selectedMaterial.stock_ubicacion}</Text></Text>
+            <TextInput style={styles.countInput} placeholder="Cantidad contada" keyboardType="decimal-pad" value={cantidadContada} onChangeText={setCantidadContada} autoFocus />
+            {cantidadContada !== '' && (
+              <Text style={[styles.diff, diferencia > 0 ? styles.diffPositive : diferencia < 0 ? styles.diffNegative : styles.diffZero]}>
+                Diferencia: {diferencia > 0 ? '+' : ''}{diferencia}
+              </Text>
+            )}
+            <TouchableOpacity style={styles.countBtn} onPress={registrarConteo}>
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.countBtnText}>Registrar Conteo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setSelectedMaterial(null); setCantidadContada(''); }}>
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Historial */}
       {counts.length > 0 && !selectedMaterial && (
         <>
           <Text style={styles.historyTitle}>Conteos registrados ({counts.length})</Text>
           <FlatList
             data={counts}
             keyExtractor={(_, i) => String(i)}
+            style={{ maxHeight: 200 }}
             renderItem={({ item }) => (
               <View style={styles.historyItem}>
                 <View style={{ flex: 1 }}>
@@ -116,6 +340,34 @@ export default function InventoryScreen() {
           />
         </>
       )}
+
+      {/* Modal del Scanner de código de barras */}
+      <Modal visible={scannerOpen} animationType="slide" onRequestClose={() => setScannerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {permission?.granted ? (
+            <CameraView
+              style={{ flex: 1 }}
+              barcodeScannerSettings={{ barcodeTypes: ['qr', 'ean13', 'ean8', 'code128', 'code39', 'upc_a', 'upc_e'] }}
+              onBarcodeScanned={scanned ? undefined : onBarcodeScanned}
+            />
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#fff' }}>Sin permiso de cámara</Text>
+            </View>
+          )}
+          <View style={{ position: 'absolute', bottom: 60, left: 0, right: 0, alignItems: 'center' }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.6)', padding: 12 }}>
+              Apunta al código de barras
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, borderRadius: 20 }}
+            onPress={() => setScannerOpen(false)}
+          >
+            <Ionicons name="close" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -123,12 +375,18 @@ export default function InventoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f7f7f7', padding: 16 },
   sessionLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 8 },
-  searchRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  searchInput: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d9d9d9', padding: 12, fontSize: 16 },
-  searchBtn: { backgroundColor: '#0070f2', padding: 12, justifyContent: 'center' },
-  item: { backgroundColor: '#fff', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  stepTitle: { fontSize: 15, fontWeight: '800', color: '#32363a', marginBottom: 12 },
+  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  backText: { color: '#0070f2', fontWeight: '600', marginLeft: 4 },
+  locHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eff6ff', padding: 12, marginBottom: 12, gap: 8 },
+  locHeaderText: { fontSize: 16, fontWeight: '800', color: '#0070f2' },
+  locItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  searchRow: { flexDirection: 'row', backgroundColor: '#fff', borderWidth: 1, borderColor: '#d9d9d9', paddingHorizontal: 12, marginBottom: 12 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
+  item: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   itemName: { fontWeight: '700', fontSize: 15 },
   itemSku: { color: '#6a6d70', fontSize: 12, marginTop: 2 },
+  stockBig: { fontSize: 20, fontWeight: '800', color: '#0070f2' },
   countCard: { backgroundColor: '#fff', padding: 20, borderWidth: 2, borderColor: '#0070f2' },
   countName: { fontSize: 18, fontWeight: '800' },
   countSku: { color: '#6a6d70', marginBottom: 12 },
@@ -143,4 +401,12 @@ const styles = StyleSheet.create({
   cancelText: { color: '#bb0000', textAlign: 'center', marginTop: 12, fontWeight: '600' },
   historyTitle: { fontSize: 14, fontWeight: '700', color: '#32363a', marginTop: 20, marginBottom: 8 },
   historyItem: { flexDirection: 'row', backgroundColor: '#fff', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  empty: { alignItems: 'center', padding: 40 },
+  countsBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0fdf4', padding: 12, marginTop: 12 },
+  hintText: { fontSize: 11, color: '#94a3b8', marginBottom: 8, fontStyle: 'italic' },
+  newInput: { borderWidth: 1, borderColor: '#d9d9d9', padding: 12, fontSize: 16, marginBottom: 10 },
+  createMatBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginBottom: 8 },
+  createMatText: { color: '#0070f2', fontWeight: '600', fontSize: 13 },
+  barcodeRow: { flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'stretch' },
+  scanBtn: { backgroundColor: '#0070f2', paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
 });

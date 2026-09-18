@@ -224,6 +224,15 @@ class Departamento(models.Model):
     responsable = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='departamentos_a_cargo', verbose_name="Responsable / Jefe de departamento")
     aprobador = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='departamentos_a_aprobar', verbose_name="Aprobador de Requisiciones")
     correo = models.EmailField(max_length=255, blank=True, null=True, verbose_name="Correo del Departamento")
+    aprobador_global = models.BooleanField(
+        default=False,
+        verbose_name="Aprobador Global de Requisiciones",
+        help_text=(
+            "Marca este departamento como la fuente del aprobador global para el flujo "
+            "de Power Automate. Solo un departamento debe tener esta opción activa. "
+            "El campo 'Aprobador de Requisiciones' de este departamento será usado."
+        ),
+    )
 
     def __str__(self):
         return self.nombre
@@ -254,6 +263,16 @@ class PerfilUsuario(models.Model):
     nav_config = models.JSONField(
         default=dict, blank=True, verbose_name="Configuración de navegación",
         help_text='{"hidden_menus": ["Mantenimiento"], "custom_menus": [{"name": "Mis Links", "icon": "fas fa-star", "color": "#f59e0b", "columns": [{"heading": "", "items": [{"name": "Link", "url": "/url/"}]}]}]}',
+    )
+    aprobador_salidas = models.BooleanField(
+        default=False,
+        verbose_name="Aprobador de Salidas",
+        help_text="Si está activo, este usuario puede aprobar solicitudes de material de su departamento."
+    )
+    expo_push_token = models.CharField(
+        max_length=255, blank=True, null=True,
+        verbose_name="Token Push (Expo)",
+        help_text="Token de notificaciones push de la app móvil."
     )
 
     def __str__(self):

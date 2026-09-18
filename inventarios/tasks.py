@@ -49,6 +49,9 @@ def import_materiales_task(self, file_path, file_format, user_id=None, verificat
         return error_res
 
     total_rows = len(dataset)
+    # Normalizar encabezados con el recurso de Materiales
+    resource.before_import(dataset)
+
     missing_dataset = Dataset()
     missing_dataset.headers = dataset.headers
     
@@ -77,28 +80,40 @@ def import_materiales_task(self, file_path, file_format, user_id=None, verificat
         not_found_count = 0
         
         for i, row in enumerate(dataset.dict, start=1):
-            sku = str(row.get('sku') or '').strip()
+            sku = resource._clean_sku_string(row.get('sku'))
+            cb = resource._clean_sku_string(row.get('codigo_barras'))
+            nombre = str(row.get('nombre') or '').strip()
             
-            if not sku:
-                status = "SIN SKU"
-                not_found_count += 1
-                missing_dataset.append(dataset[i-1])
-            else:
-                if sku in codes_seen:
-                    codes_duplicated.add(sku)
-                    status = "REPETIDO EN ARCHIVO"
+            file_key = sku.lower() if sku else (cb.lower() if cb else (nombre.lower() if nombre else None))
+            
+            existing = None
+            if sku:
+                existing = Material.objects.filter(sku__iexact=sku).first()
+            if not existing and cb:
+                existing = Material.objects.filter(codigo_barras__iexact=cb).first()
+            if not existing and nombre:
+                existing = Material.objects.filter(nombre__iexact=nombre).first()
+            
+            if file_key and file_key in codes_seen:
+                codes_duplicated.add(file_key)
+                status = "REPETIDO EN ARCHIVO (Se actualizará sobre el anterior)"
+                if existing:
+                    found_count += 1
                 else:
-                    codes_seen.add(sku)
-                    exists = Material.objects.filter(sku=sku).exists()
-                    if exists:
-                        found_count += 1
-                        status = "EXISTE"
-                    else:
-                        not_found_count += 1
-                        status = "NO EXISTE"
-                        missing_dataset.append(dataset[i-1])
+                    not_found_count += 1
+            else:
+                if file_key:
+                    codes_seen.add(file_key)
+                if existing:
+                    found_count += 1
+                    status = f"EXISTE ({existing.sku}) -> Se actualizará"
+                else:
+                    not_found_count += 1
+                    status = "NUEVO -> Se agregará"
+                    missing_dataset.append(dataset[i-1])
             
-            results.append(f"Fila {i}: SKU '{sku}' -> {status}")
+            id_label = f"SKU '{sku}'" if sku else (f"Código Barras '{cb}'" if cb else f"Nombre '{nombre[:25]}'")
+            results.append(f"Fila {i}: {id_label} -> {status}")
             
             if i % 10 == 0 or i == total_rows:
                 progress_info.update({

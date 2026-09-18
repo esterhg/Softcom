@@ -594,6 +594,60 @@ class ActivoResource(resources.ModelResource):
             return self.activo_instance_cache.get(str(codigo))
         return None
 
+
+class ActivoUpdateResource(ActivoResource):
+    """
+    Resource de SOLO ACTUALIZACIÓN para Activos.
+    - Usa codigo_interno como clave de búsqueda (no lo modifica).
+    - Nunca modifica nombre ni codigo_interno aunque vengan en el archivo.
+    - Solo hace UPDATE, nunca INSERT (si el activo no existe, lo omite).
+    - Celdas vacías se ignoran (no sobreescriben el valor existente).
+    """
+
+    class Meta(ActivoResource.Meta):
+        import_id_fields = ('codigo_interno',)
+        skip_unchanged = True
+        report_skipped = True
+        use_bulk = True
+        batch_size = 1000
+        use_transactions = True
+
+    # Campos protegidos que NUNCA se modifican
+    CAMPOS_PROTEGIDOS = {'nombre', 'codigo_interno', 'id', 'creado_en', 'actualizado_en'}
+
+    def import_field(self, field, obj, row, is_m2m=False, **kwargs):
+        """Ignora celdas vacías Y campos protegidos."""
+        # Nunca tocar nombre ni codigo_interno
+        if field.column_name in self.CAMPOS_PROTEGIDOS or field.attribute in self.CAMPOS_PROTEGIDOS:
+            return
+        value = row.get(field.column_name)
+        if value is None or str(value).strip() == '':
+            return
+        super(ActivoResource, self).import_field(field, obj, row, is_m2m=is_m2m, **kwargs)
+
+    def skip_row(self, instance, original, row, import_validation_errors=None, **kwargs):
+        """Omitir si no existe el activo (no crear nuevos) o si no hay codigo_interno."""
+        codigo = str(row.get('codigo_interno') or '').strip()
+        if not codigo:
+            return True
+        # Si el activo no está en caché, no existe → omitir
+        if not self.activo_instance_cache.get(codigo):
+            return True
+        return super().skip_row(instance, original, row, import_validation_errors, **kwargs)
+
+    def get_or_init_instance(self, instance_loader, row):
+        """Solo retorna instancias existentes, nunca crea nuevas."""
+        instance = self.get_instance(instance_loader, row)
+        if instance:
+            return instance, False
+        # No existe → retornar None para que skip_row lo descarte
+        return self._meta.model(), True
+
+    def after_import_instance(self, instance, new, row_number=None, **kwargs):
+        """Forzar que nunca se marquen como nuevos — solo updates."""
+        pass
+
+
 class BienAfectoResource(resources.ModelResource):
     activo_actual_codigo = fields.Field(
         column_name='activo_actual_codigo',

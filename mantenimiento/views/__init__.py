@@ -19,6 +19,7 @@ from .api import (
     api_get_assets_wizard,
     generar_ordenes_programacion,
     api_generar_orden_individual,
+    sincronizar_cronograma,
     api_search_ordenes,
     api_get_ot_detail,
     api_get_ot_related,
@@ -56,7 +57,9 @@ from .mobile import (
     mobile_ot_webhook,
     mobile_ot_update_file_name,
     mobile_crear_ot_desde_puesto,
-    mobile_ot_whatsapp_webhook
+    mobile_ot_whatsapp_webhook,
+    mobile_checklist_api,
+    mobile_checklist_supervisor_api,
 )
 from .dashboard import dashboard_cargas, asignar_puesto_ajax
 from .dashboard_general import mantenimiento_dashboard, ordenes_lista_view, ordenes_bulk_delete, ordenes_bulk_status, ot_reporte_html

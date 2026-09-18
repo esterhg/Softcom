@@ -1,6 +1,6 @@
 <style>
     :root {
-        /* SAP Fiori Horizon Color Palette */
+        /* SAP Fiori Horizon Color Palette - MODO CLARO */
         /* Primary / Shell */
         --sap-shell-bg: #354a5f;
         --sap-shell-color: #ffffff;
@@ -26,12 +26,12 @@
         --sap-neutral: #6a6d70;
         --sap-neutral-bg: #f2f2f2;
         
-        /* Backgrounds */
+        /* Backgrounds - Modo Claro */
         --sap-bg-color: #f5f6f7;
         --sap-card-bg: #ffffff;
         --sap-group-bg: #ebeef0;
         
-        /* Text Colors */
+        /* Text Colors - Modo Claro */
         --sap-text-color: #32363a;
         --sap-text-muted: #6a6d70;
         --sap-text-inverted: #ffffff;
@@ -43,6 +43,53 @@
         
         /* Font */
         --sap-font-family: 'Artifakt Element', 'Outfit', '72', '72Full', Arial, Helvetica, sans-serif;
+    }
+
+    /* SAP Fiori Horizon Color Palette - MODO OSCURO */
+    [data-theme="dark"] {
+        /* Primary / Shell - Oscuro */
+        --sap-shell-bg: #1f2937;
+        --sap-shell-color: #e5e7eb;
+        
+        /* Brand Colors - Oscuro */
+        --sap-brand-color: #3b82f6;
+        --sap-highlight-color: #60a5fa;
+        
+        /* Accents - Oscuro */
+        --sap-accent-1: #f97316;
+        --sap-accent-2: #60a5fa;
+        --sap-accent-3: #93c5fd;
+        
+        /* Semantic Colors - Oscuro (más claros para contraste) */
+        --sap-success: #4ade80;
+        --sap-success-bg: #064e3b;
+        --sap-warning: #fbbf24;
+        --sap-warning-bg: #78350f;
+        --sap-error: #f87171;
+        --sap-error-bg: #7f1d1d;
+        --sap-information: #60a5fa;
+        --sap-information-bg: #1e3a5f;
+        --sap-neutral: #9ca3af;
+        --sap-neutral-bg: #374151;
+        
+        /* Backgrounds - Modo Oscuro */
+        --sap-bg-color: #111827;
+        --sap-card-bg: #1f2937;
+        --sap-group-bg: #374151;
+        
+        /* Text Colors - Modo Oscuro */
+        --sap-text-color: #f3f4f6;
+        --sap-text-muted: #9ca3af;
+        --sap-text-inverted: #1f2937;
+        
+        /* Borders & Shadows - Modo Oscuro */
+        --sap-border-color: #4b5563;
+        --sap-card-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    /* Transición suave para cambio de tema */
+    :root, [data-theme="dark"] {
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     }
 
     /* Common Fiori Utility Classes */
@@ -57,7 +104,7 @@
 
     .fiori-card:active {
         transform: scale(0.98);
-        background: #f0f2f4;
+        background: var(--sap-group-bg);
     }
 
     .fiori-btn {
@@ -110,3 +157,119 @@
         justify-content: space-between;
     }
 </style>
+<!-- Script para cambio de tema (Modo Oscuro/Claro) -->
+<script>
+(function() {
+    // Clave para localStorage
+    const THEME_KEY = 'softcom_theme_preference';
+    
+    // Preferencias del sistema
+    const DARK_SCHEME = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    /**
+     * Obtiene el tema guardado o detecta del sistema
+     */
+    function getPreferredTheme() {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (saved) return saved;
+        return DARK_SCHEME.matches ? 'dark' : 'light';
+    }
+    
+    /**
+     * Aplica el tema al documento
+     */
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+        localStorage.setItem(THEME_KEY, theme);
+        
+        // Actualizar icono del botón si existe
+        updateToggleButton(theme);
+    }
+    
+    /**
+     * Actualiza el botón toggle si existe en la página
+     */
+    function updateToggleButton(theme) {
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) {
+            const icon = btn.querySelector('i') || btn;
+            if (icon.classList) {
+                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+            btn.setAttribute('title', theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+        }
+    }
+    
+    /**
+     * Inicializa el tema al cargar
+     */
+    function initTheme() {
+        const theme = getPreferredTheme();
+        applyTheme(theme);
+        
+        // Escuchar cambios en preferencias del sistema
+        DARK_SCHEME.addEventListener('change', (e) => {
+            if (!localStorage.getItem(THEME_KEY)) {
+                applyTheme(e.matches ? 'dark' : 'light');
+            }
+        });
+    }
+    
+    /**
+     * Alterna entre modo claro y oscuro
+     */
+    window.toggleTheme = function() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(newTheme);
+        
+        // Disparar evento para que otros componentes escuchen
+        window.dispatchEvent(new CustomEvent('themechange', { detail: { theme: newTheme } }));
+    };
+    
+    /**
+     * Obtiene el tema actual
+     */
+    window.getCurrentTheme = function() {
+        return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    };
+    
+    // Inicializar cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTheme);
+    } else {
+        initTheme();
+    }
+})();
+</script>
+
+<!-- Botón flotante para cambiar tema (incluir donde se necesite) -->
+<template id="theme-toggle-template">
+    <button id="theme-toggle-btn" onclick="toggleTheme()" 
+            style="
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 9999;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                border: none;
+                background: var(--sap-card-bg);
+                color: var(--sap-text-color);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 20px;
+                transition: transform 0.2s, background 0.2s;
+            "
+            title="Cambiar tema">
+        <i class="fas fa-moon"></i>
+    </button>
+</template>

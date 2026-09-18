@@ -41,6 +41,7 @@ urlpatterns = [
     # Proyecciones
     path('proyeccion/<int:pk>/', views.visualizador_proyecciones, name='visualizador_proyecciones'),
     path('proyeccion-generar/<int:pk>/', views.generar_ordenes_programacion, name='generar_ordenes_programacion'),
+    path('cronograma/sincronizar/', views.sincronizar_cronograma, name='sincronizar_cronograma'),
     path('app/ot/<int:pk>/', views.mobile_ot_detalle, name='mobile_ot_detalle'),
     path('app/ot/<int:pk>/update-ajax/', views.mobile_ot_update_ajax, name='mobile_ot_update_ajax'),
     path('app/ot/<int:pk>/vincular-activo/', views.mobile_ot_vincular_activo, name='mobile_ot_vincular_activo'),
@@ -50,6 +51,8 @@ urlpatterns = [
     path('app/ot/<int:pk>/upload-file/', views.mobile_ot_upload_file, name='mobile_ot_upload_file'),
     path('app/ot/<int:pk>/delete-file/<int:archivo_id>/', views.mobile_ot_delete_file, name='mobile_ot_delete_file'),
     path('app/ot/<int:ot_id>/update-file-name/<int:file_id>/', views.mobile_ot_update_file_name, name='mobile_ot_update_file_name'),
+    path('app/ot/<int:pk>/checklist/', views.mobile_checklist_api, name='mobile_checklist_api'),
+    path('app/ot/<int:pk>/checklist/supervisor/', views.mobile_checklist_supervisor_api, name='mobile_checklist_supervisor_api'),
     path('app/ot/<int:pk>/send-webhook/', views.mobile_ot_webhook, name='mobile_ot_webhook'),
     path('app/ot/<int:pk>/send-whatsapp/', views.mobile_ot_whatsapp_webhook, name='mobile_ot_whatsapp_webhook'),
     path('app/aviso/crear/', views.mobile_crear_aviso, name='mobile_crear_aviso'),

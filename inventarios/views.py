@@ -75,20 +75,23 @@ def crear_solicitud_dashboard(request):
     from django.db.models import Q
     ubicaciones = Ubicacion.objects.filter(Q(tipo='BODEGA') | Q(es_almacen=True)).order_by('nombre')
     categorias = CategoriaMaterial.objects.all().order_by('nombre')
+    edificios = Ubicacion.objects.filter(tipo='EDIFICIO').order_by('nombre')
     
     # Obtener OTs activas para el buscador inicial
     # Las demás se buscan vía AJAX
     ordenes_recientes = OrdenTrabajo.objects.filter(
         estado__in=['PROGRAMADA', 'EJECUCION']
-    ).order_by('-id')[:5]
+    ).order_by('-id')[:10]
 
+    # Clon exacto del formulario móvil (mismo template y contexto)
     context = {
         'ubicaciones': ubicaciones,
         'categorias': categorias,
+        'edificios': edificios,
         'ordenes_recientes': ordenes_recientes,
-        'title': 'Crear Solicitud de Materiales'
+        'title': 'Nueva Solicitud'
     }
-    return render(request, 'inventarios/crear_solicitud.html', context)
+    return render(request, 'inventarios/mobile_crear_solicitud.html', context)
 @login_required
 def registrar_salida_view(request):
     """
@@ -468,9 +471,11 @@ def cart_checkout(request):
         
         ubicacion_id = data.get('ubicacion_origen')
         ot_id = data.get('orden_trabajo')
+        ticket_id = data.get('ticket')
         comentarios = data.get('comentarios', '')
         edificio_id = data.get('edificio_destino')
         nivel_id = data.get('nivel_destino')
+        entregar_a_id = data.get('entregar_a')
         
         items_to_process = []
         
@@ -517,29 +522,70 @@ def cart_checkout(request):
             messages.error(request, "Debes seleccionar una ubicación de origen.")
             return redirect('inventarios:cart_detail')
 
+        # Validar materiales técnicos: requieren una OT o un Ticket vinculado
+        if not es_borrador and not ot_id and not ticket_id:
+            materiales_tecnicos = [i for i in items_to_process if getattr(i.get('material') if isinstance(i, dict) else i, 'es_tecnico', False)]
+            if not materiales_tecnicos:
+                # También checar en caso de que items_to_process tenga objetos del cart
+                materiales_tecnicos = [i for i in items_to_process if isinstance(i, dict) and i.get('material') and i['material'].es_tecnico]
+            if materiales_tecnicos:
+                nombres = ", ".join([i['material'].nombre if isinstance(i, dict) else i.material.nombre for i in materiales_tecnicos[:3]])
+                msg = f'Los siguientes materiales son técnicos y requieren una Orden de Trabajo o un Ticket vinculado: {nombres}'
+                if ajax_mode: return JsonResponse({'status': 'error', 'message': msg}, status=400)
+                messages.error(request, msg)
+                return redirect('inventarios:cart_detail')
+
         try:
             ubicacion = Ubicacion.objects.filter(id=ubicacion_id).first() if ubicacion_id else None
             ot = OrdenTrabajo.objects.filter(id=ot_id).first() if ot_id else None
+            ticket = None
+            if ticket_id:
+                from callcenter.models import SolicitudTicket
+                ticket = SolicitudTicket.objects.filter(id=ticket_id).first()
             edificio = Ubicacion.objects.filter(id=edificio_id).first() if edificio_id else None
             nivel = Ubicacion.objects.filter(id=nivel_id).first() if nivel_id else None
+            entregar_a_user = None
+            if entregar_a_id:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                entregar_a_user = User.objects.filter(id=entregar_a_id).first()
             
             with transaction.atomic():
                 # Verificar si el usuario tiene un jefe inmediato
                 jefe = getattr(request.user, 'perfil', None) and getattr(request.user.perfil, 'responsable', None)
-                
-                # Si se pide guardar como borrador, respetar ese estado
+
+                # ¿Hay aprobadores de salida en los departamentos de los materiales?
+                from core.models import PerfilUsuario as _PU
+                from .models import Material as _MatModel
+                _materiales_ids = [i['material'].id for i in items_to_process]
+                _deptos_ids = set()
+                for _mat in _MatModel.objects.filter(id__in=_materiales_ids).prefetch_related('departamentos'):
+                    for _depto in _mat.departamentos.all():
+                        _deptos_ids.add(_depto.id)
+                hay_aprobadores = False
+                if _deptos_ids:
+                    hay_aprobadores = _PU.objects.filter(
+                        departamento_id__in=_deptos_ids, aprobador_salidas=True
+                    ).exists()
+
+                # Si se pide guardar como borrador, respetar ese estado.
+                # Requiere autorización si hay aprobadores por departamento o jefe directo.
                 if es_borrador:
                     estado_inicial = 'BORRADOR'
+                elif hay_aprobadores or jefe:
+                    estado_inicial = 'PENDIENTE_AUTORIZACION'
                 else:
-                    estado_inicial = 'PENDIENTE_AUTORIZACION' if jefe else 'PENDIENTE'
+                    estado_inicial = 'PENDIENTE'
 
                 # Crear la cabecera de la orden
                 solicitud = SolicitudMaterial.objects.create(
                     usuario=request.user,
                     orden_trabajo=ot,
+                    ticket=ticket,
                     ubicacion_origen=ubicacion,
                     edificio_destino=edificio,
                     nivel_destino=nivel,
+                    entregar_a=entregar_a_user,
                     comentarios_solicitud=comentarios,
                     estado=estado_inicial
                 )
@@ -564,13 +610,35 @@ def cart_checkout(request):
             # Notificaciones (solo si no es borrador)
             if estado_inicial != 'BORRADOR':
                 if estado_inicial == 'PENDIENTE_AUTORIZACION':
-                    # Push notification al canal de aprobación
-                    try:
+                    # Determinar quién debe aprobar:
+                    # 1. Si algún material tiene departamentos permitidos → notificar a los aprobadores de salida de esos departamentos
+                    # 2. Si no, notificar al jefe directo (flujo original)
+                    from core.models import PerfilUsuario as PU
+                    materiales_ids = [i['material'].id for i in items_to_process]
+                    from .models import Material as MatModel
+                    deptos_con_aprobadores = set()
+                    for mat in MatModel.objects.filter(id__in=materiales_ids).prefetch_related('departamentos'):
+                        for depto in mat.departamentos.all():
+                            deptos_con_aprobadores.add(depto.id)
+                    
+                    if deptos_con_aprobadores:
+                        # Buscar aprobadores de salida en esos departamentos
+                        aprobadores = PU.objects.filter(
+                            departamento_id__in=deptos_con_aprobadores,
+                            aprobador_salidas=True
+                        ).select_related('usuario')
+                        
+                        if aprobadores.exists():
+                            from .utils_ntfy import notificar_aprobadores_salida
+                            notificar_aprobadores_salida(solicitud, aprobadores)
+                        else:
+                            # Fallback: jefe directo
+                            from .utils_ntfy import notificar_pendiente_aprobacion
+                            notificar_pendiente_aprobacion(solicitud)
+                    else:
+                        # Sin departamentos restringidos → jefe directo
                         from .utils_ntfy import notificar_pendiente_aprobacion
                         notificar_pendiente_aprobacion(solicitud)
-                        print(f"[DEBUG] ntfy aprobación enviado para solicitud #{solicitud.id}")
-                    except Exception as e:
-                        print(f"[DEBUG] Error ntfy aprobación: {e}")
                 else:
                     # Push notification vía ntfy al almacén
                     from .utils_ntfy import notificar_nueva_solicitud
@@ -912,17 +980,56 @@ def api_despachar_solicitud(request, pk):
 @login_required
 @mobile_permission_required('logistica')
 def mobile_detalle_pedido(request, pk):
-    """Detalle móvil de una solicitud de material."""
-    pedido = get_object_or_404(SolicitudMaterial, pk=pk, usuario=request.user)
+    """Detalle móvil de una solicitud de material.
+
+    Puede verlo: el dueño de la solicitud, alguien del mismo departamento del
+    solicitante, un aprobador de salidas o el personal de Almacenes. Así los
+    enlaces del correo (autorización, despacho) funcionan para todos.
+    """
+    pedido = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    perfil = getattr(request.user, 'perfil', None)
+    mi_departamento_id = getattr(getattr(perfil, 'departamento', None), 'id', None)
+    sol_perfil = getattr(pedido.usuario, 'perfil', None)
+    sol_departamento_id = getattr(getattr(sol_perfil, 'departamento', None), 'id', None)
+
+    es_dueno = pedido.usuario_id == request.user.id
+    mismo_departamento = bool(mi_departamento_id and mi_departamento_id == sol_departamento_id)
+    es_aprobador = bool(perfil and getattr(perfil, 'aprobador_salidas', False))
+    es_almacen_grp = request.user.groups.filter(name__iexact='Almacenes').exists()
+
+    if not (es_dueno or mismo_departamento or es_aprobador or es_almacen_grp or request.user.is_superuser):
+        return HttpResponse("No tienes permiso para ver esta solicitud.", status=403)
+
     items = pedido.items.select_related('material', 'material__unidad_medida').all()
-    
+
     for item in items:
         m = item.material
         item.image_url = m.imagen.url if m.imagen else ''
-    
+
+    es_almacen = es_almacen_grp
+    puede_despachar = es_almacen and pedido.estado == 'PENDIENTE'
+    puede_confirmar_entrega = es_almacen and pedido.estado == 'LISTO_RECOLECCION'
+
+    # Personas autorizadas para aprobar los materiales de esta solicitud
+    try:
+        from .utils_n8n import _obtener_aprobadores_solicitud
+        jefe_directo = getattr(sol_perfil, 'responsable', None) if sol_perfil else None
+        jefe_departamento = None
+        if sol_perfil and getattr(sol_perfil, 'departamento', None):
+            jefe_departamento = getattr(sol_perfil.departamento, 'responsable', None)
+        superior = jefe_directo or jefe_departamento
+        aprobadores = _obtener_aprobadores_solicitud(pedido, superior)
+    except Exception:
+        aprobadores = []
+
     return render(request, 'inventarios/mobile_detalle_pedido.html', {
         'pedido': pedido,
-        'items': items
+        'items': items,
+        'puede_despachar': puede_despachar,
+        'puede_confirmar_entrega': puede_confirmar_entrega,
+        'es_almacen': es_almacen,
+        'aprobadores': aprobadores,
     })
 
 @login_required
@@ -1001,12 +1108,8 @@ def api_enviar_borrador(request, pk):
     if not solicitud.ubicacion_origen:
         return JsonResponse({'status': 'error', 'message': 'Seleccione una bodega de origen antes de enviar.'}, status=400)
     
-    # Determinar estado
-    jefe = getattr(request.user, 'perfil', None) and getattr(request.user.perfil, 'responsable', None)
-    solicitud.estado = 'PENDIENTE_AUTORIZACION' if jefe else 'PENDIENTE'
-    solicitud.save()
-    
-    # Crear movimientos si no existen
+    # Crear movimientos si no existen (antes de calcular aprobadores, que dependen
+    # de los materiales asociados a la solicitud)
     from decimal import Decimal
     if not solicitud.items.filter(tipo='SALIDA').exists():
         for item in solicitud.items.all():
@@ -1020,7 +1123,20 @@ def api_enviar_borrador(request, pk):
                 orden_trabajo=solicitud.orden_trabajo,
                 usuario=request.user,
             )
-    
+
+    # Determinar estado: requiere autorización si existe al menos un aprobador
+    # (aprobadores por departamento de los materiales o, como respaldo, el jefe
+    # del solicitante). Si no hay ninguno, pasa directo a despacho.
+    try:
+        from .utils_n8n import _obtener_aprobadores_solicitud
+        perfil_sol = getattr(request.user, 'perfil', None)
+        jefe = getattr(perfil_sol, 'responsable', None) if perfil_sol else None
+        aprobadores = _obtener_aprobadores_solicitud(solicitud, jefe)
+    except Exception:
+        aprobadores = []
+    solicitud.estado = 'PENDIENTE_AUTORIZACION' if aprobadores else 'PENDIENTE'
+    solicitud.save(update_fields=['estado'])
+
     # Notificaciones
     if solicitud.estado == 'PENDIENTE_AUTORIZACION':
         try:
@@ -2608,6 +2724,66 @@ def api_check_ot_solicitud(request, ot_id):
 
 
 @login_required
+def api_aprobadores_solicitud(request, pk):
+    """
+    Devuelve la lista de personas autorizadas para aprobar una solicitud.
+
+    Usa la misma lógica que el webhook de autorización
+    (_obtener_aprobadores_solicitud): aprobadores de salida de los departamentos
+    de los materiales y, como fallback, el superior/jefe del solicitante.
+
+    Respuesta JSON con la lista de aprobadores. Si se abre en el navegador con
+    ?format=html, muestra una tabla legible.
+    """
+    from .utils_n8n import _obtener_aprobadores_solicitud
+
+    solicitud = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    # Determinar el superior del solicitante (fallback) igual que en el webhook
+    user = solicitud.usuario
+    perfil = getattr(user, 'perfil', None)
+    jefe_directo = getattr(perfil, 'responsable', None) if perfil else None
+    jefe_departamento = None
+    if perfil and getattr(perfil, 'departamento', None):
+        jefe_departamento = getattr(perfil.departamento, 'responsable', None)
+    superior = jefe_directo or jefe_departamento
+
+    aprobadores = _obtener_aprobadores_solicitud(solicitud, superior)
+
+    if request.GET.get('format') == 'html':
+        filas = ''.join(
+            f"<tr><td>{a.get('nombre','')}</td><td>{a.get('email','') or '—'}</td>"
+            f"<td>{a.get('departamento','') or '—'}</td></tr>"
+            for a in aprobadores
+        ) or '<tr><td colspan="3" style="text-align:center;color:#6a6d70;">Sin aprobadores configurados</td></tr>'
+        html = f"""
+        <div style="font-family:'Outfit',sans-serif;max-width:640px;margin:24px auto;">
+          <h2 style="color:#32363a;">Personas autorizadas para aprobar la Solicitud #{solicitud.id}</h2>
+          <p style="color:#6a6d70;">Estado actual: <strong>{solicitud.get_estado_display()}</strong> ·
+             Solicitante: {(f"{user.first_name} {user.last_name}".strip() or user.username)}</p>
+          <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+            <thead><tr style="background:#f0f4f8;">
+              <th style="border:1px solid #d9d9d9;padding:8px;text-align:left;">Nombre</th>
+              <th style="border:1px solid #d9d9d9;padding:8px;text-align:left;">Correo</th>
+              <th style="border:1px solid #d9d9d9;padding:8px;text-align:left;">Departamento</th>
+            </tr></thead>
+            <tbody>{filas}</tbody>
+          </table>
+        </div>
+        """
+        return HttpResponse(html)
+
+    return JsonResponse({
+        'status': 'success',
+        'solicitud_id': solicitud.id,
+        'estado': solicitud.estado,
+        'estado_display': solicitud.get_estado_display(),
+        'total': len(aprobadores),
+        'aprobadores': aprobadores,
+    })
+
+
+@login_required
 def api_solicitud_update_items(request, pk):
     """
     Actualiza items de una solicitud: agrega nuevos, modifica cantidades y elimina líneas.
@@ -2615,7 +2791,14 @@ def api_solicitud_update_items(request, pk):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
-    solicitud = get_object_or_404(SolicitudMaterial, pk=pk, usuario=request.user)
+    solicitud = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    # Puede editar: el dueño de la solicitud o el personal de Almacenes (almacenista)
+    es_dueno = solicitud.usuario_id == request.user.id
+    es_almacen = request.user.groups.filter(name__iexact='Almacenes').exists() or request.user.is_superuser
+    if not (es_dueno or es_almacen):
+        return JsonResponse({'status': 'error', 'message': 'No tienes permiso para modificar esta solicitud.'}, status=403)
+
     if solicitud.estado in ('ENTREGADO', 'RECHAZADO'):
         return JsonResponse({'status': 'error', 'message': 'La solicitud ya está finalizada'}, status=400)
 
@@ -2689,7 +2872,22 @@ def api_resolicitud_webhook(request, pk):
     """Reenvía el webhook a Power Automate para una solicitud."""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
-    solicitud = get_object_or_404(SolicitudMaterial, pk=pk, usuario=request.user)
+    solicitud = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    # Puede reenviar: el dueño, cualquier persona del mismo departamento del
+    # solicitante, un aprobador de salidas, el personal de Almacenes o un superusuario.
+    perfil = getattr(request.user, 'perfil', None)
+    mi_departamento_id = getattr(getattr(perfil, 'departamento', None), 'id', None)
+    sol_perfil = getattr(solicitud.usuario, 'perfil', None)
+    sol_departamento_id = getattr(getattr(sol_perfil, 'departamento', None), 'id', None)
+
+    es_dueno = solicitud.usuario_id == request.user.id
+    mismo_departamento = bool(mi_departamento_id and mi_departamento_id == sol_departamento_id)
+    es_aprobador = bool(perfil and getattr(perfil, 'aprobador_salidas', False))
+    es_almacen = request.user.groups.filter(name__iexact='Almacenes').exists()
+    if not (es_dueno or mismo_departamento or es_aprobador or es_almacen or request.user.is_superuser):
+        return JsonResponse({'status': 'error', 'message': 'No tienes permiso para reenviar esta solicitud.'}, status=403)
+
     from .utils_n8n import notify_powerautomate_solicitud
     ok = notify_powerautomate_solicitud(solicitud)
     if ok:
@@ -4093,24 +4291,30 @@ def ajuste_masivo_view(request):
     from django.db.models import Q
     from .models import AjusteMasivoInventario
 
-    # Verificar pertenencia al grupo Auditoria
+    # Verificar pertenencia al grupo Auditoria o Procura_Tecnica
     es_auditoria = request.user.groups.filter(name='Auditoria').exists() or request.user.is_superuser
-    if not es_auditoria:
-        messages.error(request, 'No tienes permiso para acceder a esta sección. Solo el perfil Auditoría puede realizar ajustes masivos.')
+    puede_asignar_depto = request.user.groups.filter(name='Procura_Tecnica').exists() or request.user.is_superuser
+    if not (es_auditoria or puede_asignar_depto):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
         return redirect('inventarios:dashboard')
 
     ubicaciones = Ubicacion.objects.filter(Q(tipo='BODEGA') | Q(es_almacen=True)).order_by('nombre')
     historial = AjusteMasivoInventario.objects.filter(usuario=request.user).order_by('-fecha')[:20]
     categorias = CategoriaMaterial.objects.all().order_by('nombre')
 
+    from core.models import Departamento
+    departamentos = Departamento.objects.all().order_by('nombre')
+
     context = {
         'ubicaciones': ubicaciones,
         'historial': historial,
         'categorias': categorias,
+        'departamentos': departamentos,
         'tipos_material': Material.TIPO_MATERIAL_CHOICES,
         'active_tab': 'ajuste_masivo',
         'title': 'Ajuste Masivo de Inventario',
         'es_auditoria': es_auditoria,
+        'puede_asignar_depto': puede_asignar_depto,
     }
     return render(request, 'inventarios/ajuste_masivo.html', context)
 
@@ -4329,7 +4533,7 @@ def api_ajuste_masivo_catalogo(request):
     page = int(request.GET.get('page', 1))
     per_page = int(request.GET.get('per_page', 50))
 
-    qs = Material.objects.select_related('categoria', 'unidad_medida', 'marca').all()
+    qs = Material.objects.select_related('categoria', 'unidad_medida', 'marca').prefetch_related('departamentos').all()
 
     # Filtros
     if search:
@@ -4378,6 +4582,7 @@ def api_ajuste_masivo_catalogo(request):
         stock_total = sum(b['cantidad'] for b in bodegas)
         bodegas_nombres = ', '.join(set(b['bodega'] for b in bodegas)) if bodegas else '—'
 
+        deptos = list(m.departamentos.all())
         items.append({
             'id': m.id,
             'sku': m.sku,
@@ -4390,6 +4595,8 @@ def api_ajuste_masivo_catalogo(request):
             'bodegas': bodegas_nombres,
             'bodegas_detalle': bodegas,
             'bajo_stock': stock_total < float(m.stock_minimo) and float(m.stock_minimo) > 0,
+            'departamentos': ', '.join(d.nombre for d in deptos) if deptos else 'Global',
+            'departamentos_ids': [d.id for d in deptos],
         })
 
     return JsonResponse({
@@ -4401,3 +4608,516 @@ def api_ajuste_masivo_catalogo(request):
         'has_next': page_obj.has_next(),
         'has_prev': page_obj.has_previous(),
     })
+
+
+@login_required
+def api_ajuste_masivo_asignar_departamento(request):
+    """
+    Asigna (o reemplaza) el departamento de una lista de materiales.
+    Solo accesible para usuarios del grupo Auditoria o superusuarios.
+
+    Body JSON:
+      {
+        "material_ids": [1, 2, 3],
+        "departamento_id": 5,        # departamento a asignar
+        "modo": "agregar" | "reemplazar"  # opcional, por defecto "agregar"
+      }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+
+    # Solo el grupo Procura_Tecnica o un superusuario puede asignar departamentos.
+    puede_asignar = request.user.groups.filter(name='Procura_Tecnica').exists() or request.user.is_superuser
+    if not puede_asignar:
+        return JsonResponse({'status': 'error', 'message': 'No autorizado. Solo Procura Técnica puede asignar materiales a departamentos.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
+
+    material_ids = data.get('material_ids') or []
+    departamento_id = data.get('departamento_id')
+    modo = (data.get('modo') or 'agregar').lower()
+
+    if not material_ids:
+        return JsonResponse({'status': 'error', 'message': 'No se seleccionó ningún material.'}, status=400)
+    if not departamento_id:
+        return JsonResponse({'status': 'error', 'message': 'Debe seleccionar un departamento.'}, status=400)
+
+    from core.models import Departamento
+    departamento = Departamento.objects.filter(id=departamento_id).first()
+    if not departamento:
+        return JsonResponse({'status': 'error', 'message': 'El departamento no existe.'}, status=404)
+
+    materiales = Material.objects.filter(id__in=material_ids)
+    actualizados = 0
+    for m in materiales:
+        if modo == 'reemplazar':
+            m.departamentos.set([departamento])
+        else:
+            m.departamentos.add(departamento)
+        actualizados += 1
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f"{actualizados} material(es) asignado(s) al departamento '{departamento.nombre}'.",
+        'actualizados': actualizados,
+        'departamento': departamento.nombre,
+    })
+
+
+@csrf_exempt
+def solicitud_autorizar_publica(request, pk):
+    """
+    Autoriza o rechaza una solicitud de material desde el correo (enlace simple sin login).
+    Uso: /inventarios/api/solicitudes/<pk>/autorizar/?accion=aprobar|rechazar&aprobador=<user_id>
+
+    - El primer aprobador que actúe cierra la solicitud.
+    - Si la solicitud ya fue resuelta, muestra quién la aprobó/rechazó y cuándo.
+    Devuelve una página HTML de confirmación pensada para abrirse desde el correo.
+    """
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    solicitud = get_object_or_404(SolicitudMaterial, pk=pk)
+    accion = (request.GET.get('accion') or '').lower()
+    aprobador_id = request.GET.get('aprobador')
+
+    User = get_user_model()
+    aprobador = User.objects.filter(id=aprobador_id).first() if aprobador_id else None
+
+    def _nombre(u):
+        return (u.get_full_name() or u.username) if u else 'Un aprobador'
+
+    def _pagina(titulo, mensaje, color):
+        html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{titulo}</title>
+<style>
+body {{ font-family:'Segoe UI',Arial,sans-serif; background:#eff2f5; margin:0; padding:0; }}
+.box {{ max-width:520px; margin:60px auto; background:#fff; border:1px solid #d9d9d9; border-radius:8px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.08); }}
+.hd {{ background:{color}; color:#fff; padding:22px 28px; font-size:1.15rem; font-weight:700; }}
+.bd {{ padding:26px 28px; color:#32363a; font-size:0.98rem; line-height:1.6; }}
+.sol {{ color:#6a6d70; font-size:0.85rem; margin-top:14px; }}
+a.btn {{ display:inline-block; margin-top:18px; background:#0070f2; color:#fff; text-decoration:none; padding:10px 22px; border-radius:4px; font-weight:600; font-size:0.9rem; }}
+</style></head><body>
+<div class="box"><div class="hd">{titulo}</div>
+<div class="bd">{mensaje}
+<div class="sol">Solicitud #{solicitud.id} · Solicitante: {solicitud.solicitante_nombre}</div>
+<a class="btn" href="{'/inventarios/mobile/pedidos/' + str(solicitud.id) + '/'}">Ver detalle de la solicitud</a>
+</div></div></body></html>"""
+        return HttpResponse(html)
+
+    # Si ya fue resuelta previamente, informar el resultado existente
+    if solicitud.estado == 'PENDIENTE' and solicitud.autorizado_por:
+        fecha = solicitud.fecha_autorizacion.strftime('%d/%m/%Y %H:%M') if solicitud.fecha_autorizacion else ''
+        return _pagina(
+            'Solicitud ya autorizada',
+            f"Esta solicitud ya fue <strong>autorizada por {_nombre(solicitud.autorizado_por)}</strong>{(' el ' + fecha) if fecha else ''}. No se requiere acción adicional.",
+            '#107e3e'
+        )
+    if solicitud.estado == 'RECHAZADO':
+        fecha = solicitud.fecha_rechazo.strftime('%d/%m/%Y %H:%M') if solicitud.fecha_rechazo else ''
+        return _pagina(
+            'Solicitud rechazada',
+            f"Esta solicitud fue <strong>rechazada por {_nombre(solicitud.rechazado_por)}</strong>{(' el ' + fecha) if fecha else ''}.",
+            '#bb0000'
+        )
+    if solicitud.estado not in ('PENDIENTE_AUTORIZACION',):
+        return _pagina(
+            'Solicitud no disponible',
+            f"Esta solicitud está en estado <strong>{solicitud.get_estado_display()}</strong> y no puede autorizarse desde aquí.",
+            '#6a6d70'
+        )
+
+    # Procesar la acción
+    if accion == 'aprobar':
+        solicitud.estado = 'PENDIENTE'  # aprobada → pasa a pendiente de despacho en almacén
+        solicitud.autorizado_por = aprobador
+        solicitud.fecha_autorizacion = timezone.now()
+        solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+        try:
+            from .utils_ntfy import notificar_nueva_solicitud
+            notificar_nueva_solicitud(solicitud)
+        except Exception:
+            pass
+        # Notificar al departamento de Almacenes (aprobadores) que está lista para despacho
+        try:
+            from .utils_n8n import notify_powerautomate_almacen
+            notify_powerautomate_almacen(solicitud)
+        except Exception:
+            pass
+        return _pagina(
+            'Solicitud autorizada',
+            f"Gracias. La solicitud fue <strong>autorizada</strong> correctamente por <strong>{_nombre(aprobador)}</strong>. El almacén ha sido notificado.",
+            '#107e3e'
+        )
+    elif accion == 'rechazar':
+        solicitud.estado = 'RECHAZADO'
+        solicitud.rechazado_por = aprobador
+        solicitud.fecha_rechazo = timezone.now()
+        solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+        return _pagina(
+            'Solicitud rechazada',
+            f"La solicitud fue <strong>rechazada</strong> por <strong>{_nombre(aprobador)}</strong>. Se notificará al solicitante.",
+            '#bb0000'
+        )
+    else:
+        return _pagina(
+            'Acción no válida',
+            "El enlace no especifica una acción válida (aprobar o rechazar).",
+            '#e9730c'
+        )
+
+
+def solicitud_estado_badge(request, pk):
+    """
+    Genera un badge PNG dinámico con el estado actual de la solicitud, para
+    incrustar en el correo. Al abrir el correo, muestra el estado en vivo:
+    'Pendiente de autorización' o 'Autorizada por {nombre} el {fecha}'.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    from django.utils import timezone
+    import io
+
+    solicitud = SolicitudMaterial.objects.filter(pk=pk).select_related('autorizado_por', 'rechazado_por').first()
+
+    # Determinar texto y color según el estado
+    if not solicitud:
+        texto, color = "Solicitud no encontrada", (106, 109, 112)
+    elif solicitud.estado == 'RECHAZADO':
+        nom = (solicitud.rechazado_por.get_full_name() or solicitud.rechazado_por.username) if solicitud.rechazado_por else 'un aprobador'
+        fecha = solicitud.fecha_rechazo.strftime('%d/%m/%Y %H:%M') if solicitud.fecha_rechazo else ''
+        texto, color = f"Rechazada por {nom}" + (f" el {fecha}" if fecha else ""), (187, 0, 0)
+    elif solicitud.autorizado_por:
+        nom = solicitud.autorizado_por.get_full_name() or solicitud.autorizado_por.username
+        fecha = solicitud.fecha_autorizacion.strftime('%d/%m/%Y %H:%M') if solicitud.fecha_autorizacion else ''
+        texto, color = f"Autorizada por {nom}" + (f" el {fecha}" if fecha else ""), (16, 126, 62)
+    elif solicitud.estado == 'PENDIENTE_AUTORIZACION':
+        texto, color = "Pendiente de autorización", (233, 115, 12)
+    else:
+        texto, color = f"Estado: {solicitud.get_estado_display()}", (0, 112, 242)
+
+    # Construir la imagen
+    try:
+        font = ImageFont.truetype("arialbd.ttf", 20)
+    except Exception:
+        try:
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
+        except Exception:
+            font = ImageFont.load_default()
+
+    pad_x, pad_y = 22, 12
+    tmp = Image.new("RGB", (10, 10))
+    d = ImageDraw.Draw(tmp)
+    bbox = d.textbbox((0, 0), texto, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    w, h = tw + pad_x * 2, th + pad_y * 2
+
+    img = Image.new("RGB", (w, h), color)
+    draw = ImageDraw.Draw(img)
+    draw.text((pad_x, pad_y - bbox[1]), texto, fill=(255, 255, 255), font=font)
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    resp = HttpResponse(buf.getvalue(), content_type="image/png")
+    # Evitar que el cliente de correo cachee un estado viejo
+    resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp['Pragma'] = 'no-cache'
+    resp['Expires'] = '0'
+    return resp
+
+
+@login_required
+def dashboard_departamento(request):
+    """
+    Dashboard por departamento del usuario:
+      1. Materiales permitidos de su departamento.
+      2. Salidas (movimientos) aprobadas cuyos materiales pertenecen a su departamento.
+    """
+    from django.db.models import Sum
+    from .models import Material, MovimientoInventario, SolicitudMaterial
+
+    perfil = getattr(request.user, 'perfil', None)
+    departamento = getattr(perfil, 'departamento', None)
+    es_aprobador = bool(perfil and getattr(perfil, 'aprobador_salidas', False))
+
+    solicitudes_pendientes = []
+    total_salidas = 0
+    total_pendientes = 0
+
+    q = (request.GET.get('q') or '').strip()
+
+    if departamento:
+        # 1. Materiales de mi departamento (paginados + búsqueda, pueden ser miles)
+        from django.core.paginator import Paginator
+        from django.db.models import Q
+
+        from django.db.models import Count
+
+        # 1. Materiales MÁS UTILIZADOS por el equipo (top 10 por cantidad total solicitada)
+        materiales_top = (
+            MovimientoInventario.objects
+            .filter(tipo='SALIDA', solicitud__usuario__perfil__departamento=departamento)
+            .values('material__id', 'material__nombre', 'material__sku', 'material__unidad_medida__abreviatura')
+            .annotate(
+                total_cantidad=Sum('cantidad_solicitada'),
+                veces=Count('id'),
+            )
+            .order_by('-total_cantidad')[:10]
+        )
+        total_materiales = MovimientoInventario.objects.filter(
+            tipo='SALIDA', solicitud__usuario__perfil__departamento=departamento
+        ).values('material_id').distinct().count()
+
+        # 2. Salidas AGRUPADAS POR SOLICITUD hechas por el equipo (paginadas)
+        salidas_qs = (
+            SolicitudMaterial.objects
+            .filter(usuario__perfil__departamento=departamento)
+            .exclude(estado='BORRADOR')
+            .select_related('usuario', 'orden_trabajo', 'ubicacion_origen')
+            .annotate(num_items=Count('items'))
+            .order_by('-fecha_solicitud')
+        )
+        if q:
+            salidas_qs = salidas_qs.filter(
+                Q(id__icontains=q) |
+                Q(orden_trabajo__codigo_de_orden__icontains=q) |
+                Q(comentarios_solicitud__icontains=q)
+            )
+        total_salidas = salidas_qs.count()
+        salidas_paginator = Paginator(salidas_qs, 25)
+        salidas_page = salidas_paginator.get_page(request.GET.get('spage') or 1)
+
+        # 3. Solicitudes pendientes de autorización hechas por miembros de mi departamento
+        solicitudes_pendientes = (
+            SolicitudMaterial.objects
+            .filter(estado='PENDIENTE_AUTORIZACION', usuario__perfil__departamento=departamento)
+            .select_related('usuario', 'orden_trabajo', 'ubicacion_origen')
+            .prefetch_related('items__material__unidad_medida')
+            .distinct()
+            .order_by('-fecha_solicitud')
+        )
+        total_pendientes = solicitudes_pendientes.count()
+
+    context = {
+        'departamento': departamento,
+        'es_aprobador': es_aprobador,
+        'materiales_top': materiales_top if departamento else [],
+        'salidas_page': salidas_page if departamento else None,
+        'solicitudes_pendientes': solicitudes_pendientes,
+        'q': q,
+        'total_materiales': total_materiales if departamento else 0,
+        'total_salidas': total_salidas,
+        'total_pendientes': total_pendientes,
+        'title': 'Dashboard de mi Departamento',
+    }
+    return render(request, 'inventarios/dashboard_departamento.html', context)
+
+
+@login_required
+@require_POST
+def solicitud_aprobar_departamento(request, pk):
+    """
+    Aprueba o rechaza una solicitud desde el dashboard de departamento.
+    Requiere login y que el usuario sea aprobador de salidas de su departamento,
+    y que la solicitud incluya materiales de ese departamento.
+    """
+    from django.utils import timezone
+    from .models import SolicitudMaterial
+
+    perfil = getattr(request.user, 'perfil', None)
+    departamento = getattr(perfil, 'departamento', None)
+    es_aprobador = bool(perfil and getattr(perfil, 'aprobador_salidas', False))
+
+    if not departamento or not es_aprobador:
+        return JsonResponse({'status': 'error', 'message': 'No tienes permisos de aprobador en tu departamento.'}, status=403)
+
+    solicitud = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    # Validar que el solicitante pertenezca al departamento del aprobador
+    sol_perfil = getattr(solicitud.usuario, 'perfil', None)
+    sol_departamento = getattr(sol_perfil, 'departamento', None)
+    if sol_departamento_id := getattr(sol_departamento, 'id', None):
+        if sol_departamento_id != departamento.id:
+            return JsonResponse({'status': 'error', 'message': 'Esta solicitud no pertenece a tu departamento.'}, status=403)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Esta solicitud no pertenece a tu departamento.'}, status=403)
+
+    if solicitud.estado != 'PENDIENTE_AUTORIZACION':
+        return JsonResponse({'status': 'error', 'message': f'La solicitud ya no está pendiente (estado: {solicitud.get_estado_display()}).'}, status=400)
+
+    accion = (request.POST.get('accion') or '').lower()
+
+    if accion == 'aprobar':
+        solicitud.estado = 'PENDIENTE'
+        solicitud.autorizado_por = request.user
+        solicitud.fecha_autorizacion = timezone.now()
+        solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+        try:
+            from .utils_ntfy import notificar_nueva_solicitud
+            notificar_nueva_solicitud(solicitud)
+        except Exception:
+            pass
+        try:
+            from .utils_n8n import notify_powerautomate_almacen
+            notify_powerautomate_almacen(solicitud)
+        except Exception:
+            pass
+        try:
+            from .utils_push import push_a_almacen
+            push_a_almacen(solicitud)
+        except Exception:
+            pass
+        return JsonResponse({'status': 'success', 'message': 'Solicitud autorizada.', 'nuevo_estado': 'PENDIENTE'})
+    elif accion == 'rechazar':
+        solicitud.estado = 'RECHAZADO'
+        solicitud.rechazado_por = request.user
+        solicitud.fecha_rechazo = timezone.now()
+        solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+        return JsonResponse({'status': 'success', 'message': 'Solicitud rechazada.', 'nuevo_estado': 'RECHAZADO'})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Acción no válida.'}, status=400)
+
+
+@login_required
+def solicitud_detalle_departamento(request, pk):
+    """
+    Detalle de una solicitud accesible desde el dashboard de departamento.
+    Permite ver la solicitud si el usuario es el dueño, o si pertenece al mismo
+    departamento que el solicitante (para que el equipo/aprobador pueda verla).
+    """
+    from .models import SolicitudMaterial
+
+    pedido = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    perfil = getattr(request.user, 'perfil', None)
+    mi_departamento_id = getattr(getattr(perfil, 'departamento', None), 'id', None)
+
+    sol_perfil = getattr(pedido.usuario, 'perfil', None)
+    sol_departamento_id = getattr(getattr(sol_perfil, 'departamento', None), 'id', None)
+
+    es_dueno = pedido.usuario_id == request.user.id
+    mismo_departamento = bool(mi_departamento_id and mi_departamento_id == sol_departamento_id)
+    # Los aprobadores de salidas (p. ej. personal de Almacenes) también pueden ver el detalle
+    es_aprobador = bool(perfil and getattr(perfil, 'aprobador_salidas', False))
+
+    if not (es_dueno or mismo_departamento or es_aprobador or request.user.is_superuser):
+        return HttpResponse("No tienes permiso para ver esta solicitud.", status=403)
+
+    items = pedido.items.select_related('material', 'material__unidad_medida').all()
+    for item in items:
+        m = item.material
+        item.image_url = m.imagen.url if m.imagen else ''
+
+    # El personal del grupo "Almacenes" puede despachar/confirmar entrega
+    es_almacen = request.user.groups.filter(name__iexact='Almacenes').exists()
+    puede_despachar = es_almacen and pedido.estado == 'PENDIENTE'
+    puede_confirmar_entrega = es_almacen and pedido.estado == 'LISTO_RECOLECCION'
+
+    # Personas autorizadas para aprobar los materiales de esta solicitud
+    # (misma lógica que el webhook de autorización).
+    try:
+        from .utils_n8n import _obtener_aprobadores_solicitud
+        sol_perfil_obj = getattr(pedido.usuario, 'perfil', None)
+        jefe_directo = getattr(sol_perfil_obj, 'responsable', None) if sol_perfil_obj else None
+        jefe_departamento = None
+        if sol_perfil_obj and getattr(sol_perfil_obj, 'departamento', None):
+            jefe_departamento = getattr(sol_perfil_obj.departamento, 'responsable', None)
+        superior = jefe_directo or jefe_departamento
+        aprobadores = _obtener_aprobadores_solicitud(pedido, superior)
+    except Exception:
+        aprobadores = []
+
+    return render(request, 'inventarios/mobile_detalle_pedido.html', {
+        'pedido': pedido,
+        'items': items,
+        'puede_despachar': puede_despachar,
+        'puede_confirmar_entrega': puede_confirmar_entrega,
+        'es_almacen': es_almacen,
+        'aprobadores': aprobadores,
+    })
+
+
+@login_required
+@require_POST
+def solicitud_despachar(request, pk):
+    """
+    Despacha (liquida) los materiales de una solicitud. Solo para usuarios del
+    grupo 'Almacenes'. Liquida cada MovimientoInventario (descuenta stock) y marca
+    la solicitud como ENTREGADO.
+    """
+    from django.utils import timezone
+    from .models import SolicitudMaterial
+
+    if not request.user.groups.filter(name__iexact='Almacenes').exists():
+        return JsonResponse({'status': 'error', 'message': 'Solo el personal de Almacenes puede despachar.'}, status=403)
+
+    solicitud = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    if solicitud.estado != 'PENDIENTE':
+        return JsonResponse({'status': 'error', 'message': f'La solicitud no está lista para despacho (estado: {solicitud.get_estado_display()}).'}, status=400)
+
+    try:
+        # El despacho NO descuenta stock todavía. Marca la orden como lista para
+        # recolección y notifica al solicitante. El stock se descuenta al confirmar la entrega.
+        solicitud.estado = 'LISTO_RECOLECCION'
+        solicitud.entregado_por = request.user  # quien preparó/despachó
+        solicitud.save(update_fields=['estado', 'entregado_por'])
+
+        # Notificar al solicitante que su orden está lista para recolección
+        try:
+            from .utils_n8n import notify_powerautomate_recoleccion
+            notify_powerautomate_recoleccion(solicitud)
+        except Exception:
+            pass
+
+        return JsonResponse({'status': 'success', 'message': f'Solicitud #{solicitud.id} despachada. Se notificó al solicitante que está lista para recolección.'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Error al despachar: {str(e)}'}, status=500)
+
+
+@login_required
+@require_POST
+def solicitud_confirmar_entrega(request, pk):
+    """
+    Confirma la entrega de una solicitud que está lista para recolección.
+    Solo para el grupo 'Almacenes'. Aquí se liquida el stock y la solicitud
+    pasa a ENTREGADO.
+    """
+    from django.utils import timezone
+    from .models import SolicitudMaterial
+
+    if not request.user.groups.filter(name__iexact='Almacenes').exists():
+        return JsonResponse({'status': 'error', 'message': 'Solo el personal de Almacenes puede confirmar la entrega.'}, status=403)
+
+    solicitud = get_object_or_404(SolicitudMaterial, pk=pk)
+
+    if solicitud.estado != 'LISTO_RECOLECCION':
+        return JsonResponse({'status': 'error', 'message': f'La solicitud no está lista para recolección (estado: {solicitud.get_estado_display()}).'}, status=400)
+
+    try:
+        with transaction.atomic():
+            # Liquidar cada movimiento (aprueba y descuenta stock)
+            for mov in solicitud.items.all():
+                if mov.estado != 'APROBADO':
+                    mov.liquidar(request.user)
+
+            solicitud.estado = 'ENTREGADO'
+            if not solicitud.entregado_por:
+                solicitud.entregado_por = request.user
+            solicitud.fecha_entrega = timezone.now()
+            solicitud.save(update_fields=['estado', 'entregado_por', 'fecha_entrega'])
+
+        # Notificar despacho/entrega (Power Automate) - no bloquear si falla
+        try:
+            from .utils_n8n import notify_powerautomate_despacho
+            notify_powerautomate_despacho(solicitud)
+        except Exception:
+            pass
+
+        return JsonResponse({'status': 'success', 'message': f'Entrega de la solicitud #{solicitud.id} confirmada. Stock actualizado.'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Error al confirmar entrega: {str(e)}'}, status=500)

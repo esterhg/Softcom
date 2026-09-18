@@ -138,6 +138,17 @@ URL_REASIGNACION_TICKET = os.environ.get('URL_REASIGNACION_TICKET', '')
 # Materiales e Inventarios
 N8N_SOLICITUD_WEBHOOK_URL = os.environ.get('N8N_SOLICITUD_WEBHOOK_URL', f'{N8N_BASE_URL}{N8N_WEBHOOK_ENV}solicitud-material')
 
+# Power Automate: flujo de autorización de solicitudes de material (correo a aprobadores)
+POWERAUTOMATE_APROBACION_URL = os.environ.get('POWERAUTOMATE_APROBACION_URL', '')
+
+# Power Automate: flujo de notificación al almacén cuando una solicitud es autorizada
+# (correo informativo a los aprobadores del departamento "Almacenes")
+POWERAUTOMATE_DESPACHO_ALMACEN_URL = os.environ.get('POWERAUTOMATE_DESPACHO_ALMACEN_URL', '')
+
+# Power Automate: flujo de notificación al solicitante cuando su orden está lista
+# para recolección (tras el despacho del almacén)
+POWERAUTOMATE_RECOLECCION_URL = os.environ.get('POWERAUTOMATE_RECOLECCION_URL', '')
+
 # Ordenes de Trabajo y Reportes
 N8N_OT_WEBHOOK_URL = os.environ.get(
     'N8N_OT_WEBHOOK_URL', 
@@ -952,9 +963,9 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 3600.0,  # Sincroniza tickets desde SIG GIA cada hora
         'kwargs': {'days': 1},  # Tickets del día actual
     },
-    'sync-tickets-automatico-cada-30-min': {
+    'sync-tickets-automatico-cada-5-min': {
         'task': 'callcenter.tasks.sync_tickets_automatico_task',
-        'schedule': 1800.0,  # Sincroniza tickets automáticamente cada 30 minutos
+        'schedule': 300.0,  # Sincroniza tickets automáticamente cada 5 minutos
     },
     # --- Riesgos de Negocio: Notificaciones periódicas (diarias a las 7:00 AM) ---
     'check-review-notifications-daily': {

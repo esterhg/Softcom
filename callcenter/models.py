@@ -666,6 +666,26 @@ class RestriccionAcceso(models.Model):
 
 # --- Señales ---
 
+@receiver(post_save, sender=GrupoTicket)
+def auto_add_cluster_to_dashboard(sender, instance, created, **kwargs):
+    """
+    Cuando se crea un nuevo GrupoTicket (cluster), lo agrega automáticamente
+    al DashboardConfig activo para que aparezca en el dashboard público.
+    Solo actúa en creaciones, no en actualizaciones.
+    """
+    if not created:
+        return
+    try:
+        config = DashboardConfig.get_active()
+        config.clusters.add(instance)
+        if config.mostrar_todos_clusters:
+            config.mostrar_todos_clusters = False
+            config.save(update_fields=['mostrar_todos_clusters'])
+        logger.info(f"Cluster {instance.correlativo} agregado automáticamente al DashboardConfig activo.")
+    except Exception as e:
+        logger.error(f"Error al agregar cluster {instance.correlativo} al dashboard: {e}")
+
+
 @receiver(post_save, sender=SolicitudTicket)
 def notify_ticket_assignment(sender, instance, created, **kwargs):
     """

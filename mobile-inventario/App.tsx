@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initDatabase } from './src/db/database';
 import { SyncProvider } from './src/context/SyncContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -20,7 +21,6 @@ const Tab = createBottomTabNavigator();
 function MainTabs() {
   return (
     <>
-      <SyncBar />
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ color, size }) => {
@@ -45,6 +45,7 @@ function MainTabs() {
         <Tab.Screen name="Inventario" component={InventoryScreen} options={{ title: 'Conteo' }} />
         <Tab.Screen name="Transferir" component={TransferScreen} options={{ title: 'Transferir' }} />
       </Tab.Navigator>
+      <SyncBar />
     </>
   );
 }
@@ -65,13 +66,15 @@ export default function App() {
   if (!dbReady) return null;
 
   return (
-    <AuthProvider>
-      <SyncProvider>
-        <NavigationContainer>
-          <StatusBar style="light" />
-          <AppContent />
-        </NavigationContainer>
-      </SyncProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <SyncProvider>
+          <NavigationContainer>
+            <StatusBar style="light" />
+            <AppContent />
+          </NavigationContainer>
+        </SyncProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

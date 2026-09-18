@@ -39,6 +39,7 @@ urlpatterns = [
     path('requisiciones/<uuid:pk>/unlock/', views_import.requisicion_unlock_edit, name='requisicion_unlock_edit'),
     path('requisiciones/<uuid:pk>/update-fecha-entrega/', views_import.api_update_fecha_entrega, name='api_update_requisicion_fecha_entrega'),
     path('requisiciones/autorizar/<uuid:pk>/', views_autorizar.requisicion_autorizar, name='requisicion_autorizar'),
+    path('requisiciones/corregir-pendientes/', views_autorizar.corregir_pendientes_aprobacion_parcial, name='requisicion_corregir_pendientes'),
     path('requisiciones/<uuid:pk>/notificar-recepcion/', views_import.notificar_recepcion, name='requisicion_notificar_recepcion'),
     path('requisiciones/<uuid:pk>/procesar/', views_import.procesar_requisicion, name='requisicion_procesar'),
     path('requisiciones/<uuid:pk>/finalizar-procesamiento/', views_import.finalizar_procesamiento, name='requisicion_finalizar_procesamiento'),
@@ -46,6 +47,7 @@ urlpatterns = [
     path('requisiciones/<uuid:pk>/solicitar-informacion/', views_import.requisicion_solicitar_informacion, name='requisicion_solicitar_informacion'),
     path('requisiciones/<uuid:pk>/reenviar-informacion/', views_import.requisicion_reenviar_informacion, name='requisicion_reenviar_informacion'),
     path('ordenes-compra/<int:pk>/detalle/', views_import.detalle_orden_compra, name='orden_compra_detalle'),
+    path('proveedor/<int:pk>/actualizar/', views_import.actualizar_proveedor_ajax, name='proveedor_actualizar'),
     path('ordenes-compra/<int:pk>/actualizar/', views_import.actualizar_orden_compra, name='orden_compra_actualizar'),
     path('webhook/', views_webhook.requisicion_webhook_update, name='requisicion_webhook_update'),
     path('webhook/dynamics-sync/', views_webhook.dynamics_sync_webhook, name='dynamics_sync_webhook'),
@@ -56,6 +58,7 @@ urlpatterns = [
     path('requisiciones/import-json/', views_import.import_requisiciones_json, name='import_requisiciones_json'),
     path('requisiciones/import-json/trigger-cloud-sync/', views_import.trigger_power_automate_sync, name='trigger_cloud_sync'),
     path('api/partida/<int:partida_id>/items/', views_import.api_get_partida_items, name='api_get_partida_items'),
+    path('api/moneda-simbolo/', views_import.api_moneda_simbolo, name='api_moneda_simbolo'),
     
     # Pagos Dashboard
     path('pagos/dashboard/', views_pagos.dashboard_pagos, name='dashboard_pagos'),

@@ -398,11 +398,12 @@ def requisicion_upsert(request, pk=None):
                 articulo_formset.save()
                 # Save ISV directly from POST to avoid full form validation
                 isv_value = request.POST.get('isv')
-                if isv_value is not None:
+                if isv_value is not None and str(isv_value).strip() != '':
+                    from decimal import InvalidOperation
                     try:
-                        instance.isv = Decimal(isv_value.replace(',', ''))
+                        instance.isv = Decimal(str(isv_value).replace(',', '').strip())
                         instance.save(update_fields=['isv'])
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError, InvalidOperation):
                         pass
                 success = True
             else:
@@ -424,8 +425,20 @@ def requisicion_upsert(request, pk=None):
 
                 if has_files:
                     if documento_formset_is_valid:
-                        documento_formset.save()
-                    is_valid_and_continue = True
+                        try:
+                            documento_formset.save()
+                        except Exception as e:
+                            import logging
+                            logging.getLogger(__name__).error(
+                                f"Error guardando documentos de requisición {getattr(instance, 'pk', '?')}: {e}",
+                                exc_info=True
+                            )
+                            messages.error(request, f"Error al guardar el documento: {e}. Verifica el archivo e intenta de nuevo.")
+                            is_valid_and_continue = False
+                        else:
+                            is_valid_and_continue = True
+                    else:
+                        is_valid_and_continue = True
                 else:
                     messages.error(request, "Debe cargar al menos un documento para continuar.")
 
@@ -513,6 +526,21 @@ def requisicion_upsert(request, pk=None):
     else:
         presupuestos_disponibles = PresupuestoAnual.objects.all().order_by('-anio', 'nombre')
 
+    # Determinar si Procura puede generar OC:
+    # - Estado normal: AUTORIZADO, VISTO_PROCURA, PROCURA_PROCESANDO
+    # - Excepción: PENDIENTE con aprobación parcial de Ricardo ya en historial
+    _ESTADOS_OC = ['AUTORIZADO', 'VISTO_PROCURA', 'PROCURA_PROCESANDO']
+    _KEYWORDS_RICARDO = ["Ricardo", "Zerrate", "[APROBACION_PARCIAL]", "Aprobación parcial"]
+    puede_generar_oc = False
+    if instance:
+        if instance.estado_requisicion in _ESTADOS_OC:
+            puede_generar_oc = True
+        elif instance.estado_requisicion == 'PENDIENTE':
+            puede_generar_oc = any(
+                instance.historial.filter(descripcion__icontains=kw).exists()
+                for kw in _KEYWORDS_RICARDO
+            )
+
     context = {
         'form': form,
         'articulo_formset': articulo_formset,
@@ -527,6 +555,7 @@ def requisicion_upsert(request, pk=None):
         'presupuestos_disponibles': presupuestos_disponibles,
         'es_procura': request.user.groups.filter(name__in=['Procura', 'PROCURA']).exists(),
         'es_procura_tecnica': request.user.groups.filter(name__in=['Procura_Tecnica', 'PROCURA_TECNICA']).exists(),
+        'puede_generar_oc': puede_generar_oc,
     }
     return render(request, 'admin/presupuestos/requisicion/requisicion_form.html', context)
 
@@ -753,6 +782,20 @@ def api_get_partida_items(request, partida_id):
     from .models import ItemPresupuesto
     items = ItemPresupuesto.objects.filter(partida_id=partida_id).values('id', 'concepto')
     return JsonResponse({'items': list(items)})
+
+
+@login_required
+def api_moneda_simbolo(request):
+    """Retorna el símbolo de una moneda dado su ID."""
+    from .models import Moneda
+    moneda_id = request.GET.get('id')
+    if not moneda_id:
+        return JsonResponse({'simbolo': 'L', 'codigo': '', 'nombre': ''})
+    try:
+        moneda = Moneda.objects.get(pk=moneda_id)
+        return JsonResponse({'simbolo': moneda.simbolo, 'codigo': moneda.codigo, 'nombre': moneda.nombre})
+    except Moneda.DoesNotExist:
+        return JsonResponse({'simbolo': 'L', 'codigo': '', 'nombre': ''})
 
 @staff_member_required
 def import_requisiciones_json(request):
@@ -1058,14 +1101,22 @@ def procesar_requisicion(request, pk):
 
         # Armar datos de la requisición para el modal
         articulos_data = []
-        for art in requisicion.articulos.all():
+        for art in requisicion.articulos.select_related('material__codigo_exoneracion').all():
             proveedor = art.proveedor
             stock = None
             if art.material_id:
                 stock = float(art.material.get_stock_total())
+            cod_exo = ''
+            sku = ''
+            if art.material_id:
+                sku = art.material.sku or ''
+                if art.material.codigo_exoneracion_id:
+                    cod_exo = art.material.codigo_exoneracion.codigo or ''
             articulos_data.append({
                 'id': str(art.cr8ca_itemderequisicionid),
                 'descripcion': art.cr8ca_articulo or '',
+                'sku': sku,
+                'codigo_exoneracion': cod_exo,
                 'cantidad': float(art.cr8ca_cantidad or 0),
                 'costo_actual': float(art.cr8ca_costoaproximado or 0),
                 'subtotal': float(art.subtotal or 0),
@@ -1075,7 +1126,16 @@ def procesar_requisicion(request, pk):
             })
 
         proveedores_data = [
-            {'id': p.id, 'nombre': p.nombre}
+            {
+                'id': p.id,
+                'nombre': p.nombre,
+                'numero_proveedor': p.numero_proveedor or '',
+                'rtn': p.rtn or '',
+                'domicilio': p.domicilio or '',
+                'contacto': p.contacto or '',
+                'telefono': p.telefono or '',
+                'email': p.email or '',
+            }
             for p in Empresa.objects.all().order_by('nombre')
         ]
 
@@ -1093,6 +1153,11 @@ def procesar_requisicion(request, pk):
                 'creado_en': doc.creado_en.strftime('%d/%m/%Y %H:%M') if doc.creado_en else '',
             })
 
+        centros_data = []
+        from .models import CentroCosto
+        for cc in CentroCosto.objects.filter(activo=True).order_by('nombre'):
+            centros_data.append({'id': cc.id, 'nombre': cc.nombre})
+
         data = {
             'requisicion': {
                 'numero': requisicion.cr8ca_requisicion,
@@ -1108,6 +1173,7 @@ def procesar_requisicion(request, pk):
             'articulos': articulos_data,
             'proveedores': proveedores_data,
             'documentos': documentos_data,
+            'centros_costo': centros_data,
         }
 
         return JsonResponse({'success': True, 'data': data, 'message': 'Procesando requisición...', 'warning': warning_msg})
@@ -1144,6 +1210,23 @@ def finalizar_procesamiento(request, pk):
         if tipo_documento not in ('OC', 'DOIH'):
             tipo_documento = 'OC'
 
+        # Forma de pago: se hereda de la requisición, pero el creador puede modificarla
+        forma_pago_choices = dict(OrdenCompra.FORMA_PAGO_CHOICES)
+        forma_pago = data.get('forma_pago') or requisicion.forma_pago
+        if forma_pago not in forma_pago_choices:
+            forma_pago = requisicion.forma_pago
+
+        # Hitos: aplican para Plan de Pago, Anticipo y Diferido
+        formas_con_hitos = ('PLAN_PAGO', 'ANTICIPO', 'DIFERIDO')
+        hitos_pago = data.get('hitos_pago', []) if forma_pago in formas_con_hitos else []
+
+        # Tipo de contrato y centro de costo (opcionales)
+        tipo_contrato_choices = dict(OrdenCompra.TIPO_CONTRATO_CHOICES)
+        tipo_contrato = data.get('tipo_contrato') or None
+        if tipo_contrato and tipo_contrato not in tipo_contrato_choices:
+            tipo_contrato = None
+        centro_costo_id = data.get('centro_costo_id') or None
+
         if not articulos_data:
             return JsonResponse({'success': False, 'message': 'No hay artículos para procesar.'}, status=400)
 
@@ -1179,7 +1262,9 @@ def finalizar_procesamiento(request, pk):
                 subtotal=subtotal_oc,
                 impuestos=impuestos_oc,
                 total=total_oc,
-                forma_pago=requisicion.forma_pago,
+                forma_pago=forma_pago,
+                tipo_contrato=tipo_contrato,
+                centro_costo_id=centro_costo_id,
                 creado_por=request.user,
                 doc_factura=doc_checklist.get('doc_factura', False),
                 doc_estimacion=doc_checklist.get('doc_estimacion', False),
@@ -1187,6 +1272,29 @@ def finalizar_procesamiento(request, pk):
                 doc_garantia=doc_checklist.get('doc_garantia', False),
             )
             oc_numbers.append(oc.numero_oc)
+
+            # Crear hitos del plan de pago (si aplica)
+            if hitos_pago:
+                from .models import HitoPagoOrdenCompra
+                for idx, h in enumerate(hitos_pago):
+                    concepto = (h.get('concepto') or '').strip()
+                    if not concepto:
+                        continue
+                    try:
+                        monto = Decimal(str(h.get('monto', 0) or 0))
+                    except Exception:
+                        monto = Decimal('0')
+                    try:
+                        porcentaje = Decimal(str(h.get('porcentaje', 0) or 0))
+                    except Exception:
+                        porcentaje = Decimal('0')
+                    HitoPagoOrdenCompra.objects.create(
+                        orden_compra=oc,
+                        concepto=concepto,
+                        porcentaje=porcentaje,
+                        monto=monto,
+                        orden=idx,
+                    )
 
             for art_data in articulos_prov:
                 from .models import ArticuloRequisicion
@@ -1271,22 +1379,29 @@ def revertir_orden_compra(request, pk):
 
 
 @login_required
-@staff_member_required
 def detalle_orden_compra(request, pk):
     try:
         from .models import OrdenCompra
 
-        if not request.user.groups.filter(name__in=['Procura', 'PROCURA']).exists():
-            return JsonResponse({'success': False, 'message': 'Solo usuarios del grupo Procura pueden ver órdenes de compra.'}, status=403)
-
+        # La lectura del detalle es visible para cualquier usuario autenticado.
+        # La edición (actualizar_orden_compra) permanece restringida a Procura.
         oc = get_object_or_404(OrdenCompra, pk=pk)
 
         articulos = []
-        for art in oc.articulos.all():
+        for art in oc.articulos.select_related('articulo_requisicion__material__codigo_exoneracion').all():
+            cod_exo = ''
+            sku = ''
+            art_req = art.articulo_requisicion
+            if art_req and art_req.material_id:
+                sku = art_req.material.sku or ''
+                if art_req.material.codigo_exoneracion_id:
+                    cod_exo = art_req.material.codigo_exoneracion.codigo or ''
             articulos.append({
                 'id': art.id,
                 'articulo_requisicion_id': str(art.articulo_requisicion_id) if art.articulo_requisicion_id else None,
                 'descripcion': art.descripcion,
+                'sku': sku,
+                'codigo_exoneracion': cod_exo,
                 'cantidad': float(art.cantidad),
                 'costo_unitario': float(art.costo_unitario),
                 'subtotal': float(art.subtotal),
@@ -1295,7 +1410,21 @@ def detalle_orden_compra(request, pk):
         proveedores_list = []
         from mantenimiento.models import Empresa
         for p in Empresa.objects.all().order_by('nombre'):
-            proveedores_list.append({'id': p.id, 'nombre': p.nombre})
+            proveedores_list.append({
+                'id': p.id,
+                'nombre': p.nombre,
+                'numero_proveedor': p.numero_proveedor or '',
+                'rtn': p.rtn or '',
+                'domicilio': p.domicilio or '',
+                'contacto': p.contacto or '',
+                'telefono': p.telefono or '',
+                'email': p.email or '',
+            })
+
+        hitos_pago = [
+            {'concepto': h.concepto, 'porcentaje': float(h.porcentaje), 'monto': float(h.monto)}
+            for h in oc.hitos_pago.all()
+        ]
 
         centros_list = []
         from .models import CentroCosto
@@ -1317,6 +1446,10 @@ def detalle_orden_compra(request, pk):
             'credito': oc.credito,
             'credito_dias': oc.credito_dias,
             'forma_pago': oc.forma_pago,
+            'forma_pago_display': oc.get_forma_pago_display() if oc.forma_pago else 'No especificada',
+            'tipo_contrato': oc.tipo_contrato or '',
+            'tipo_contrato_display': oc.get_tipo_contrato_display() if oc.tipo_contrato else '',
+            'requisicion_asunto': oc.requisicion.cr8ca_asunto if oc.requisicion else '',
             'doc_factura': oc.doc_factura,
             'doc_estimacion': oc.doc_estimacion,
             'doc_respaldo': oc.doc_respaldo,
@@ -1332,6 +1465,7 @@ def detalle_orden_compra(request, pk):
             'articulos': articulos,
             'proveedores': proveedores_list,
             'centros_costo': centros_list,
+            'hitos_pago': hitos_pago,
         }
 
         return JsonResponse({'success': True, 'data': data})
@@ -1366,6 +1500,19 @@ def actualizar_orden_compra(request, pk):
         oc.fecha_entrega_estimada = data.get('fecha_entrega_estimada') or None
         oc.notas = data.get('notas', oc.notas)
 
+        # Número de OC (editable solo por Procura)
+        if 'numero_oc' in data:
+            nuevo_num = (data.get('numero_oc') or '').strip()
+            if nuevo_num and nuevo_num != oc.numero_oc:
+                from .models import OrdenCompra as OCModel
+                if OCModel.objects.filter(numero_oc=nuevo_num).exclude(pk=oc.pk).exists():
+                    return JsonResponse({'success': False, 'message': f'Ya existe una orden de compra con el número {nuevo_num}.'}, status=400)
+                oc.numero_oc = nuevo_num
+
+        # Tipo de contrato
+        if 'tipo_contrato' in data:
+            oc.tipo_contrato = data.get('tipo_contrato') or None
+
         # Centro de costo
         if 'centro_costo_id' in data:
             oc.centro_costo_id = data['centro_costo_id'] or None
@@ -1385,6 +1532,27 @@ def actualizar_orden_compra(request, pk):
         # Forma de pago
         if 'forma_pago' in data:
             oc.forma_pago = data['forma_pago'] or oc.forma_pago
+
+        # Plan de pago (hitos): se reemplazan por completo si vienen en el payload
+        if 'hitos_pago' in data:
+            from .models import HitoPagoOrdenCompra
+            oc.hitos_pago.all().delete()
+            if oc.forma_pago in ('PLAN_PAGO', 'ANTICIPO', 'DIFERIDO'):
+                for idx, h in enumerate(data.get('hitos_pago', [])):
+                    concepto = (h.get('concepto') or '').strip()
+                    if not concepto:
+                        continue
+                    try:
+                        monto = Decimal(str(h.get('monto', 0) or 0))
+                    except Exception:
+                        monto = Decimal('0')
+                    try:
+                        porcentaje = Decimal(str(h.get('porcentaje', 0) or 0))
+                    except Exception:
+                        porcentaje = Decimal('0')
+                    HitoPagoOrdenCompra.objects.create(
+                        orden_compra=oc, concepto=concepto, porcentaje=porcentaje, monto=monto, orden=idx
+                    )
 
         # Documentación
         if 'doc_factura' in data:
@@ -1988,3 +2156,54 @@ def api_update_material_exoneracion(request):
             pass
 
     return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def actualizar_proveedor_ajax(request, pk):
+    """Actualiza los datos de un proveedor (Empresa) desde el modal de la Orden de Compra."""
+    try:
+        from mantenimiento.models import Empresa
+
+        if not request.user.groups.filter(name__in=['Procura', 'PROCURA']).exists():
+            return JsonResponse({'success': False, 'message': 'Solo usuarios del grupo Procura pueden editar proveedores.'}, status=403)
+
+        empresa = get_object_or_404(Empresa, pk=pk)
+        data = json.loads(request.body)
+
+        nombre = (data.get('nombre') or '').strip()
+        if not nombre:
+            return JsonResponse({'success': False, 'message': 'El nombre del proveedor es obligatorio.'}, status=400)
+
+        # Validar unicidad del nombre (excluyendo la propia empresa)
+        if Empresa.objects.filter(nombre=nombre).exclude(pk=empresa.pk).exists():
+            return JsonResponse({'success': False, 'message': 'Ya existe otro proveedor con ese nombre.'}, status=400)
+
+        empresa.nombre = nombre
+        empresa.numero_proveedor = (data.get('numero_proveedor') or '').strip() or None
+        empresa.rtn = (data.get('rtn') or '').strip() or None
+        empresa.domicilio = (data.get('domicilio') or '').strip() or None
+        empresa.contacto = (data.get('contacto') or '').strip() or None
+        empresa.telefono = (data.get('telefono') or '').strip() or None
+        empresa.email = (data.get('email') or '').strip() or None
+        empresa.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Proveedor {empresa.nombre} actualizado.',
+            'proveedor': {
+                'id': empresa.id,
+                'nombre': empresa.nombre,
+                'numero_proveedor': empresa.numero_proveedor or '',
+                'rtn': empresa.rtn or '',
+                'domicilio': empresa.domicilio or '',
+                'contacto': empresa.contacto or '',
+                'telefono': empresa.telefono or '',
+                'email': empresa.email or '',
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'message': f'Error interno: {str(e)}'}, status=500)

@@ -2,7 +2,11 @@ from django.urls import path
 from . import views
 from .views import mobile_crear_solicitud
 from .api_materials import api_list_materials, api_list_categories, api_master_sync, api_precios_historicos, api_create_material, api_material_detail, api_material_update, api_search_codigos_exoneracion, api_export_materials_excel
-from .api_mobile_sync import api_mobile_login, api_mobile_master_sync, api_mobile_push_operations, api_mobile_inventory_counts
+from .api_mobile_sync import api_mobile_login, api_mobile_master_sync, api_mobile_push_operations, api_mobile_inventory_counts, api_mobile_create_material, api_mobile_categorias, api_mobile_update_material
+from .api_mobile_sync import (
+    api_mobile_aprobaciones, api_mobile_aprobar, api_mobile_despachos, api_mobile_despachar,
+    api_mobile_confirmar_entrega, api_mobile_mis_solicitudes, api_mobile_solicitud_detalle, api_mobile_push_token,
+)
 
 app_name = 'inventarios'
 
@@ -11,6 +15,13 @@ urlpatterns = [
     path('solicitud/<int:pk>/detalle/', views.solicitud_detalle_rapido, name='solicitud_detalle_rapido'),
     path('solicitud/<int:pk>/update/', views.solicitud_update_rapido, name='solicitud_update_rapido'),
     path('crear-solicitud/', views.crear_solicitud_dashboard, name='crear_solicitud'),
+    path('mi-departamento/', views.dashboard_departamento, name='dashboard_departamento'),
+    path('solicitud/<int:pk>/aprobar-departamento/', views.solicitud_aprobar_departamento, name='solicitud_aprobar_departamento'),
+    path('solicitud/<int:pk>/detalle-departamento/', views.solicitud_detalle_departamento, name='solicitud_detalle_departamento'),
+    path('solicitud/<int:pk>/despachar/', views.solicitud_despachar, name='solicitud_despachar'),
+    path('solicitud/<int:pk>/confirmar-entrega/', views.solicitud_confirmar_entrega, name='solicitud_confirmar_entrega'),
+    path('api/solicitudes/<int:pk>/autorizar/', views.solicitud_autorizar_publica, name='solicitud_autorizar_publica'),
+    path('solicitud/<int:pk>/estado-badge.png', views.solicitud_estado_badge, name='solicitud_estado_badge'),
     path('api/stock/<int:material_id>/', views.api_get_material_stock, name='api_get_material_stock'),
     path('api/material/<int:material_id>/update/', views.api_update_material_mobile, name='api_update_material_mobile'),
     path('cart/add/', views.cart_add, name='cart_add'),
@@ -48,6 +59,19 @@ urlpatterns = [
     path('api/mobile-sync/master/', api_mobile_master_sync, name='api_mobile_master_sync'),
     path('api/mobile-sync/push/', api_mobile_push_operations, name='api_mobile_push_operations'),
     path('api/mobile-sync/inventory-counts/', api_mobile_inventory_counts, name='api_mobile_inventory_counts'),
+    path('api/mobile-sync/create-material/', api_mobile_create_material, name='api_mobile_create_material'),
+    path('api/mobile-sync/update-material/<int:material_id>/', api_mobile_update_material, name='api_mobile_update_material'),
+    path('api/mobile-sync/categorias/', api_mobile_categorias, name='api_mobile_categorias'),
+
+    # Mobile App APIs por rol (aprobaciones / despachos / mis solicitudes / push)
+    path('api/mobile/aprobaciones/', api_mobile_aprobaciones, name='api_mobile_aprobaciones'),
+    path('api/mobile/solicitudes/<int:pk>/aprobar/', api_mobile_aprobar, name='api_mobile_aprobar'),
+    path('api/mobile/despachos/', api_mobile_despachos, name='api_mobile_despachos'),
+    path('api/mobile/solicitudes/<int:pk>/despachar/', api_mobile_despachar, name='api_mobile_despachar'),
+    path('api/mobile/solicitudes/<int:pk>/confirmar-entrega/', api_mobile_confirmar_entrega, name='api_mobile_confirmar_entrega'),
+    path('api/mobile/mis-solicitudes/', api_mobile_mis_solicitudes, name='api_mobile_mis_solicitudes'),
+    path('api/mobile/solicitudes/<int:pk>/', api_mobile_solicitud_detalle, name='api_mobile_solicitud_detalle'),
+    path('api/mobile/push-token/', api_mobile_push_token, name='api_mobile_push_token'),
     path('mobile/catalog/', views.mobile_catalog, name='mobile_catalog'),
     path('mobile/gestion-salidas/', views.mobile_gestion_salidas_view, name='mobile_gestion_salidas'),
     path('mobile/devolucion/', views.mobile_devolucion_view, name='mobile_devolucion'),
@@ -81,6 +105,7 @@ urlpatterns = [
     path('api/check-ot-solicitud/<int:ot_id>/', views.api_check_ot_solicitud, name='api_check_ot_solicitud'),
     path('api/material/<int:material_id>/precios-historicos/', api_precios_historicos, name='api_precios_historicos'),
     path('api/solicitudes/<int:pk>/update-items/', views.api_solicitud_update_items, name='api_solicitud_update_items'),
+    path('api/solicitudes/<int:pk>/aprobadores/', views.api_aprobadores_solicitud, name='api_aprobadores_solicitud'),
     path('api/solicitudes/<int:pk>/resend-webhook/', views.api_resolicitud_webhook, name='api_resolicitud_webhook'),
     path('api/recalcular-stock/<int:material_id>/', views.api_recalcular_stock, name='api_recalcular_stock'),
     path('registrar-salida/', views.registrar_salida_view, name='registrar_salida'),
@@ -116,4 +141,5 @@ urlpatterns = [
     path('ajuste-masivo/', views.ajuste_masivo_view, name='ajuste_masivo'),
     path('api/ajuste-masivo/procesar/', views.api_ajuste_masivo_procesar, name='api_ajuste_masivo_procesar'),
     path('api/ajuste-masivo/catalogo/', views.api_ajuste_masivo_catalogo, name='api_ajuste_masivo_catalogo'),
+    path('api/ajuste-masivo/asignar-departamento/', views.api_ajuste_masivo_asignar_departamento, name='api_ajuste_masivo_asignar_departamento'),
 ]

@@ -510,6 +510,15 @@ class Requisicion(models.Model):
     )
     cr8ca_totalenarticulos = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name="Total en Artículos")
     isv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, default=0, verbose_name="ISV (Impuesto Sobre Ventas)")
+    moneda_req = models.ForeignKey(
+        'Moneda',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisiciones_directas',
+        verbose_name="Moneda",
+        help_text="Moneda en la que se expresan los montos de esta requisición (Lempiras o Dólares)."
+    )
     cr8ca_prioridad = models.IntegerField(choices=PRIORIDAD_CHOICES, default=2, null=True, blank=True, verbose_name="Prioridad")
     cr8ca_id_oc = models.CharField(max_length=100, null=True, blank=True, verbose_name="ID OC (Orden de Compra)")
     
@@ -654,6 +663,7 @@ class Requisicion(models.Model):
         ('DIFERIDO', 'Diferido'),
         ('CREDITO', 'A Plazos / Crédito'),
         ('CONTRA_ENTREGA', 'Contra Entrega'),
+        ('PLAN_PAGO', 'Plan de Pago'),
     )
     forma_pago = models.CharField(
         max_length=20,
@@ -719,9 +729,17 @@ class Requisicion(models.Model):
 
     @property
     def moneda(self):
+        """Retorna la moneda directa de la requisición; si no tiene, la hereda de la partida presupuestaria."""
+        if self.moneda_req_id:
+            return self.moneda_req
         if self.partida and self.partida.presupuesto_anual:
             return self.partida.presupuesto_anual.moneda
         return None
+
+    @property
+    def moneda_simbolo(self):
+        m = self.moneda
+        return m.simbolo if m else 'L'
 
     @property
     def total_estimado(self):
@@ -1228,6 +1246,7 @@ class OrdenCompra(models.Model):
         ('DIFERIDO', 'Diferido'),
         ('CREDITO', 'A Plazos / Crédito'),
         ('CONTRA_ENTREGA', 'Contra Entrega'),
+        ('PLAN_PAGO', 'Plan de Pago'),
     )
     forma_pago = models.CharField(
         max_length=20,
@@ -1236,6 +1255,17 @@ class OrdenCompra(models.Model):
         verbose_name="Forma de Pago",
         help_text="Forma de pago heredada de la requisición."
     )
+    TIPO_CONTRATO_CHOICES = (
+        ('SUMINISTRO_INSTALACION', 'Suministro e Instalación'),
+        ('CONTRATO_SERVICIO', 'Contrato de Servicio'),
+    )
+    tipo_contrato = models.CharField(
+        max_length=30,
+        choices=TIPO_CONTRATO_CHOICES,
+        blank=True, null=True,
+        verbose_name="Tipo de Contrato"
+    )
+
     doc_factura = models.BooleanField(default=False, verbose_name="Factura")
     doc_estimacion = models.BooleanField(default=False, verbose_name="Estimación")
     doc_respaldo = models.BooleanField(default=False, verbose_name="Respaldo")
@@ -1290,6 +1320,30 @@ class OrdenCompraArticulo(models.Model):
     class Meta:
         verbose_name = "Artículo de Orden de Compra"
         verbose_name_plural = "Artículos de Órdenes de Compra"
+
+
+class HitoPagoOrdenCompra(models.Model):
+    """
+    Hito de un Plan de Pago asociado a una Orden de Compra.
+    Se usa cuando la forma de pago es 'Plan de Pago': permite desglosar el total
+    de la OC en montos (Anticipo, Hito 1, Hito 2, etc.).
+    """
+    orden_compra = models.ForeignKey(
+        OrdenCompra, on_delete=models.CASCADE,
+        related_name='hitos_pago', verbose_name="Orden de Compra"
+    )
+    concepto = models.CharField(max_length=150, verbose_name="Concepto / Hito")
+    porcentaje = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name="Porcentaje (%)")
+    monto = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="Monto")
+    orden = models.PositiveIntegerField(default=0, verbose_name="Orden")
+
+    def __str__(self):
+        return f"{self.concepto} - {self.monto}"
+
+    class Meta:
+        verbose_name = "Hito de Plan de Pago"
+        verbose_name_plural = "Hitos de Plan de Pago"
+        ordering = ['orden', 'id']
 
 
 class FamiliaItem(models.Model):
@@ -1648,3 +1702,59 @@ class DashboardView(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.name}"
+
+
+class ConfiguracionFlujoAprobacion(models.Model):
+    """
+    Configuración global del flujo de aprobación de requisiciones.
+    Singleton — solo debe existir una fila. Se edita desde el admin de Django.
+    """
+    aprobador_nombre = models.CharField(
+        max_length=200,
+        verbose_name="Nombre completo del Aprobador",
+        default="Ricardo Enrique Zerrate Torres",
+        help_text="Nombre que aparece en el correo de aprobación de Power Automate.",
+    )
+    aprobador_email = models.EmailField(
+        verbose_name="Email del Aprobador",
+        default="ricardo.zerrate@gia.mx",
+        help_text="Email al que Power Automate enviará la solicitud de aprobación.",
+    )
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+    actualizado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Actualizado por",
+    )
+
+    class Meta:
+        verbose_name = "Configuración de Flujo de Aprobación"
+        verbose_name_plural = "Configuración de Flujo de Aprobación"
+
+    def __str__(self):
+        return f"Aprobador: {self.aprobador_nombre} <{self.aprobador_email}>"
+
+    @classmethod
+    def get_config(cls):
+        """
+        Devuelve la única instancia de configuración.
+        Si no existe, la crea con los valores por defecto.
+        """
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                'aprobador_nombre': 'Ricardo Enrique Zerrate Torres',
+                'aprobador_email': 'ricardo.zerrate@gia.mx',
+            }
+        )
+        return obj
+
+    def save(self, *args, **kwargs):
+        # Forzar pk=1 para garantizar singleton
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # No permitir borrar el singleton
+        pass

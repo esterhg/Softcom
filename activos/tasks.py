@@ -127,7 +127,7 @@ def import_ubicaciones_task(self, file_path, file_format):
     }
 
 @shared_task(bind=True)
-def import_activos_task(self, file_path, file_format, user_id=None, import_name="Importación sin nombre", verification_mode=False, dry_run=False):
+def import_activos_task(self, file_path, file_format, user_id=None, import_name="Importación sin nombre", verification_mode=False, dry_run=False, update_only=False):
     """
     Tarea Celery para importar activos con seguimiento de progreso, soporte para verificación y dry-run.
     """
@@ -178,9 +178,9 @@ def import_activos_task(self, file_path, file_format, user_id=None, import_name=
         registro.total_rows = total_rows
         registro.save()
 
-    from .resources import ActivoResource
+    from .resources import ActivoResource, ActivoUpdateResource
     from import_export import resources
-    resource = ActivoResource()
+    resource = ActivoUpdateResource() if update_only else ActivoResource()
     
     # Estado inicial
     progress_info = {
@@ -287,6 +287,7 @@ def import_activos_task(self, file_path, file_format, user_id=None, import_name=
             'results': detailed_messages, # Para el modal de verificación
             'verification_mode': verification_mode,
             'dry_run': dry_run,
+            'update_only': update_only,
             'file_path': file_path
         }
         

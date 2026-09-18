@@ -8,6 +8,7 @@ class SolicitudMaterial(models.Model):
         ('BORRADOR', 'Borrador'),
         ('PENDIENTE_AUTORIZACION', 'Pendiente de Autorización'),
         ('PENDIENTE', 'Pendiente'),
+        ('LISTO_RECOLECCION', 'Lista para Recolección'),
         ('ENTREGADO', 'Entregado / Completado'),
         ('RECHAZADO', 'Rechazado'),
     ]
@@ -26,8 +27,20 @@ class SolicitudMaterial(models.Model):
     comentarios_solicitud = models.TextField(blank=True, null=True)
     comentarios_almacen = models.TextField(blank=True, null=True)
     
+    entregar_a = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='solicitudes_recibidas', verbose_name="Entregar A")
+    
     fecha_entrega = models.DateTimeField(null=True, blank=True)
     entregado_por = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='ordenes_despachadas')
+
+    # Autorización / Rechazo (registro de quién y cuándo)
+    autorizado_por = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='solicitudes_autorizadas', verbose_name="Autorizado por")
+    fecha_autorizacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de autorización")
+    rechazado_por = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='solicitudes_rechazadas', verbose_name="Rechazado por")
+    fecha_rechazo = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de rechazo")
+
+    # Recepción / Entrega (evidencia)
+    recibe_nombre = models.CharField(max_length=200, blank=True, null=True, verbose_name="Recibido por (nombre)")
+    foto_entrega = models.ImageField(upload_to='entregas/', blank=True, null=True, verbose_name="Foto de entrega")
 
     def __str__(self):
         return f"Orden #{self.id} - {self.usuario.username}"
@@ -85,6 +98,7 @@ class UnidadMedida(models.Model):
 class Material(models.Model):
     nombre = models.CharField(max_length=200, db_index=True, verbose_name="Nombre del Material")
     sku = models.CharField(max_length=50, unique=True, db_index=True, verbose_name="SKU / Código Interno")
+    codigo_barras = models.CharField(max_length=100, blank=True, null=True, db_index=True, verbose_name="Código de Barras", help_text="Código de barras físico del producto (EAN, UPC, etc.)")
     marca = models.ForeignKey('activos.Marca', on_delete=models.SET_NULL, null=True, blank=True, related_name='materiales', verbose_name="Marca")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
     categoria = models.ForeignKey(CategoriaMaterial, on_delete=models.SET_NULL, null=True, blank=True, related_name='materiales', verbose_name="Categoría")
@@ -122,6 +136,12 @@ class Material(models.Model):
         default=False,
         verbose_name="No Afecta Stock",
         help_text="Activar para materiales de ingreso que no deben afectar inventario (ej. compra de agua, servicios, etc.)"
+    )
+
+    es_tecnico = models.BooleanField(
+        default=False,
+        verbose_name="Material Técnico",
+        help_text="Si está activo, al despachar este material se debe vincular obligatoriamente con una Orden de Trabajo."
     )
 
     codigo_exoneracion = models.ForeignKey(
