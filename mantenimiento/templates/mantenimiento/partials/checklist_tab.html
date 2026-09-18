@@ -1,0 +1,757 @@
+{% load static %}
+{#
+   CHECKLIST DE ACTIVIDADES - partial incluido en mobile_ot_detalle.html
+   Variables de contexto requeridas:
+     - ot             : OrdenTrabajo
+     - is_supervisor  : bool
+   Las URLs se generan con {% url %} directamente en el template.
+#}
+
+<style>
+/* ── Checklist Tab ──────────────────────────────────────────────────── */
+.cl-freq-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.cl-freq-SEMANAL    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.cl-freq-MENSUAL    { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.cl-freq-TRIMESTRAL { background: #fefce8; color: #854d0e; border: 1px solid #fde68a; }
+.cl-freq-ANUAL      { background: #fdf4ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+.cl-freq-DIARIA     { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.cl-freq-DEFAULT    { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+.cl-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+.cl-progress-fill {
+    height: 100%;
+    background: #107e3e;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+.cl-section-header {
+    background: #f0f4f8;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #354a5f;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-top: 1px solid #d8d8d8;
+    border-bottom: 1px solid #d8d8d8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cl-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.15s;
+    position: relative;
+}
+.cl-item:active { background: #f0f7fd; }
+.cl-item.cl-done { background: #f0fdf4; }
+.cl-item.cl-na   { background: #f9fafb; opacity: 0.7; }
+
+.cl-check-circle {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    border: 2px solid #d8d8d8;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 16px;
+    color: transparent;
+    -webkit-tap-highlight-color: transparent;
+}
+.cl-check-circle.checked {
+    background: #107e3e;
+    border-color: #107e3e;
+    color: white;
+}
+.cl-check-circle.na-state {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.cl-item-body { flex: 1; min-width: 0; }
+.cl-item-desc {
+    font-size: 13px;
+    font-weight: 600;
+    color: #32363a;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+.cl-item-desc.text-muted { color: #9ca3af; text-decoration: line-through; }
+
+.cl-comment-input {
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    border: 1px solid #d8d8d8;
+    border-radius: 2px;
+    font-family: inherit;
+    color: #32363a;
+    background: #fafafa;
+    resize: none;
+    display: none;
+}
+.cl-comment-input.visible { display: block; }
+
+.cl-comment-toggle {
+    background: none;
+    border: none;
+    font-size: 11px;
+    color: #6a6d70;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 4px;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Supervisor action buttons */
+.cl-sup-actions {
+    display: none;
+    gap: 4px;
+    margin-left: 4px;
+}
+.cl-sup-actions.visible { display: flex; }
+.cl-sup-btn {
+    background: none;
+    border: 1px solid #d8d8d8;
+    border-radius: 2px;
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #6a6d70;
+    line-height: 1;
+}
+.cl-sup-btn:hover { background: #f0f4f8; }
+.cl-sup-btn.danger { color: #bb0000; border-color: #fca5a5; }
+
+/* Floating save indicator */
+#cl-saving-indicator {
+    position: fixed;
+    top: 60px;
+    right: 12px;
+    background: #32363a;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 2px;
+    z-index: 3000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+#cl-saving-indicator.show { opacity: 1; }
+
+/* Add step FAB (supervisor only) */
+.cl-add-fab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 16px;
+    background: none;
+    border: 2px dashed #d8d8d8;
+    color: #0070f2;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.cl-add-fab:hover { background: #eff6ff; border-color: #0070f2; }
+
+/* Modal overlay for add/edit */
+.cl-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 4000;
+    align-items: flex-end;
+    justify-content: center;
+}
+.cl-modal-overlay.active { display: flex; }
+.cl-modal-sheet {
+    background: white;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 12px 12px 0 0;
+    padding: 20px 16px 40px;
+}
+.cl-modal-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #32363a;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+}
+.cl-modal-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #6a6d70;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    display: block;
+}
+.cl-modal-input, .cl-modal-select, .cl-modal-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d8d8d8;
+    border-radius: 2px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #32363a;
+    margin-bottom: 14px;
+    background: #fafafa;
+    box-sizing: border-box;
+}
+.cl-modal-textarea { resize: vertical; min-height: 80px; }
+.cl-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+.cl-btn-save {
+    flex: 1;
+    background: #0070f2;
+    color: white;
+    border: none;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    text-transform: uppercase;
+    border-radius: 2px;
+}
+.cl-btn-cancel {
+    flex: 1;
+    background: white;
+    color: #32363a;
+    border: 1px solid #d8d8d8;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    text-transform: uppercase;
+    border-radius: 2px;
+}
+</style>
+
+<!-- ── Saving indicator ─────────────────────────────────────────────────────── -->
+<div id="cl-saving-indicator">💾 Guardando…</div>
+
+<!-- ── CHECKLIST CARD ──────────────────────────────────────────────────────── -->
+<div class="fiori-card" id="checklist-card">
+    <!-- Header -->
+    <div class="card-header" style="background: rgba(0,112,242,0.04); justify-content: space-between;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <ion-icon name="checkbox-outline" style="color:#0070f2; font-size:18px;"></ion-icon>
+            <h2 style="color:#0070f2;">Actividades del Mantenimiento</h2>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            {% if ot.rutina and ot.rutina.frecuencia %}
+            {% with freq=ot.rutina.frecuencia.nombre %}
+            <span class="cl-freq-badge cl-freq-{% if 'SEMANAL' in freq|upper %}SEMANAL{% elif 'MENSUAL' in freq|upper %}MENSUAL{% elif 'TRIMESTRAL' in freq|upper %}TRIMESTRAL{% elif 'ANUAL' in freq|upper %}ANUAL{% elif 'DIARIA' in freq|upper or 'DIARIO' in freq|upper %}DIARIA{% else %}DEFAULT{% endif %}">
+                <ion-icon name="repeat-outline"></ion-icon>
+                {{ ot.rutina.frecuencia.nombre }}
+            </span>
+            {% endwith %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div style="padding: 12px 16px 0; border-bottom: 1px solid #f0f0f0;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; font-weight:800; color:#6a6d70; text-transform:uppercase;">
+                Progreso: <span id="cl-progress-text">cargando…</span>
+            </span>
+            {% if ot.estado == 'EJECUCION' or ot.estado == 'PROGRAMADA' or ot.estado == 'ESPERA' %}
+            <span style="font-size:11px; color:#6a6d70;">Toca ✓ para marcar</span>
+            {% endif %}
+        </div>
+        <div class="cl-progress-bar" style="margin-bottom:12px;">
+            <div class="cl-progress-fill" id="cl-progress-fill" style="width:0%"></div>
+        </div>
+    </div>
+
+    <!-- Checklist body — renderizado por JS -->
+    <div id="cl-body" style="padding-bottom: 4px;">
+        <div style="padding: 24px 16px; text-align:center; color:#6a6d70; font-size:13px;">
+            <ion-icon name="sync-outline" style="animation: cl-spin 1s linear infinite; font-size:20px;"></ion-icon>
+            <div style="margin-top:8px;">Cargando actividades…</div>
+        </div>
+    </div>
+
+    {% if is_supervisor %}
+    <!-- Add step button (supervisor only) -->
+    <div style="padding: 12px 16px; border-top: 1px solid #f0f0f0;">
+        <button class="cl-add-fab" onclick="clOpenAddModal()">
+            <ion-icon name="add-circle-outline" style="font-size:18px;"></ion-icon>
+            Agregar Actividad
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Add/Edit Modal (supervisor) ─────────────────────────────────── -->
+{% if is_supervisor %}
+<div class="cl-modal-overlay" id="cl-modal" role="dialog" aria-modal="true">
+    <div class="cl-modal-sheet">
+        <div class="cl-modal-title" id="cl-modal-title">Nueva Actividad</div>
+
+        <input type="hidden" id="cl-edit-paso-id" value="">
+
+        <label class="cl-modal-label">Descripción de la actividad *</label>
+        <textarea class="cl-modal-textarea" id="cl-input-desc" placeholder="Ej: Verificar nivel de aceite hidráulico…" rows="3"></textarea>
+
+        <label class="cl-modal-label">Tipo de respuesta</label>
+        <select class="cl-modal-select" id="cl-input-tipo">
+            <option value="CHECK">✓ Check (Realizado / No Realizado)</option>
+            <option value="HEADER">📋 Encabezado de sección</option>
+            <option value="TEXTO">📝 Texto libre</option>
+            <option value="NUMERICO">🔢 Valor numérico</option>
+        </select>
+
+        <label class="cl-modal-label">Verificación (opcional)</label>
+        <input type="text" class="cl-modal-input" id="cl-input-verif" placeholder="Ej: Debe indicar REALIZADO">
+
+        <label class="cl-modal-label">Unidad de medida (solo para numéricos)</label>
+        <input type="text" class="cl-modal-input" id="cl-input-unidad" placeholder="Ej: Bar, °C, Amperios">
+
+        <div class="cl-modal-actions">
+            <button class="cl-btn-cancel" onclick="clCloseModal()">Cancelar</button>
+            <button class="cl-btn-save" onclick="clSaveStep()">Guardar</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+@keyframes cl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
+<script>
+(function() {
+    const OT_ID       = {{ ot.id }};
+    const CSRF        = '{{ csrf_token }}';
+    const IS_SUP      = {{ is_supervisor|yesno:"true,false" }};
+    const OT_ESTADO   = '{{ ot.estado }}';
+    const CHECKLIST_URL  = '{% url "mantenimiento:mobile_checklist_api" ot.id %}';
+    const SUPERVISOR_URL = IS_SUP ? '{% url "mantenimiento:mobile_checklist_supervisor_api" ot.id %}' : null;
+
+    // Editable si la OT no está cancelada (y supervisor puede corregir aunque esté REALIZADA)
+    const EDITABLE = OT_ESTADO !== 'CANCELADA';
+
+    // ── State ────────────────────────────────────────────────────────────
+    let pasos = [];
+    let resultados = {};   // paso_id → {valor_bool, valor_texto, …}
+    let saveTimer = null;
+
+    // ── Init ─────────────────────────────────────────────────────────────
+    function init() {
+        fetch(CHECKLIST_URL, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status !== 'ok') {
+                document.getElementById('cl-body').innerHTML =
+                    '<div style="padding:16px;color:#bb0000;font-size:13px;">⚠ ' + data.message + '</div>';
+                return;
+            }
+            pasos = data.pasos || [];
+            // Inicializar resultados desde servidor
+            pasos.forEach(p => {
+                if (p.resultado) resultados[p.id] = p.resultado;
+            });
+            render();
+        })
+        .catch(() => {
+            document.getElementById('cl-body').innerHTML =
+                '<div style="padding:16px;color:#bb0000;font-size:13px;">⚠ Error al cargar las actividades.</div>';
+        });
+    }
+
+    // ── Render ───────────────────────────────────────────────────────────
+    function render() {
+        const body = document.getElementById('cl-body');
+        if (!pasos.length) {
+            body.innerHTML = '<div style="padding:24px 16px; text-align:center; color:#6a6d70; font-size:13px;">No hay actividades definidas para esta rutina.</div>';
+            updateProgress(0, 0);
+            return;
+        }
+
+        let html = '';
+        pasos.forEach(p => {
+            if (p.tipo_respuesta === 'HEADER') {
+                html += renderHeader(p);
+            } else {
+                html += renderItem(p);
+            }
+        });
+        body.innerHTML = html;
+        updateProgressFromState();
+    }
+
+    function renderHeader(p) {
+        return `<div class="cl-section-header" id="cl-header-${p.id}">
+            <ion-icon name="folder-open-outline"></ion-icon>
+            <span>${escHtml(p.descripcion)}</span>
+            ${IS_SUP && EDITABLE ? supActionsHtml(p, true) : ''}
+        </div>`;
+    }
+
+    function renderItem(p) {
+        const res   = resultados[p.id] || {};
+        const done  = res.valor_bool === true;
+        const na    = res.no_aplica === true;
+        const hasComment = res.comentarios && res.comentarios.trim();
+
+        const itemClass = ['cl-item', done ? 'cl-done' : '', na ? 'cl-na' : ''].filter(Boolean).join(' ');
+
+        let circleClass = 'cl-check-circle';
+        let circleContent = '<ion-icon name="checkmark-outline"></ion-icon>';
+        if (na) {
+            circleClass += ' na-state';
+            circleContent = 'N/A';
+        } else if (done) {
+            circleClass += ' checked';
+        }
+
+        // Comment area
+        const commentVisible = hasComment ? 'visible' : '';
+        const commentValue   = escHtml(res.comentarios || '');
+
+        // N/A toggle
+        const naBtn = `<button class="cl-comment-toggle" onclick="clToggleNA(${p.id})" title="Marcar como No Aplica"
+                style="color:${na ? '#0070f2' : '#94a3b8'}; font-size:11px;">
+            <ion-icon name="${na ? 'close-circle-outline' : 'remove-circle-outline'}"></ion-icon>
+            ${na ? 'Quitar N/A' : 'N/A'}
+        </button>`;
+
+        const descClass = na ? 'cl-item-desc text-muted' : 'cl-item-desc';
+
+        return `<div class="${itemClass}" id="cl-item-${p.id}">
+            ${EDITABLE ? `<div class="${circleClass}" id="cl-circle-${p.id}" onclick="clToggleCheck(${p.id})">${circleContent}</div>` : `<div class="${circleClass}" id="cl-circle-${p.id}">${circleContent}</div>`}
+            <div class="cl-item-body">
+                <div class="${descClass}" id="cl-desc-${p.id}">${escHtml(p.descripcion)}</div>
+                ${p.verificacion ? `<div style="font-size:11px;color:#6a6d70;margin-bottom:2px;">↳ ${escHtml(p.verificacion)}</div>` : ''}
+                ${EDITABLE ? `
+                <button class="cl-comment-toggle" onclick="clToggleComment(${p.id})">
+                    <ion-icon name="chatbubble-outline"></ion-icon>
+                    ${hasComment ? 'Ver nota' : 'Agregar nota'}
+                </button>
+                ${naBtn}
+                <textarea class="cl-comment-input ${commentVisible}" id="cl-comment-${p.id}"
+                    placeholder="Nota u observación…" rows="2"
+                    onblur="clSavePaso(${p.id})"
+                    onkeyup="clScheduleSave(${p.id})">${commentValue}</textarea>
+                ` : (hasComment ? `<div style="font-size:12px;color:#6a6d70;font-style:italic;margin-top:4px;">${commentValue}</div>` : '')}
+            </div>
+            ${IS_SUP && EDITABLE ? supActionsHtml(p, false) : ''}
+        </div>`;
+    }
+
+    function supActionsHtml(p, isHeader) {
+        return `<div class="cl-sup-actions visible">
+            <button class="cl-sup-btn" onclick="clOpenEditModal(${p.id})" title="Editar">
+                <ion-icon name="pencil-outline"></ion-icon>
+            </button>
+            <button class="cl-sup-btn danger" onclick="clDeleteStep(${p.id})" title="Eliminar">
+                <ion-icon name="trash-outline"></ion-icon>
+            </button>
+        </div>`;
+    }
+
+    // ── Progress ──────────────────────────────────────────────────────────
+    function updateProgressFromState() {
+        const items = pasos.filter(p => p.tipo_respuesta !== 'HEADER');
+        let done = 0;
+        items.forEach(p => {
+            const r = resultados[p.id] || {};
+            if (r.no_aplica || r.valor_bool === true || r.valor_texto || r.valor_numerico != null)
+                done++;
+        });
+        updateProgress(done, items.length);
+    }
+
+    function updateProgress(done, total) {
+        const pct = total > 0 ? Math.round(done / total * 100) : 0;
+        document.getElementById('cl-progress-fill').style.width = pct + '%';
+        document.getElementById('cl-progress-text').textContent = total > 0
+            ? `${done}/${total} (${pct}%)`
+            : '0 actividades';
+        // Cambiar color si completo
+        document.getElementById('cl-progress-fill').style.background =
+            pct === 100 ? '#107e3e' : pct >= 50 ? '#0070f2' : '#e9730c';
+    }
+
+    // ── Toggle Check ──────────────────────────────────────────────────────
+    window.clToggleCheck = function(pasoId) {
+        if (!EDITABLE) return;
+        const r = resultados[pasoId] || {};
+        if (r.no_aplica) return; // no cambia si es N/A
+
+        const newVal = !(r.valor_bool === true);
+        resultados[pasoId] = { ...r, valor_bool: newVal, no_aplica: false };
+        updateCircle(pasoId);
+        updateProgressFromState();
+        clSavePaso(pasoId);
+    };
+
+    window.clToggleNA = function(pasoId) {
+        if (!EDITABLE) return;
+        const r = resultados[pasoId] || {};
+        const newNA = !r.no_aplica;
+        resultados[pasoId] = { ...r, no_aplica: newNA, valor_bool: newNA ? false : r.valor_bool };
+        updateCircle(pasoId);
+
+        // Actualizar clase del item
+        const item = document.getElementById('cl-item-' + pasoId);
+        if (item) {
+            item.classList.toggle('cl-na', newNA);
+            item.classList.toggle('cl-done', !newNA && r.valor_bool === true);
+            // Tachado
+            const desc = document.getElementById('cl-desc-' + pasoId);
+            if (desc) desc.className = 'cl-item-desc' + (newNA ? ' text-muted' : '');
+        }
+        // Botón N/A
+        updateProgressFromState();
+        clSavePaso(pasoId);
+    };
+
+    function updateCircle(pasoId) {
+        const r = resultados[pasoId] || {};
+        const circle = document.getElementById('cl-circle-' + pasoId);
+        if (!circle) return;
+        circle.className = 'cl-check-circle';
+        if (r.no_aplica) {
+            circle.className += ' na-state';
+            circle.innerHTML = 'N/A';
+        } else if (r.valor_bool) {
+            circle.className += ' checked';
+            circle.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon>';
+        } else {
+            circle.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon>';
+        }
+        // Item class
+        const item = document.getElementById('cl-item-' + pasoId);
+        if (item) {
+            item.classList.toggle('cl-done', r.valor_bool === true && !r.no_aplica);
+            item.classList.toggle('cl-na', r.no_aplica === true);
+        }
+    }
+
+    // ── Comment toggle ─────────────────────────────────────────────────
+    window.clToggleComment = function(pasoId) {
+        const area = document.getElementById('cl-comment-' + pasoId);
+        if (!area) return;
+        area.classList.toggle('visible');
+        if (area.classList.contains('visible')) area.focus();
+    };
+
+    // ── Save paso ─────────────────────────────────────────────────────────
+    window.clScheduleSave = function(pasoId) {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => clSavePaso(pasoId), 1500);
+    };
+
+    window.clSavePaso = function(pasoId) {
+        if (!EDITABLE) return;
+        const r = resultados[pasoId] || {};
+        const commentEl = document.getElementById('cl-comment-' + pasoId);
+        const comentario = commentEl ? commentEl.value.trim() : (r.comentarios || '');
+        // Actualizar estado local
+        resultados[pasoId] = { ...r, comentarios: comentario };
+
+        showSaving();
+        fetch(CHECKLIST_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                paso_id: pasoId,
+                valor_bool: resultados[pasoId].valor_bool ?? null,
+                valor_texto: resultados[pasoId].valor_texto || null,
+                valor_numerico: resultados[pasoId].valor_numerico || null,
+                no_aplica: resultados[pasoId].no_aplica ?? false,
+                comentarios: comentario || null,
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            hideSaving();
+            if (data.status === 'ok') {
+                updateProgress(data.completados, data.total);
+            }
+        })
+        .catch(() => hideSaving());
+    };
+
+    // ── Saving indicator ──────────────────────────────────────────────────
+    function showSaving() {
+        const el = document.getElementById('cl-saving-indicator');
+        if (el) el.classList.add('show');
+    }
+    function hideSaving() {
+        setTimeout(() => {
+            const el = document.getElementById('cl-saving-indicator');
+            if (el) el.classList.remove('show');
+        }, 800);
+    }
+
+    // ── Supervisor: Add / Edit / Delete ────────────────────────────────
+    let modalMode = 'add';
+
+    window.clOpenAddModal = function() {
+        if (!IS_SUP) return;
+        modalMode = 'add';
+        document.getElementById('cl-modal-title').textContent = 'Nueva Actividad';
+        document.getElementById('cl-edit-paso-id').value = '';
+        document.getElementById('cl-input-desc').value = '';
+        document.getElementById('cl-input-tipo').value = 'CHECK';
+        document.getElementById('cl-input-verif').value = '';
+        document.getElementById('cl-input-unidad').value = '';
+        document.getElementById('cl-modal').classList.add('active');
+        document.getElementById('cl-input-desc').focus();
+    };
+
+    window.clOpenEditModal = function(pasoId) {
+        if (!IS_SUP) return;
+        const p = pasos.find(x => x.id === pasoId);
+        if (!p) return;
+        modalMode = 'edit';
+        document.getElementById('cl-modal-title').textContent = 'Editar Actividad';
+        document.getElementById('cl-edit-paso-id').value = pasoId;
+        document.getElementById('cl-input-desc').value = p.descripcion;
+        document.getElementById('cl-input-tipo').value = p.tipo_respuesta;
+        document.getElementById('cl-input-verif').value = p.verificacion || '';
+        document.getElementById('cl-input-unidad').value = p.unidad_medida || '';
+        document.getElementById('cl-modal').classList.add('active');
+        document.getElementById('cl-input-desc').focus();
+    };
+
+    window.clCloseModal = function() {
+        document.getElementById('cl-modal').classList.remove('active');
+    };
+
+    window.clSaveStep = function() {
+        if (!IS_SUP) return;
+        const desc = document.getElementById('cl-input-desc').value.trim();
+        if (!desc) {
+            document.getElementById('cl-input-desc').focus();
+            document.getElementById('cl-input-desc').style.borderColor = '#bb0000';
+            return;
+        }
+        document.getElementById('cl-input-desc').style.borderColor = '#d8d8d8';
+
+        const payload = {
+            action: modalMode,
+            descripcion: desc,
+            tipo_respuesta: document.getElementById('cl-input-tipo').value,
+            verificacion: document.getElementById('cl-input-verif').value.trim() || null,
+            unidad_medida: document.getElementById('cl-input-unidad').value.trim() || null,
+        };
+        if (modalMode === 'edit') {
+            payload.paso_id = parseInt(document.getElementById('cl-edit-paso-id').value);
+        }
+
+        showSaving();
+        fetch(SUPERVISOR_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            hideSaving();
+            if (data.status === 'ok') {
+                clCloseModal();
+                init(); // Reload
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(() => { hideSaving(); alert('Error de conexión.'); });
+    };
+
+    window.clDeleteStep = function(pasoId) {
+        if (!IS_SUP) return;
+        if (!confirm('¿Eliminar esta actividad? Los registros de esta tarea en la OT también se perderán.')) return;
+        showSaving();
+        fetch(SUPERVISOR_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ action: 'delete', paso_id: pasoId })
+        })
+        .then(r => r.json())
+        .then(data => {
+            hideSaving();
+            if (data.status === 'ok') init();
+            else alert('Error: ' + data.message);
+        })
+        .catch(() => { hideSaving(); alert('Error de conexión.'); });
+    };
+
+    // ── Utils ────────────────────────────────────────────────────────────
+    function escHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // Close modal on overlay click
+    document.getElementById('cl-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) clCloseModal();
+    });
+
+    // ── Boot ──────────────────────────────────────────────────────────────
+    init();
+})();
+</script>

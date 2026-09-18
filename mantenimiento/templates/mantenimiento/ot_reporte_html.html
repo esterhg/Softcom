@@ -90,7 +90,7 @@ body{font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); fo
                 <div><div class="field-label">Empresa</div><div class="field-value">{{ ot.empresa_responsable|default:"-" }}</div></div>
                 <div><div class="field-label">Inicio Programado</div><div class="field-value">{{ ot.inicio_programado|date:"d/m/Y H:i"|default:"-" }}</div></div>
                 <div><div class="field-label">Fin Programado</div><div class="field-value">{{ ot.fin_programado|date:"d/m/Y H:i"|default:"-" }}</div></div>
-                <div><div class="field-label">Rutina</div><div class="field-value">{{ ot.rutina.nombre|default:"-" }}</div></div>
+                <div><div class="field-label">Rutina / Frecuencia</div><div class="field-value">{{ ot.rutina.nombre|default:"-" }}{% if ot.rutina.frecuencia %} <span style="font-size:0.72rem; color:#0070f2; font-weight:700; background:#eff6ff; padding:1px 6px; border-radius:2px;">{{ ot.rutina.frecuencia.nombre }}</span>{% endif %}</div></div>
             </div>
             {% if ot.descripcion_detallada or ot.notas %}
             <div style="margin-top:12px; border-top:1px solid #f0f0f0; padding-top:10px;">
@@ -160,27 +160,43 @@ body{font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); fo
     {% if pasos %}
     <div class="section">
         <div class="section-header">Checklist de Actividad ({{ pasos|length }} pasos)</div>
-        <div class="section-body">
+        <div class="section-body" style="padding: 0;">
             {% for paso in pasos %}
-            <div class="check-item">
+            {% if paso.tipo_respuesta == 'HEADER' %}
+            <div style="padding: 8px 20px; background: #f0f4f8; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; font-size: 0.72rem; font-weight: 800; color: #354a5f; text-transform: uppercase; letter-spacing: 0.5px;">
+                {{ paso.descripcion }}
+            </div>
+            {% else %}
+            <div class="check-item" style="padding: 8px 20px; {% if paso.resultado and paso.resultado.valor_bool %}background:#f0fdf4;{% elif paso.resultado and paso.resultado.no_aplica %}background:#f9fafb; opacity:0.7;{% endif %}">
                 <span class="check-num">{{ paso.orden }}</span>
-                <span class="check-desc">{{ paso.descripcion }}</span>
+                <span class="check-desc">{{ paso.descripcion }}
+                    {% if paso.resultado and paso.resultado.comentarios %}
+                    <div style="font-size:0.72rem; color:#6a6d70; font-style:italic; margin-top:2px;">↳ {{ paso.resultado.comentarios }}</div>
+                    {% endif %}
+                </span>
                 <span class="check-result">
                     {% if paso.resultado %}
-                        {% if paso.tipo_respuesta == 'CHECK' %}
-                            {% if paso.resultado.valor_bool %}✅ Conforme{% else %}❌{% endif %}
+                        {% if paso.resultado.no_aplica %}
+                            <span style="color:#94a3b8; font-size:0.72rem; font-weight:700;">N/A</span>
+                        {% elif paso.tipo_respuesta == 'CHECK' %}
+                            {% if paso.resultado.valor_bool %}
+                                <span style="color:#107e3e;">✅ Realizado</span>
+                            {% else %}
+                                <span style="color:#bb0000;">❌ No Realizado</span>
+                            {% endif %}
                         {% elif paso.tipo_respuesta == 'NUMERICO' or paso.tipo_respuesta == 'MEDICION' %}
-                            {{ paso.resultado.valor_numerico|default:"-" }} {{ paso.unidad_medida|default:"" }}
+                            <strong>{{ paso.resultado.valor_numerico|default:"-" }}</strong> {{ paso.unidad_medida|default:"" }}
                         {% elif paso.tipo_respuesta == 'TEXTO' %}
-                            {{ paso.resultado.valor_texto|default:"-"|truncatechars:30 }}
+                            {{ paso.resultado.valor_texto|default:"-" }}
                         {% else %}
                             —
                         {% endif %}
                     {% else %}
-                        <span style="color:#94a3b8;">Sin registro</span>
+                        <span style="color:#cbd5e1; font-size:0.72rem;">Sin registro</span>
                     {% endif %}
                 </span>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
     </div>

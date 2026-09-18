@@ -82,7 +82,12 @@ def mobile_ot_detalle(request, pk):
     empresas = Empresa.objects.filter(activo=True).order_by('nombre')
     
     is_gerente = request.user.groups.filter(name='Gerentes').exists() or request.user.is_superuser
-    
+    # Supervisores (grupo Supervisor o Gerentes) pueden gestionar el checklist
+    is_supervisor_checklist = (
+        is_gerente
+        or request.user.groups.filter(name='Supervisor').exists()
+    )
+
     ubicaciones = None
     if not ot.ubicacion:
         ubicaciones = Ubicacion.objects.filter(padre__isnull=True).order_by('nombre')
@@ -93,6 +98,7 @@ def mobile_ot_detalle(request, pk):
         'personales': personales,
         'empresas': empresas,
         'is_gerente': is_gerente,
+        'is_supervisor': is_supervisor_checklist,
         'ubicaciones': ubicaciones,
         'resultados': ot.resultados_checklist.select_related('paso').order_by('paso__orden'),
         'colaboradores_ids': list(ot.colaboradores_puesto.values_list('id', flat=True)),
@@ -1379,3 +1385,237 @@ def mobile_ot_whatsapp_webhook(request, pk):
             pass
 
     return JsonResponse({'status': 'success', 'message': 'Notificaciones enviadas (Web Push + n8n)'})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CHECKLIST DE ACTIVIDADES – API endpoints
+# ──────────────────────────────────────────────────────────────────────────────
+
+@staff_member_required
+def mobile_checklist_api(request, pk):
+    """
+    GET  → devuelve los pasos de la rutina con sus resultados actuales.
+    POST → guarda/actualiza un ValorPasoOrden individual (un paso a la vez).
+    
+    Solo técnicos asignados y supervisores/gerentes pueden interactuar.
+    """
+    import json
+    ot = get_object_or_404(
+        OrdenTrabajo.objects.select_related('rutina__frecuencia'),
+        pk=pk
+    )
+
+    is_supervisor = (
+        request.user.is_superuser
+        or request.user.groups.filter(name__in=['Supervisor', 'Gerentes']).exists()
+        or request.user.is_staff
+    )
+    is_tecnico_asignado = (
+        request.user == ot.tecnico
+        or ot.tecnicos.filter(pk=request.user.pk).exists()
+        or (hasattr(request.user, 'perfil_tecnico') and request.user.perfil_tecnico == ot.tecnico_puesto)
+    )
+
+    if not (is_supervisor or is_tecnico_asignado):
+        return JsonResponse({'status': 'error', 'message': 'Sin permiso para este checklist.'}, status=403)
+
+    if not ot.rutina:
+        return JsonResponse({'status': 'error', 'message': 'Esta OT no tiene rutina asociada.'}, status=400)
+
+    # ── GET ──────────────────────────────────────────────────────────────────
+    if request.method == 'GET':
+        pasos_qs = ot.rutina.pasos.order_by('orden')
+        resultados = {r.paso_id: r for r in ot.resultados_checklist.all()}
+
+        pasos_data = []
+        for p in pasos_qs:
+            res = resultados.get(p.id)
+            pasos_data.append({
+                'id': p.id,
+                'orden': p.orden,
+                'descripcion': p.descripcion,
+                'tipo_respuesta': p.tipo_respuesta,
+                'verificacion': p.verificacion or '',
+                'unidad_medida': p.unidad_medida or '',
+                'valor_objetivo': p.valor_objetivo,
+                'rango_min': p.rango_min,
+                'rango_max': p.rango_max,
+                # resultado actual
+                'resultado': {
+                    'valor_texto': res.valor_texto if res else None,
+                    'valor_numerico': res.valor_numerico if res else None,
+                    'valor_bool': res.valor_bool if res else None,
+                    'no_aplica': res.no_aplica if res else False,
+                    'comentarios': res.comentarios if res else '',
+                    'capturado_por': res.capturado_por.get_full_name() if res and res.capturado_por else '',
+                } if res else None,
+            })
+
+        return JsonResponse({
+            'status': 'ok',
+            'ot_estado': ot.estado,
+            'frecuencia': ot.rutina.frecuencia.nombre if ot.rutina.frecuencia else '',
+            'pasos': pasos_data,
+            'is_supervisor': is_supervisor,
+        })
+
+    # ── POST ─────────────────────────────────────────────────────────────────
+    if request.method == 'POST':
+        # OT debe estar en ejecución o ya realizada (supervisor corrige)
+        if ot.estado not in ('EJECUCION', 'REALIZADA', 'PROGRAMADA', 'ESPERA'):
+            return JsonResponse({'status': 'error', 'message': 'Estado de OT no permite edición.'}, status=400)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
+
+        paso_id = data.get('paso_id')
+        if not paso_id:
+            return JsonResponse({'status': 'error', 'message': 'paso_id requerido.'}, status=400)
+
+        paso = get_object_or_404(PasoRutina, pk=paso_id, rutina=ot.rutina)
+
+        valor_bool_raw = data.get('valor_bool')
+        no_aplica = bool(data.get('no_aplica', False))
+
+        # Convertir valor_bool: acepta bool o string 'true'/'false'/'realizado'
+        if isinstance(valor_bool_raw, bool):
+            valor_bool = valor_bool_raw
+        elif isinstance(valor_bool_raw, str):
+            valor_bool = valor_bool_raw.lower() in ('true', '1', 'realizado', 'si', 'sí')
+        else:
+            valor_bool = None
+
+        valor_numerico_raw = data.get('valor_numerico')
+        try:
+            valor_numerico = float(valor_numerico_raw) if valor_numerico_raw not in (None, '') else None
+        except (ValueError, TypeError):
+            valor_numerico = None
+
+        defaults = {
+            'valor_texto': data.get('valor_texto') or None,
+            'valor_numerico': valor_numerico,
+            'valor_bool': valor_bool,
+            'no_aplica': no_aplica,
+            'comentarios': data.get('comentarios') or None,
+            'capturado_por': request.user,
+        }
+
+        obj, created = ValorPasoOrden.objects.update_or_create(
+            orden_trabajo=ot,
+            paso=paso,
+            defaults=defaults,
+        )
+
+        # Calcular progreso
+        total_pasos = ot.rutina.pasos.exclude(tipo_respuesta='HEADER').count()
+        completados = ot.resultados_checklist.filter(no_aplica=False).exclude(
+            valor_bool=None, valor_texto=None, valor_numerico=None
+        ).count()
+        completados += ot.resultados_checklist.filter(no_aplica=True).count()
+
+        return JsonResponse({
+            'status': 'ok',
+            'created': created,
+            'progreso': round((completados / total_pasos * 100) if total_pasos else 0),
+            'completados': completados,
+            'total': total_pasos,
+        })
+
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
+
+@staff_member_required
+def mobile_checklist_supervisor_api(request, pk):
+    """
+    Gestión de pasos de rutina para supervisores.
+    Solo grupos Supervisor / Gerentes / superuser pueden llamar este endpoint.
+
+    POST action='add'    → crea un PasoRutina nuevo en la rutina de esta OT.
+    POST action='edit'   → edita un PasoRutina existente.
+    POST action='delete' → elimina un PasoRutina (y sus ValorPasoOrden).
+    POST action='reorder'→ reordena todos los pasos.
+    """
+    import json
+
+    is_supervisor = (
+        request.user.is_superuser
+        or request.user.groups.filter(name__in=['Supervisor', 'Gerentes']).exists()
+    )
+    if not is_supervisor:
+        return JsonResponse({'status': 'error', 'message': 'Solo supervisores pueden gestionar actividades.'}, status=403)
+
+    ot = get_object_or_404(OrdenTrabajo.objects.select_related('rutina'), pk=pk)
+    if not ot.rutina:
+        return JsonResponse({'status': 'error', 'message': 'Esta OT no tiene rutina asociada.'}, status=400)
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
+
+    action = data.get('action')
+
+    # ── ADD ──────────────────────────────────────────────────────────────────
+    if action == 'add':
+        descripcion = (data.get('descripcion') or '').strip()
+        if not descripcion:
+            return JsonResponse({'status': 'error', 'message': 'La descripción es obligatoria.'}, status=400)
+
+        tipo = data.get('tipo_respuesta', 'CHECK')
+        if tipo not in dict(PasoRutina.TIPO_RESPUESTA_CHOICES):
+            tipo = 'CHECK'
+
+        # Calcular siguiente orden
+        max_orden = ot.rutina.pasos.order_by('-orden').values_list('orden', flat=True).first() or 0
+
+        paso = PasoRutina.objects.create(
+            rutina=ot.rutina,
+            descripcion=descripcion,
+            tipo_respuesta=tipo,
+            orden=max_orden + 10,
+            verificacion=data.get('verificacion') or None,
+            unidad_medida=data.get('unidad_medida') or None,
+        )
+        return JsonResponse({'status': 'ok', 'paso_id': paso.id, 'orden': paso.orden})
+
+    # ── EDIT ─────────────────────────────────────────────────────────────────
+    elif action == 'edit':
+        paso_id = data.get('paso_id')
+        paso = get_object_or_404(PasoRutina, pk=paso_id, rutina=ot.rutina)
+
+        descripcion = (data.get('descripcion') or '').strip()
+        if descripcion:
+            paso.descripcion = descripcion
+
+        tipo = data.get('tipo_respuesta')
+        if tipo and tipo in dict(PasoRutina.TIPO_RESPUESTA_CHOICES):
+            paso.tipo_respuesta = tipo
+
+        if 'verificacion' in data:
+            paso.verificacion = data['verificacion'] or None
+        if 'unidad_medida' in data:
+            paso.unidad_medida = data['unidad_medida'] or None
+
+        paso.save()
+        return JsonResponse({'status': 'ok', 'paso_id': paso.id})
+
+    # ── DELETE ────────────────────────────────────────────────────────────────
+    elif action == 'delete':
+        paso_id = data.get('paso_id')
+        paso = get_object_or_404(PasoRutina, pk=paso_id, rutina=ot.rutina)
+        paso.delete()
+        return JsonResponse({'status': 'ok'})
+
+    # ── REORDER ───────────────────────────────────────────────────────────────
+    elif action == 'reorder':
+        orden_list = data.get('orden', [])  # [{id: X, orden: Y}, ...]
+        for item in orden_list:
+            PasoRutina.objects.filter(pk=item['id'], rutina=ot.rutina).update(orden=item['orden'])
+        return JsonResponse({'status': 'ok'})
+
+    return JsonResponse({'status': 'error', 'message': 'Acción no reconocida.'}, status=400)

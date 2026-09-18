@@ -529,45 +529,9 @@
             </div>
         </div>
 
-        <!-- Results Section (Visible only if OT is realized or in execution) -->
-        {% if resultados %}
-        <div class="fiori-card">
-            <div class="card-header" style="background: rgba(16, 126, 62, 0.05);">
-                <ion-icon name="list-done-outline" style="color: #107e3e;"></ion-icon>
-                <h2 style="color: #107e3e;">Resultados del Checklist</h2>
-            </div>
-            <div class="card-content" style="padding: 0;">
-                {% for res in resultados %}
-                <div style="padding: 12px 16px; border-bottom: 1px solid var(--sap-border-color); display: flex; flex-direction: column; gap: 4px;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <span style="font-size: 13px; font-weight: 600; color: var(--sap-text-color);">{{ res.paso.descripcion }}</span>
-                        {% if res.no_aplica %}
-                        <span class="tag" style="background: #f2f2f2; color: #6a6d70;">N/A</span>
-                        {% else %}
-                            {% if res.paso.tipo_respuesta == 'CHECK' %}
-                                {% if res.valor_bool %}
-                                <ion-icon name="checkmark-circle" style="color: #107e3e; font-size: 18px;"></ion-icon>
-                                {% else %}
-                                <ion-icon name="close-circle" style="color: #e52929; font-size: 18px;"></ion-icon>
-                                {% endif %}
-                            {% elif res.paso.tipo_respuesta == 'NUMERICO' or res.paso.tipo_respuesta == 'MEDICION' %}
-                            <span style="font-weight: 700; color: var(--sap-brand-color);">{{ res.valor_numerico|default:"---" }} {{ res.paso.unidad_medida|default:'' }}</span>
-                            {% elif res.paso.tipo_respuesta == 'TEXTO' %}
-                            <span style="font-size: 12px;">{{ res.valor_texto|default:"---" }}</span>
-                            {% elif res.paso.tipo_respuesta == 'FOTO' %}
-                                <ion-icon name="image-outline" style="color: var(--sap-brand-color); font-size: 18px;"></ion-icon>
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                    {% if res.comentarios %}
-                    <div style="font-size: 12px; color: var(--sap-text-muted); font-style: italic; background: #f9f9f9; padding: 4px 8px; border-radius: 4px; border-left: 2px solid #ccc;">
-                        {{ res.comentarios }}
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
+        <!-- Checklist de Actividades (interactivo) -->
+        {% if ot.rutina %}
+        {% include "mantenimiento/partials/checklist_tab.html" %}
         {% endif %}
 
         <!-- Archivos Adjuntos Section -->
