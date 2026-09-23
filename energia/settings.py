@@ -938,9 +938,23 @@ if not DEBUG:
     CELERY_BROKER_CONNECTION_RETRY = True
     CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
 
-# Configuración de Email para Desarrollo
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'notificaciones@energia.com'
+# Configuración de Email
+# Si EMAIL_HOST está definido en el entorno, se usa SMTP real; si no, imprime en consola (desarrollo)
+_EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+if _EMAIL_HOST:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = _EMAIL_HOST
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() not in ('false', '0', 'no')
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'notificaciones@energia.com')
+# Email(s) del equipo de Procura para notificaciones de requisiciones aprobadas
+# Separados por coma si son varios: proc1@empresa.com,proc2@empresa.com
+PROCURA_EMAIL = os.environ.get('PROCURA_EMAIL', '')
 
 # Configuración de autenticación
 LOGIN_URL = '/admin/login/'

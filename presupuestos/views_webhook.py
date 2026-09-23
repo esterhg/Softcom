@@ -140,6 +140,20 @@ def requisicion_webhook_update(request):
                 'message': f'Acción desconocida: "{accion}". Valores válidos: APROBAR, RECHAZAR, DENEGAR, REGISTRAR'
             }, status=400)
         
+        # Idempotencia: si PA envía APROBAR pero ya está AUTORIZADO, responder OK sin error
+        if accion == 'APROBAR' and requisicion.estado_requisicion == 'AUTORIZADO':
+            logger.info(f"Webhook idempotente: requisición {numero_requisicion} ya estaba AUTORIZADO, ignorando duplicado.")
+            return JsonResponse({
+                'success': True,
+                'message': f'La requisición {numero_requisicion} ya se encontraba autorizada.',
+                'data': {
+                    'numero_requisicion': numero_requisicion,
+                    'estado_nuevo': 'AUTORIZADO',
+                    'accion': accion,
+                    'idempotente': True,
+                }
+            }, status=200)
+
         # Verificar que la requisición esté en un estado que permita aprobación/rechazo
         if requisicion.estado_requisicion not in ['BORRADOR', 'PENDIENTE', 'EN_REVISION']:
             logger.warning(f"Intento de actualizar requisición {numero_requisicion} en estado {requisicion.estado_requisicion}")
