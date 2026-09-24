@@ -46,6 +46,7 @@ COPY --from=builder /root/.cache/ms-playwright/ /root/.cache/ms-playwright/
 RUN mkdir -p /app/media /app/staticfiles
 
 # Código fuente — única capa que cambia en CADA deploy
+# build: 2026-09-24
 COPY . /app/
 
 # Pre-compilar archivos .py a bytecode para arranque más rápido
