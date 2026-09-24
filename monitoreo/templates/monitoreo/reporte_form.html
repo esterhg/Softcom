@@ -1,50 +1,97 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}Monitoreo de Elevadores{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
 <style>
-  /* ── Print / Imagen ── */
-  @media print {
-    .no-print { display: none !important; }
-    .mon-card { box-shadow: none !important; border: 1px solid #ccc !important; }
-    body { background: #fff !important; }
-  }
+/* ══ Sección grupo ══════════════════════════════════════════ */
+.grp { background:#fff; border:1px solid #d9d9d9; border-radius:.5rem;
+       margin-bottom:1rem; overflow:hidden;
+       box-shadow:0 1px 4px rgba(0,0,0,.07); }
+.grp-header { background:#0070f2; color:#fff; padding:.55rem 1rem;
+              font-size:.87rem; font-weight:700; letter-spacing:.02em;
+              display:flex; align-items:center; justify-content:space-between; }
+.grp-header .cnt { font-size:.77rem; font-weight:400; display:flex; gap:.6rem; }
+.badge-ok  { background:rgba(255,255,255,.22); border-radius:10px; padding:1px 8px; }
+.badge-nov { background:rgba(255,80,80,.35);   border-radius:10px; padding:1px 8px; }
 
-  /* ── Tabla de elevadores ── */
-  #tabla-elevadores th, #tabla-elevadores td { vertical-align: middle; }
-  #tabla-elevadores .col-op    { width: 72px; text-align: center; }
-  #tabla-elevadores .col-elev  { min-width: 160px; }
-  #tabla-elevadores .col-est   { min-width: 150px; }
-  #tabla-elevadores .col-clas  { min-width: 130px; }
-  #tabla-elevadores .col-desc  { min-width: 200px; }
-  #tabla-elevadores .col-del   { width: 42px; text-align: center; }
+/* ══ Grid de tarjetas ═══════════════════════════════════════ */
+.elev-grid { display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+             gap:.6rem; padding:.75rem .9rem; }
 
-  /* ── Fotos ── */
-  #zona-upload {
-    border: 2px dashed #d9d9d9;
-    border-radius: .5rem;
-    padding: 1.2rem 1rem;
-    text-align: center;
-    cursor: pointer;
-    color: #6a6d70;
-    transition: border-color .15s, background .15s;
-    margin-top: .75rem;
-  }
-  #zona-upload:hover, #zona-upload.over {
-    border-color: #0070f2; background: #eff6ff; color: #0070f2;
-  }
+/* ══ Tarjeta elevador ═══════════════════════════════════════ */
+.ec { border:2px solid #86efac; border-radius:.45rem; background:#f0fdf4;
+      cursor:pointer; transition:border-color .12s, box-shadow .12s;
+      user-select:none; }
+.ec:hover { box-shadow:0 2px 8px rgba(0,0,0,.1); }
+.ec.nov   { border-color:#fca5a5; background:#fff5f5; }
 
-  /* ── Restablecer todos ── */
-  .btn-reset-row {
-    background: none; border: none; cursor: pointer;
-    color: #0070f2; font-size: .78rem; padding: .2rem .4rem;
-    transition: color .15s;
-  }
-  .btn-reset-row:hover { color: #bb0000; }
+.ec-top { padding:.5rem .65rem .4rem;
+          display:flex; align-items:center; gap:.45rem; }
+.ec-dot { width:18px; height:18px; border-radius:50%;
+          background:#16a34a; display:flex; align-items:center;
+          justify-content:center; font-size:.65rem; color:#fff;
+          flex-shrink:0; transition:background .12s; }
+.ec.nov .ec-dot { background:#dc2626; }
+.ec-name { font-weight:700; font-size:.9rem; color:#32363a; flex:1; }
+.ec-lbl  { font-size:.68rem; font-weight:600; padding:.12rem .45rem;
+           border-radius:8px; white-space:nowrap; margin-left:auto; }
+.lbl-ok  { background:#dcfce7; color:#166534; }
+.lbl-fs  { background:#fee2e2; color:#991b1b; }
+.lbl-mt  { background:#fef3c7; color:#92400e; }
+.lbl-fp  { background:#fef9c3; color:#713f12; }
+
+/* ══ Panel de novedad ═══════════════════════════════════════ */
+.ec-panel { display:none; padding:.5rem .65rem .6rem;
+            border-top:1px solid #fca5a5; background:#fffbfb;
+            flex-direction:column; gap:.35rem; }
+.ec.nov .ec-panel { display:flex; }
+.ec-panel label { font-size:.69rem; font-weight:700; color:#6a6d70;
+                  text-transform:uppercase; letter-spacing:.03em; }
+.ec-panel select, .ec-panel textarea {
+  width:100%; border:1px solid #d9d9d9; border-radius:4px;
+  padding:.28rem .4rem; font-size:.78rem; font-family:inherit;
+  background:#fff; color:#32363a; }
+.ec-panel select:focus, .ec-panel textarea:focus {
+  outline:none; border-color:#0070f2;
+  box-shadow:0 0 0 2px rgba(0,112,242,.12); }
+.ec-panel textarea { min-height:52px; resize:vertical; }
+
+/* ══ Fotos ══════════════════════════════════════════════════ */
+#zona-up { border:2px dashed #d9d9d9; border-radius:.5rem;
+           padding:1.1rem; text-align:center; cursor:pointer;
+           color:#6a6d70; transition:border-color .14s,background .14s;
+           margin-top:.65rem; }
+#zona-up:hover,#zona-up.over { border-color:#0070f2; background:#eff6ff; color:#0070f2; }
+.fp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr));
+           gap:.55rem; margin-top:.6rem; }
+.fp-item { border:1px solid #d9d9d9; border-radius:.35rem;
+           overflow:hidden; position:relative; }
+.fp-item img { width:100%; height:88px; object-fit:cover; display:block; }
+.fp-cap { padding:.22rem .38rem; border-top:1px solid #eee; background:#fafafa; }
+.fp-cap input { width:100%; border:none; background:transparent;
+                font-size:.71rem; font-family:inherit; color:#32363a; }
+.fp-del { position:absolute; top:.25rem; right:.25rem;
+          background:rgba(187,0,0,.85); color:#fff; border:none;
+          border-radius:50%; width:19px; height:19px; cursor:pointer;
+          display:flex; align-items:center; justify-content:center;
+          font-size:.58rem; }
+.fp-del:hover { background:#950000; }
+
+/* ══ Spinner ════════════════════════════════════════════════ */
+#ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+      z-index:9999; align-items:center; justify-content:center; }
+#ov.show { display:flex; }
+.ov-box { background:#fff; border-radius:.7rem; padding:1.75rem 2.25rem;
+          text-align:center; box-shadow:0 8px 32px rgba(0,0,0,.2); }
+.ov-ring { width:44px; height:44px; border:4px solid #e0e0e0;
+           border-top-color:#0070f2; border-radius:50%;
+           animation:spin .8s linear infinite; margin:0 auto .65rem; }
+@keyframes spin { to { transform:rotate(360deg); } }
 </style>
 {% endblock %}
 
@@ -55,405 +102,378 @@
   <div class="mon-breadcrumb">
     <a href="/"><i class="fas fa-home"></i> Inicio</a> ›
     <a href="{% url 'monitoreo:reportes_lista' %}">Monitoreo de Elevadores</a> ›
-    <span>{{ title }}</span>
+    <span>{% if modo == 'editar' %}Editar Reporte #{{ reporte.pk }}{% else %}Nuevo Reporte{% endif %}</span>
   </div>
 
   <!-- Page Header -->
   <div class="mon-page-header">
     <div>
-      <div style="font-size:.8rem;color:#6a6d70;font-weight:500;text-transform:uppercase;letter-spacing:.05em;">
+      <div style="font-size:.73rem;color:#6a6d70;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.1rem;">
         Operaciones › Mantenimiento
       </div>
-      <h1 style="margin:.15rem 0 0;">
+      <h1 style="margin:0;">
         <i class="fas fa-elevator" style="color:#0070f2;margin-right:.45rem;"></i>Monitoreo de Elevadores
       </h1>
     </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+      <span id="resumen-global" style="font-size:.82rem;color:#6a6d70;"></span>
       <a href="{% url 'monitoreo:historial_reportes' %}" class="mon-btn mon-btn-secondary" target="_blank">
-        <i class="fas fa-history"></i> Todos los reportes
+        <i class="fas fa-history"></i> Historial
       </a>
     </div>
   </div>
 
-  <form method="post" enctype="multipart/form-data" id="form-reporte" novalidate>
+  <form method="post" enctype="multipart/form-data" id="form-rpt" novalidate>
     {% csrf_token %}
 
-    <!-- ══════════════════════════════════════════════════════
-         SECCIÓN 1 — Datos del reporte
-    ══════════════════════════════════════════════════════ -->
+    <!-- ══ Datos del reporte ══════════════════════════════════ -->
     <div class="mon-card">
       <div class="mon-card-header">
         <h2 class="mon-card-title">
           <i class="fas fa-info-circle" style="color:#0070f2;margin-right:.4rem;"></i>Datos del reporte
         </h2>
       </div>
-
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
-
-        <!-- Supervisor OCC -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9rem;">
         <div class="mon-form-group">
-          <label for="supervisor_manual">Supervisor OCC</label>
-          <input type="text" name="supervisor_manual" id="supervisor_manual"
-                 class="mon-form-control"
+          <label>Supervisor OCC</label>
+          <input type="text" name="supervisor_manual" class="mon-form-control"
                  value="{{ reporte.supervisor_nombre_manual|default:'' }}"
                  placeholder="Nombre del supervisor">
         </div>
-
-        <!-- Fecha y hora -->
         <div class="mon-form-group">
-          <label for="fecha_hora">Fecha y hora del reporte</label>
-          <input type="datetime-local" name="fecha_hora" id="fecha_hora"
-                 class="mon-form-control"
-                 value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}"
-                 required>
+          <label>Fecha y hora</label>
+          <input type="datetime-local" name="fecha_hora" class="mon-form-control"
+                 value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}" required>
         </div>
-
-        <!-- Técnico responsable -->
         <div class="mon-form-group">
-          <label for="tecnico_manual">Técnico responsable</label>
-          <input type="text" name="tecnico_manual" id="tecnico_manual"
-                 class="mon-form-control"
+          <label>Técnico responsable</label>
+          <input type="text" name="tecnico_manual" class="mon-form-control"
                  value="{{ reporte.tecnico_nombre_manual|default:'' }}"
                  placeholder="Nombre del técnico">
         </div>
-
-        <!-- Estado -->
         <div class="mon-form-group">
-          <label for="estado">Estado del reporte</label>
-          <select name="estado" id="estado" class="mon-form-control">
+          <label>Estado</label>
+          <select name="estado" class="mon-form-control">
             <option value="borrador"  {% if not reporte or reporte.estado == 'borrador' %}selected{% endif %}>Borrador</option>
             <option value="enviado"   {% if reporte and reporte.estado == 'enviado' %}selected{% endif %}>Enviado</option>
             <option value="archivado" {% if reporte and reporte.estado == 'archivado' %}selected{% endif %}>Archivado</option>
           </select>
         </div>
-
       </div>
-
-      <!-- Observaciones generales -->
-      <div class="mon-form-group" style="margin-top:.25rem;">
-        <label for="observaciones_generales">Observaciones generales</label>
-        <textarea name="observaciones_generales" id="observaciones_generales"
-                  class="mon-form-control" rows="3"
-                  placeholder="Observaciones generales del turno…">{{ reporte.observaciones_generales|default:'' }}</textarea>
+      <div class="mon-form-group" style="margin-top:.2rem;">
+        <label>Observaciones generales</label>
+        <textarea name="observaciones_generales" class="mon-form-control" rows="2"
+                  placeholder="Observaciones del turno…">{{ reporte.observaciones_generales|default:'' }}</textarea>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════
-         SECCIÓN 2 — Tabla de elevadores
-    ══════════════════════════════════════════════════════ -->
-    <div class="mon-card">
-      <div class="mon-card-header">
-        <h2 class="mon-card-title">
-          <i class="fas fa-table" style="color:#0070f2;margin-right:.4rem;"></i>Estado de elevadores
-        </h2>
-        <div style="display:flex;gap:.5rem;align-items:center;">
-          <button type="button" class="mon-btn mon-btn-ghost mon-btn-sm" onclick="restablecerTodos()" title="Restablecer todos a Operativo">
-            <i class="fas fa-undo"></i> Restablecer todos
-          </button>
-          <button type="button" class="mon-btn mon-btn-secondary mon-btn-sm" onclick="agregarFila()">
-            <i class="fas fa-plus"></i> Agregar fila
-          </button>
+    <!-- ══ Elevadores por grupo ═══════════════════════════════ -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;flex-wrap:wrap;gap:.5rem;">
+      <h2 style="margin:0;font-size:1rem;font-weight:700;color:#32363a;">
+        <i class="fas fa-elevator" style="color:#0070f2;margin-right:.4rem;"></i>Estado de elevadores
+      </h2>
+      <button type="button" class="mon-btn mon-btn-secondary mon-btn-sm" onclick="resetAll()">
+        <i class="fas fa-undo"></i> Restablecer todos
+      </button>
+    </div>
+
+    {% for grupo_nombre, elevs in grupos_elevadores.items %}
+    <div class="grp" data-grp="{{ forloop.counter }}">
+      <div class="grp-header">
+        <span><i class="fas fa-building" style="opacity:.8;margin-right:.4rem;"></i>{{ grupo_nombre }}</span>
+        <div class="cnt">
+          <span class="badge-ok">✓ <span class="c-ok">{{ elevs|length }}</span> ok</span>
+          <span class="badge-nov" style="display:none;">⚠ <span class="c-nov">0</span> novedad</span>
         </div>
       </div>
+      <div class="elev-grid">
+        {% for elev in elevs %}
+        {% with fila=filas_dict|default_if_none:'' %}
+        <div class="ec{% if filas_dict and elev.pk in filas_dict and filas_dict|dictsort:elev.pk %} {% endif %}"
+             id="ec-{{ elev.pk }}"
+             data-eid="{{ elev.pk }}"
+             data-grp="{{ forloop.parentloop.counter }}"
+             onclick="toggle({{ elev.pk }},this)">
 
-      <div class="mon-table-wrapper">
-        <table class="mon-table" id="tabla-elevadores">
-          <thead>
-            <tr>
-              <th class="col-op">Operativo</th>
-              <th class="col-elev">Elevador</th>
-              <th class="col-est">Estado</th>
-              <th class="col-clas">Clasificación</th>
-              <th class="col-desc">Descripción de la novedad</th>
-              <th class="col-del no-print"></th>
-            </tr>
-          </thead>
-          <tbody id="tbody-elevadores">
-            {# Las filas se inyectan por JS al cargar #}
-          </tbody>
-        </table>
+          {# Inputs enviados al POST #}
+          <input type="hidden" name="elevador_id[]"        value="{{ elev.pk }}">
+          <input type="hidden" name="estado[]"             value="operativo" id="st-{{ elev.pk }}">
+          <input type="hidden" name="clasificacion[]"      value=""          id="cl-{{ elev.pk }}">
+          <input type="hidden" name="descripcion_novedad[]" value=""         id="dn-{{ elev.pk }}">
+
+          <div class="ec-top">
+            <div class="ec-dot"><i class="fas fa-check"></i></div>
+            <span class="ec-name">{{ elev.nombre }}</span>
+            <span class="ec-lbl lbl-ok" id="lb-{{ elev.pk }}">OK</span>
+          </div>
+
+          <!-- Panel novedad -->
+          <div class="ec-panel" onclick="event.stopPropagation()">
+            <label>Estado</label>
+            <select id="esel-{{ elev.pk }}"
+                    onchange="onEstado({{ elev.pk }},this.value)">
+              <option value="fuera_servicio">Fuera de Servicio</option>
+              <option value="en_mantenimiento">En Mantenimiento</option>
+              <option value="falla_parcial">Falla Parcial</option>
+            </select>
+            <label style="margin-top:.3rem;">Clasificación</label>
+            <select onchange="document.getElementById('cl-{{ elev.pk }}').value=this.value"
+                    id="csel-{{ elev.pk }}">
+              <option value="">—</option>
+              <option value="mecanica">Mecánica</option>
+              <option value="electrica">Eléctrica</option>
+              <option value="electronica">Electrónica</option>
+              <option value="hidraulica">Hidráulica</option>
+              <option value="externa">Externa</option>
+              <option value="n_a">N/A</option>
+            </select>
+            <label style="margin-top:.3rem;">Descripción</label>
+            <textarea id="ta-{{ elev.pk }}"
+                      placeholder="¿Qué ocurrió?…"
+                      oninput="document.getElementById('dn-{{ elev.pk }}').value=this.value"></textarea>
+          </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
       </div>
     </div>
+    {% empty %}
+    <div class="mon-empty" style="background:#fff;border:1px solid #d9d9d9;border-radius:.5rem;padding:2rem;">
+      <i class="fas fa-elevator" style="font-size:2rem;color:#d9d9d9;display:block;margin-bottom:.5rem;"></i>
+      <p>No hay elevadores registrados. Ejecuta <code>python manage.py migrate</code> para cargarlos.</p>
+    </div>
+    {% endfor %}
 
-    <!-- ══════════════════════════════════════════════════════
-         SECCIÓN 3 — Fotos anexas
-    ══════════════════════════════════════════════════════ -->
-    <div class="mon-card">
+    <!-- ══ Fotos anexas ════════════════════════════════════════ -->
+    <div class="mon-card" style="margin-top:1rem;">
       <div class="mon-card-header">
         <h2 class="mon-card-title">
-          <i class="fas fa-images" style="color:#0070f2;margin-right:.4rem;"></i>Anexos fotográficos
+          <i class="fas fa-images" style="color:#0070f2;margin-right:.4rem;"></i>Fotos anexas
         </h2>
-        <button type="button" class="mon-btn mon-btn-ghost mon-btn-sm" onclick="quitarTodasFotos()">
+        <button type="button" class="mon-btn mon-btn-ghost mon-btn-sm" onclick="clearAll()">
           <i class="fas fa-times"></i> Quitar todas
         </button>
       </div>
-      <p style="font-size:.8rem;color:#6a6d70;margin-bottom:.75rem;">
-        Las imágenes se agregan al final del reporte como anexos (PDF e imagen).
-        Puedes escribir una descripción para cada una.
+      <p style="font-size:.79rem;color:#6a6d70;margin-bottom:.5rem;">
+        Las fotos aparecen como anexos en el PDF e imagen generada.
       </p>
 
-      <!-- Fotos existentes (modo editar) -->
+      <!-- Fotos existentes en edición -->
       {% if reporte and reporte.fotos.exists %}
-      <div class="mon-fotos-grid" id="grid-existentes">
+      <div class="fp-grid" id="fp-ex">
         {% for foto in reporte.fotos.all %}
-        <div class="mon-foto-item" id="foto-ex-{{ foto.pk }}">
-          <img src="{{ foto.imagen.url }}" alt="foto">
-          <div class="mon-foto-desc">
-            <input type="text" value="{{ foto.descripcion }}" placeholder="Descripción…" class="inp-desc-ex">
-          </div>
-          <button type="button" class="mon-foto-remove" onclick="marcarEliminar({{ foto.pk }})">
-            <i class="fas fa-times"></i>
-          </button>
-          <input type="hidden" name="fotos_eliminar[]" id="del-{{ foto.pk }}" value="" disabled>
+        <div class="fp-item" id="fex-{{ foto.pk }}">
+          <img src="{{ foto.imagen.url }}" alt="">
+          <div class="fp-cap"><input type="text" value="{{ foto.descripcion }}" placeholder="Descripción…"></div>
+          <button type="button" class="fp-del" onclick="delExisting({{ foto.pk }})">
+            <i class="fas fa-times"></i></button>
+          <input type="hidden" name="fotos_eliminar[]" id="fd-{{ foto.pk }}" value="" disabled>
         </div>
         {% endfor %}
       </div>
       {% endif %}
 
-      <!-- Preview nuevas -->
-      <div class="mon-fotos-grid" id="grid-nuevas"></div>
+      <div class="fp-grid" id="fp-new"></div>
 
-      <!-- Zona drag & drop -->
-      <div id="zona-upload"
-           onclick="document.getElementById('inp-fotos').click()"
+      <div id="zona-up"
+           onclick="document.getElementById('inp-f').click()"
            ondragover="event.preventDefault();this.classList.add('over')"
            ondragleave="this.classList.remove('over')"
            ondrop="onDrop(event)">
-        <i class="fas fa-cloud-upload-alt" style="font-size:1.8rem;display:block;margin-bottom:.4rem;"></i>
+        <i class="fas fa-cloud-upload-alt" style="font-size:1.9rem;display:block;margin-bottom:.35rem;"></i>
         <strong>+ Agregar imágenes</strong>
-        <p style="margin:.3rem 0 0;font-size:.77rem;">
-          Arrastra imágenes aquí o haz clic para seleccionar
-        </p>
+        <p style="margin:.25rem 0 0;font-size:.75rem;">Arrastra aquí o haz clic para seleccionar</p>
       </div>
-      <input type="file" id="inp-fotos" name="fotos_nuevas" multiple accept="image/*"
-             style="display:none;" onchange="previewFotos(this.files)">
+      <input type="file" id="inp-f" name="fotos_nuevas" multiple accept="image/*"
+             style="display:none;" onchange="addPhotos(this.files)">
     </div>
 
-    <!-- Acciones -->
-    <div style="display:flex;gap:.75rem;justify-content:space-between;flex-wrap:wrap;padding-bottom:2rem;">
-      <div style="display:flex;gap:.5rem;">
-        <a href="{% url 'monitoreo:reportes_lista' %}" class="mon-btn mon-btn-secondary no-print">
-          <i class="fas fa-times"></i> Cancelar
-        </a>
-      </div>
+    <!-- ══ Acciones ════════════════════════════════════════════ -->
+    <div style="display:flex;gap:.65rem;justify-content:space-between;
+                flex-wrap:wrap;padding:.75rem 0 2rem;align-items:center;">
+      <a href="{% url 'monitoreo:reportes_lista' %}" class="mon-btn mon-btn-secondary">
+        <i class="fas fa-times"></i> Cancelar
+      </a>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
         {% if modo == 'editar' %}
-        <a href="{% url 'monitoreo:reporte_pdf' reporte.pk %}" class="mon-btn mon-btn-secondary no-print" target="_blank">
-          <i class="fas fa-file-pdf" style="color:#bb0000;"></i> Descargar PDF
+        <a href="{% url 'monitoreo:reporte_pdf' reporte.pk %}"
+           class="mon-btn mon-btn-secondary" target="_blank">
+          <i class="fas fa-file-pdf" style="color:#bb0000;"></i> Ver PDF
         </a>
-        <button type="button" class="mon-btn mon-btn-secondary no-print" onclick="window.print()">
-          <i class="fas fa-image"></i> Descargar imagen
-        </button>
         {% endif %}
-        <button type="submit" class="mon-btn mon-btn-primary">
+        <button type="submit" class="mon-btn mon-btn-primary" onclick="showOv()">
           <i class="fas fa-save"></i>
-          {% if modo == 'editar' %}Guardar cambios{% else %}Guardar reporte{% endif %}
+          {% if modo == 'editar' %}Guardar cambios{% else %}Crear reporte{% endif %}
         </button>
       </div>
     </div>
-
   </form>
 </div>
 
-{# ── Datos prefill (modo edición) ── #}
+<!-- Spinner overlay -->
+<div id="ov">
+  <div class="ov-box">
+    <div class="ov-ring"></div>
+    <div style="font-size:.9rem;font-weight:600;color:#32363a;">Guardando reporte…</div>
+    <div style="font-size:.76rem;color:#6a6d70;margin-top:.3rem;">El PDF se genera en segundo plano.</div>
+  </div>
+</div>
+
+{# ── JSON prefill para modo editar ── #}
 {% if modo == 'editar' and filas_dict %}
-<script id="filas-data" type="application/json">
-[{% for elev_id, fila in filas_dict.items %}{"nombre":"{{ fila.elevador.nombre|escapejs }}","estado":"{{ fila.estado }}","clasificacion":"{{ fila.clasificacion }}","descripcion":"{{ fila.descripcion_novedad|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+<script id="fd" type="application/json">
+{ {% for eid, fila in filas_dict.items %}"{{ eid }}":{"estado":"{{ fila.estado }}","clasif":"{{ fila.clasificacion }}","desc":"{{ fila.descripcion_novedad|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %} }
 </script>
 {% endif %}
 
 <script>
-/* ================================================================
-   Tabla dinámica de elevadores
-================================================================ */
-const ESTADOS = [
-  {v:'operativo',      l:'Operativo'},
-  {v:'sin_novedad',    l:'Sin Novedad'},
-  {v:'falla_parcial',  l:'Falla Parcial'},
-  {v:'en_mantenimiento',l:'En Mantenimiento'},
-  {v:'fuera_servicio', l:'Fuera de Servicio'},
-];
-const CLASIFICACIONES = [
-  {v:'',           l:'—'},
-  {v:'mecanica',   l:'Mecánica'},
-  {v:'electrica',  l:'Eléctrica'},
-  {v:'electronica',l:'Electrónica'},
-  {v:'hidraulica', l:'Hidráulica'},
-  {v:'externa',    l:'Externa'},
-  {v:'n_a',        l:'N/A'},
-];
-const COLORES_ESTADO = {
-  'operativo':        '#dcfce7',
-  'sin_novedad':      '#f1f5f9',
-  'falla_parcial':    '#fef9c3',
-  'en_mantenimiento': '#fef3c7',
-  'fuera_servicio':   '#fee2e2',
+/* ── Etiquetas ── */
+const LBL = {
+  operativo:       {t:'OK',          c:'lbl-ok'},
+  sin_novedad:     {t:'Sin novedad', c:'lbl-ok'},
+  fuera_servicio:  {t:'Fuera serv.', c:'lbl-fs'},
+  en_mantenimiento:{t:'Mant.',       c:'lbl-mt'},
+  falla_parcial:   {t:'Falla',       c:'lbl-fp'},
 };
 
-function buildSelEstado(val) {
-  let s = '<select name="estado[]" class="estado-select" onchange="syncOpCheck(this);colorSelect(this)">';
-  ESTADOS.forEach(e => {
-    s += `<option value="${e.v}"${e.v===val?' selected':''}>${e.l}</option>`;
-  });
-  return s + '</select>';
+function setLbl(eid) {
+  const v = document.getElementById('st-'+eid).value;
+  const l = document.getElementById('lb-'+eid);
+  const i = LBL[v]||{t:'Novedad',c:'lbl-fs'};
+  l.textContent=i.t; l.className='ec-lbl '+i.c;
 }
 
-function buildSelClasif(val) {
-  let s = '<select name="clasificacion[]">';
-  CLASIFICACIONES.forEach(c => {
-    s += `<option value="${c.v}"${c.v===val?' selected':''}>${c.l}</option>`;
-  });
-  return s + '</select>';
-}
-
-function colorSelect(sel) {
-  sel.style.background = COLORES_ESTADO[sel.value] || '#fff';
-}
-
-function syncOpCheck(estadoSel) {
-  const tr = estadoSel.closest('tr');
-  const chk = tr.querySelector('.op-check');
-  if (!chk) return;
-  const op = estadoSel.value === 'operativo' || estadoSel.value === 'sin_novedad';
-  chk.checked = op;
-  chk.style.accentColor = op ? '#107e3e' : '#bb0000';
-}
-
-function onCheckChange(chk) {
-  const tr = chk.closest('tr');
-  const sel = tr.querySelector('.estado-select');
-  if (!sel) return;
-  sel.value = chk.checked ? 'operativo' : 'fuera_servicio';
-  colorSelect(sel);
-}
-
-function crearFila(data) {
-  data = data || {nombre:'', estado:'operativo', clasificacion:'', descripcion:''};
-  const tr = document.createElement('tr');
-  const esOp = data.estado === 'operativo' || data.estado === 'sin_novedad';
-  tr.innerHTML = `
-    <td class="col-op">
-      <input type="checkbox" class="op-check"
-             style="width:18px;height:18px;cursor:pointer;accent-color:${esOp?'#107e3e':'#bb0000'};"
-             ${esOp?'checked':''} onchange="onCheckChange(this)">
-    </td>
-    <td class="col-elev">
-      <input type="text" name="elevador_nombre[]" value="${data.nombre}"
-             placeholder="Nombre del elevador"
-             style="width:100%;border:1px solid #d9d9d9;border-radius:4px;padding:.35rem .5rem;font-size:.84rem;font-family:inherit;">
-    </td>
-    <td class="col-est">${buildSelEstado(data.estado)}</td>
-    <td class="col-clas">${buildSelClasif(data.clasificacion)}</td>
-    <td class="col-desc">
-      <textarea name="descripcion_novedad[]" rows="2"
-                style="width:100%;border:1px solid #d9d9d9;border-radius:4px;padding:.35rem .5rem;font-size:.84rem;font-family:inherit;resize:vertical;"
-                placeholder="Descripción de la novedad…">${data.descripcion}</textarea>
-    </td>
-    <td class="col-del no-print">
-      <button type="button" class="mon-btn mon-btn-danger mon-btn-sm" onclick="this.closest('tr').remove()" title="Eliminar fila">
-        <i class="fas fa-trash"></i>
-      </button>
-    </td>`;
-
-  // Colorear el select de estado
-  setTimeout(() => {
-    const sel = tr.querySelector('.estado-select');
-    if (sel) colorSelect(sel);
-  }, 0);
-
-  return tr;
-}
-
-function agregarFila(data) {
-  document.getElementById('tbody-elevadores').appendChild(crearFila(data));
-}
-
-function restablecerTodos() {
-  document.querySelectorAll('#tbody-elevadores .estado-select').forEach(sel => {
-    sel.value = 'operativo';
-    colorSelect(sel);
-    syncOpCheck(sel);
-  });
-  document.querySelectorAll('#tbody-elevadores textarea').forEach(ta => ta.value = '');
-  document.querySelectorAll('#tbody-elevadores select[name="clasificacion[]"]').forEach(s => s.value = '');
-}
-
-/* ── Inicializar tabla al cargar ── */
-document.addEventListener('DOMContentLoaded', function () {
-  const dataEl = document.getElementById('filas-data');
-  if (dataEl) {
-    // Modo edición: prefill con filas existentes
-    try {
-      const filas = JSON.parse(dataEl.textContent);
-      filas.forEach(f => agregarFila(f));
-    } catch(e) { console.warn('Error parseando filas:', e); }
+/* ── Toggle tarjeta ── */
+function toggle(eid, card) {
+  if (card.classList.contains('ec') && !card.classList.contains('nov')) {
+    // OK → novedad
+    card.classList.add('nov');
+    const sel = document.getElementById('esel-'+eid);
+    onEstado(eid, sel ? sel.value : 'fuera_servicio');
+  } else {
+    // novedad → OK
+    card.classList.remove('nov');
+    document.getElementById('st-'+eid).value = 'operativo';
+    document.getElementById('cl-'+eid).value = '';
+    document.getElementById('dn-'+eid).value = '';
+    const ta = document.getElementById('ta-'+eid);
+    if (ta) ta.value = '';
+    setLbl(eid);
   }
+  updGrp(card.dataset.grp);
+  updGlobal();
+}
 
-  // Si no hay filas (modo crear o sin datos), agregar filas vacías por defecto
-  if (document.getElementById('tbody-elevadores').children.length === 0) {
-    for (let i = 0; i < 5; i++) agregarFila();
-  }
+function onEstado(eid, v) {
+  document.getElementById('st-'+eid).value = v;
+  setLbl(eid);
+}
+
+/* ── Contadores de grupo ── */
+function updGrp(g) {
+  const grp  = document.querySelector('.grp[data-grp="'+g+'"]');
+  if (!grp) return;
+  const total = grp.querySelectorAll('.ec').length;
+  const nov   = grp.querySelectorAll('.ec.nov').length;
+  grp.querySelector('.c-ok').textContent  = total - nov;
+  grp.querySelector('.c-nov').textContent = nov;
+  grp.querySelector('.badge-nov').style.display = nov ? 'inline' : 'none';
+}
+
+function updGlobal() {
+  const total = document.querySelectorAll('.ec').length;
+  const nov   = document.querySelectorAll('.ec.nov').length;
+  document.getElementById('resumen-global').textContent =
+    total + ' elevadores · ' + (total-nov) + ' buen estado · ' + nov + ' con novedad';
+}
+
+/* ── Restablecer todos ── */
+function resetAll() {
+  document.querySelectorAll('.ec.nov').forEach(card => {
+    const eid = card.dataset.eid;
+    card.classList.remove('nov');
+    document.getElementById('st-'+eid).value = 'operativo';
+    document.getElementById('cl-'+eid).value = '';
+    document.getElementById('dn-'+eid).value = '';
+    const ta = document.getElementById('ta-'+eid); if(ta) ta.value='';
+    setLbl(eid);
+  });
+  document.querySelectorAll('.grp').forEach((_,i) => updGrp(i+1));
+  updGlobal();
+}
+
+/* ── Init: prefill edición + contadores ── */
+document.addEventListener('DOMContentLoaded', function() {
+  // Contadores iniciales
+  document.querySelectorAll('.grp').forEach((_,i) => updGrp(i+1));
+  updGlobal();
+
+  // Prefill edición
+  const el = document.getElementById('fd');
+  if (!el) return;
+  let d={};
+  try{d=JSON.parse(el.textContent);}catch(e){return;}
+  Object.entries(d).forEach(([eid,info])=>{
+    if (!info.estado||info.estado==='operativo'||info.estado==='sin_novedad') return;
+    const card=document.getElementById('ec-'+eid);
+    if(!card) return;
+    card.classList.add('nov');
+    document.getElementById('st-'+eid).value=info.estado;
+    document.getElementById('cl-'+eid).value=info.clasif||'';
+    document.getElementById('dn-'+eid).value=info.desc||'';
+    const sel=document.getElementById('esel-'+eid); if(sel) sel.value=info.estado;
+    const csel=document.getElementById('csel-'+eid); if(csel) csel.value=info.clasif||'';
+    const ta=document.getElementById('ta-'+eid); if(ta) ta.value=info.desc||'';
+    setLbl(eid);
+  });
+  document.querySelectorAll('.grp').forEach((_,i) => updGrp(i+1));
+  updGlobal();
 });
 
-/* ================================================================
-   Fotos
-================================================================ */
-let dtAccum = new DataTransfer();
-
-function previewFotos(files) {
-  const grid = document.getElementById('grid-nuevas');
-  Array.from(files).forEach(file => {
-    dtAccum.items.add(file);
-    const idx = dtAccum.files.length - 1;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const div = document.createElement('div');
-      div.className = 'mon-foto-item';
-      div.innerHTML = `
-        <img src="${e.target.result}" alt="">
-        <div class="mon-foto-desc">
-          <input type="text" placeholder="Descripción…"
-                 style="border:none;background:transparent;width:100%;font-size:.75rem;font-family:inherit;">
-        </div>
-        <button type="button" class="mon-foto-remove" onclick="quitarFotaNueva(${idx},this)">
-          <i class="fas fa-times"></i>
-        </button>`;
-      grid.appendChild(div);
+/* ── Fotos ── */
+let dt = new DataTransfer();
+function addPhotos(files) {
+  const grid = document.getElementById('fp-new');
+  Array.from(files).forEach(file=>{
+    dt.items.add(file);
+    const idx = dt.files.length-1;
+    const r=new FileReader();
+    r.onload=e=>{
+      const d=document.createElement('div');
+      d.className='fp-item';
+      d.innerHTML=`<img src="${e.target.result}" alt="">
+        <div class="fp-cap"><input type="text" placeholder="Descripción…"
+          style="border:none;background:transparent;width:100%;font-size:.71rem;font-family:inherit;"></div>
+        <button type="button" class="fp-del" onclick="delNew(${idx},this)">
+          <i class="fas fa-times"></i></button>`;
+      grid.appendChild(d);
     };
-    reader.readAsDataURL(file);
+    r.readAsDataURL(file);
   });
-  document.getElementById('inp-fotos').files = dtAccum.files;
+  document.getElementById('inp-f').files=dt.files;
 }
-
-function quitarFotaNueva(idx, btn) {
-  const newDt = new DataTransfer();
-  Array.from(dtAccum.files).forEach((f,i) => { if(i!==idx) newDt.items.add(f); });
-  dtAccum = newDt;
-  document.getElementById('inp-fotos').files = dtAccum.files;
-  btn.closest('.mon-foto-item').remove();
+function delNew(idx,btn) {
+  const n=new DataTransfer();
+  Array.from(dt.files).forEach((f,i)=>{if(i!==idx)n.items.add(f);});
+  dt=n; document.getElementById('inp-f').files=dt.files;
+  btn.closest('.fp-item').remove();
 }
-
-function quitarTodasFotos() {
-  document.getElementById('grid-nuevas').innerHTML = '';
-  dtAccum = new DataTransfer();
-  document.getElementById('inp-fotos').files = dtAccum.files;
-  document.querySelectorAll('[id^="foto-ex-"]').forEach(el => {
-    const pk = el.id.replace('foto-ex-','');
-    marcarEliminar(pk);
-  });
+function clearAll() {
+  document.getElementById('fp-new').innerHTML='';
+  dt=new DataTransfer(); document.getElementById('inp-f').files=dt.files;
+  document.querySelectorAll('[id^="fex-"]').forEach(el=>{
+    delExisting(el.id.replace('fex-',''));});
 }
-
-function marcarEliminar(pk) {
-  const el = document.getElementById('foto-ex-'+pk);
-  if(el){ el.style.opacity='.3'; el.style.pointerEvents='none'; }
-  const inp = document.getElementById('del-'+pk);
-  if(inp){ inp.value=pk; inp.disabled=false; }
+function delExisting(pk){
+  const el=document.getElementById('fex-'+pk);
+  if(el){el.style.opacity='.3';el.style.pointerEvents='none';}
+  const inp=document.getElementById('fd-'+pk);
+  if(inp){inp.value=pk;inp.disabled=false;}
 }
-
-function onDrop(e) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('over');
-  previewFotos(e.dataTransfer.files);
+function onDrop(e){
+  e.preventDefault();e.currentTarget.classList.remove('over');
+  addPhotos(e.dataTransfer.files);
 }
+function showOv(){ document.getElementById('ov').classList.add('show'); }
 </script>
 {% endblock %}
