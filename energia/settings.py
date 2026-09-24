@@ -246,6 +246,7 @@ INSTALLED_APPS = [
     'courses',
     'invitaciones.apps.InvitacionesConfig',
     'notificaciones.apps.NotificacionesConfig',
+    'monitoreo.apps.MonitoreoConfig',
 ]
 
 

@@ -1,0 +1,139 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Monitoreo de Elevadores{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
+{% endblock %}
+
+{% block content %}
+<div style="padding: 1.25rem 1.5rem; background: var(--fiori-bg, #eff2f5); min-height: calc(100vh - 56px);">
+
+  <!-- Breadcrumb -->
+  <div class="mon-breadcrumb">
+    <a href="/"><i class="fas fa-home"></i> Inicio</a>
+    <span> › </span>
+    <span>Monitoreo</span>
+    <span> › </span>
+    <span>Elevadores</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="mon-page-header">
+    <h1><i class="fas fa-elevator" style="color:#0070f2;margin-right:.45rem;"></i>Monitoreo de Elevadores</h1>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a href="{% url 'monitoreo:historial_reportes' %}" class="mon-btn mon-btn-secondary" target="_blank">
+        <i class="fas fa-history"></i> Todos los reportes
+      </a>
+      <a href="{% url 'monitoreo:reporte_crear' %}" class="mon-btn mon-btn-primary">
+        <i class="fas fa-plus"></i> Nuevo Reporte
+      </a>
+    </div>
+  </div>
+
+  <!-- Toolbar / Búsqueda -->
+  <form method="get" class="mon-toolbar">
+    <div class="mon-search" style="position:relative;">
+      <i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:#aaa;font-size:.8rem;pointer-events:none;"></i>
+      <input
+        type="text"
+        name="q"
+        value="{{ q }}"
+        placeholder="Buscar reportes..."
+        class="mon-form-control"
+        style="padding-left:2rem;"
+      >
+    </div>
+    <button type="submit" class="mon-btn mon-btn-secondary"><i class="fas fa-filter"></i> Filtrar</button>
+    {% if q %}
+      <a href="{% url 'monitoreo:reportes_lista' %}" class="mon-btn mon-btn-ghost"><i class="fas fa-times"></i> Limpiar</a>
+    {% endif %}
+    <span style="margin-left:auto;font-size:.82rem;color:#6a6d70;">{{ total }} reporte{{ total|pluralize }}</span>
+  </form>
+
+  <!-- Listado -->
+  <div class="mon-card" style="padding:0;">
+    {% if page_obj.object_list %}
+      <div class="mon-table-wrapper">
+        <table class="mon-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fecha y hora</th>
+              <th>Supervisor OCC</th>
+              <th>Técnico</th>
+              <th>Elevadores</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rpt in page_obj %}
+            <tr>
+              <td><strong>#{{ rpt.pk }}</strong></td>
+              <td>{{ rpt.fecha_hora|date:"d/m/Y H:i" }}</td>
+              <td>{{ rpt.supervisor_display }}</td>
+              <td>{{ rpt.tecnico_display }}</td>
+              <td>
+                <span style="font-size:.82rem;color:#6a6d70;">
+                  {{ rpt.filas.count }} elevador{{ rpt.filas.count|pluralize }}
+                </span>
+              </td>
+              <td>
+                <span class="badge-estado badge-{{ rpt.estado }}">
+                  {{ rpt.get_estado_display }}
+                </span>
+              </td>
+              <td>
+                <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+                  <a href="{% url 'monitoreo:reporte_detalle' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Ver detalle">
+                    <i class="fas fa-eye"></i>
+                  </a>
+                  <a href="{% url 'monitoreo:reporte_pdf' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="PDF" target="_blank">
+                    <i class="fas fa-file-pdf" style="color:#bb0000;"></i>
+                  </a>
+                  <a href="{% url 'monitoreo:reporte_editar' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Editar">
+                    <i class="fas fa-pencil-alt" style="color:#0070f2;"></i>
+                  </a>
+                  <form method="post" action="{% url 'monitoreo:reporte_eliminar' rpt.pk %}" style="display:inline;" onsubmit="return confirm('¿Eliminar este reporte?');">
+                    {% csrf_token %}
+                    <button type="submit" class="mon-btn mon-btn-danger mon-btn-sm" title="Eliminar">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginación -->
+      {% if page_obj.has_other_pages %}
+      <div style="display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.85rem 1rem;border-top:1px solid #f0f0f0;">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="mon-btn mon-btn-secondary mon-btn-sm"><i class="fas fa-chevron-left"></i></a>
+        {% endif %}
+        <span style="font-size:.83rem;color:#6a6d70;">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="mon-btn mon-btn-secondary mon-btn-sm"><i class="fas fa-chevron-right"></i></a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    {% else %}
+      <div class="mon-empty">
+        <i class="fas fa-elevator"></i>
+        <p>No hay reportes registrados{% if q %} para "<strong>{{ q }}</strong>"{% endif %}.</p>
+        <a href="{% url 'monitoreo:reporte_crear' %}" class="mon-btn mon-btn-primary" style="margin-top:.5rem;">
+          <i class="fas fa-plus"></i> Crear primer reporte
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

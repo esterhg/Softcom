@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reporte de Elevadores #{{ reporte.pk }}</title>
+  <style>
+    @font-face {
+      font-family: 'Artifakt Element';
+      src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Artifakt Element';
+      src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Artifakt Element', 'Segoe UI', Arial, sans-serif;
+      font-size: 10pt;
+      color: #32363a;
+      background: #fff;
+    }
+
+    /* ---- Header institucional ---- */
+    .pdf-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 3px solid #0070f2;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+    .pdf-header-logo img {
+      height: 52px;
+      max-width: 160px;
+      object-fit: contain;
+    }
+    .pdf-header-titles {
+      flex: 1;
+      padding-left: 18px;
+    }
+    .pdf-header-org {
+      font-size: 8pt;
+      color: #6a6d70;
+      margin-bottom: 2px;
+    }
+    .pdf-header-site {
+      font-size: 9pt;
+      font-weight: 700;
+      color: #32363a;
+      margin-bottom: 3px;
+    }
+    .pdf-header-nav {
+      font-size: 8.5pt;
+      color: #6a6d70;
+    }
+    .pdf-header-nav span { color: #0070f2; font-weight: 600; }
+    .pdf-header-right {
+      text-align: right;
+      min-width: 160px;
+    }
+    .pdf-header-docno {
+      font-size: 9pt;
+      font-weight: 700;
+      color: #0070f2;
+    }
+    .pdf-header-date {
+      font-size: 8pt;
+      color: #6a6d70;
+      margin-top: 3px;
+    }
+
+    /* ---- Título de sección ---- */
+    .section-title {
+      background: #0070f2;
+      color: #fff;
+      font-size: 9.5pt;
+      font-weight: 700;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+      margin-top: 14px;
+      border-radius: 2px;
+    }
+    .section-title:first-of-type { margin-top: 0; }
+
+    /* ---- Datos del reporte ---- */
+    .datos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px 14px;
+      margin-bottom: 10px;
+    }
+    .dato-field label {
+      display: block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #6a6d70;
+      margin-bottom: 1px;
+    }
+    .dato-field span {
+      font-size: 9.5pt;
+      color: #32363a;
+    }
+    .observaciones-box {
+      background: #f7f9fc;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      padding: 6px 10px;
+      font-size: 9pt;
+      color: #32363a;
+      white-space: pre-wrap;
+      margin-bottom: 10px;
+    }
+
+    /* ---- Tabla de elevadores ---- */
+    .tabla-elev {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      margin-bottom: 12px;
+    }
+    .tabla-elev th {
+      background: #f0f4f8;
+      color: #32363a;
+      font-weight: 700;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      padding: 5px 8px;
+      border: 1px solid #d9d9d9;
+      text-align: left;
+    }
+    .tabla-elev td {
+      padding: 5px 8px;
+      border: 1px solid #e0e0e0;
+      vertical-align: middle;
+    }
+    .tabla-elev tr:nth-child(even) td { background: #fafafa; }
+
+    /* Badges */
+    .badge-pdf {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 3px;
+      font-size: 8pt;
+      font-weight: 700;
+    }
+    .b-operativo      { background: #dcfce7; color: #166534; }
+    .b-fuera          { background: #fee2e2; color: #991b1b; }
+    .b-mantenimiento  { background: #fef3c7; color: #92400e; }
+    .b-falla          { background: #fef9c3; color: #713f12; }
+    .b-sin-novedad    { background: #f1f5f9; color: #475569; }
+
+    .check-icon { color: #107e3e; font-size: 11pt; }
+    .warn-icon  { color: #bb0000; font-size: 11pt; }
+
+    /* ---- Fotos anexas ---- */
+    .fotos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .foto-item {
+      border: 1px solid #d9d9d9;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .foto-item img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      display: block;
+    }
+    .foto-desc {
+      padding: 3px 6px;
+      font-size: 7.5pt;
+      color: #6a6d70;
+      background: #fafafa;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    /* ---- Footer ---- */
+    .pdf-footer {
+      margin-top: 20px;
+      border-top: 1px solid #d9d9d9;
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #aaa;
+    }
+
+    @media print {
+      body { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="pdf-header">
+    <div class="pdf-header-logo">
+      {% if logo_b64 %}
+        <img src="data:image/png;base64,{{ logo_b64 }}" alt="Logo">
+      {% endif %}
+    </div>
+    <div class="pdf-header-titles">
+      <div class="pdf-header-org">Operadora de Infraestructura de Honduras</div>
+      <div class="pdf-header-site">Centro Cívico Gubernamental</div>
+      <div class="pdf-header-nav">Operaciones › Mantenimiento › <span>Monitoreo de Elevadores</span></div>
+    </div>
+    <div class="pdf-header-right">
+      <div class="pdf-header-docno">Reporte #{{ reporte.pk }}</div>
+      <div class="pdf-header-date">{{ reporte.fecha_hora|date:"d/m/Y H:i" }}</div>
+      <div class="pdf-header-date" style="margin-top:2px;">
+        Estado: <strong>{{ reporte.get_estado_display }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección Datos -->
+  <div class="section-title">Datos del reporte</div>
+  <div class="datos-grid">
+    <div class="dato-field">
+      <label>Supervisor OCC</label>
+      <span>{{ reporte.supervisor_display }}</span>
+    </div>
+    <div class="dato-field">
+      <label>Fecha y hora del reporte</label>
+      <span>{{ reporte.fecha_hora|date:"d/m/Y H:i" }}</span>
+    </div>
+    <div class="dato-field">
+      <label>Técnico responsable</label>
+      <span>{{ reporte.tecnico_display }}</span>
+    </div>
+  </div>
+  {% if reporte.observaciones_generales %}
+  <div style="margin-bottom:6px;"><strong style="font-size:8pt;text-transform:uppercase;color:#6a6d70;">Observaciones generales</strong></div>
+  <div class="observaciones-box">{{ reporte.observaciones_generales }}</div>
+  {% endif %}
+
+  <!-- Tabla de elevadores -->
+  <div class="section-title">Estado de elevadores</div>
+  <table class="tabla-elev">
+    <thead>
+      <tr>
+        <th style="width:28px;">Op.</th>
+        <th>Elevador</th>
+        <th style="width:125px;">Estado</th>
+        <th style="width:100px;">Clasificación</th>
+        <th>Descripción de la novedad</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fila in reporte.filas.all %}
+      <tr>
+        <td style="text-align:center;">
+          {% if fila.estado == 'operativo' or fila.estado == 'sin_novedad' %}
+            <span class="check-icon">✓</span>
+          {% else %}
+            <span class="warn-icon">✕</span>
+          {% endif %}
+        </td>
+        <td>
+          <span style="font-size:7.5pt;color:#6a6d70;">{{ fila.elevador.codigo }}</span><br>
+          <strong>{{ fila.elevador.nombre }}</strong>
+          {% if fila.elevador.ubicacion %}<br><span style="font-size:7.5pt;color:#aaa;">{{ fila.elevador.ubicacion }}</span>{% endif %}
+        </td>
+        <td>
+          {% if fila.estado == 'operativo' %}
+            <span class="badge-pdf b-operativo">Operativo</span>
+          {% elif fila.estado == 'fuera_servicio' %}
+            <span class="badge-pdf b-fuera">Fuera de Servicio</span>
+          {% elif fila.estado == 'en_mantenimiento' %}
+            <span class="badge-pdf b-mantenimiento">En Mantenimiento</span>
+          {% elif fila.estado == 'falla_parcial' %}
+            <span class="badge-pdf b-falla">Falla Parcial</span>
+          {% else %}
+            <span class="badge-pdf b-sin-novedad">Sin Novedad</span>
+          {% endif %}
+        </td>
+        <td>{{ fila.get_clasificacion_display|default:"—" }}</td>
+        <td style="font-size:8.5pt;white-space:pre-wrap;">{{ fila.descripcion_novedad|default:"Sin novedad" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:#aaa;padding:14px;">No se registraron elevadores.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Fotos anexas -->
+  {% if fotos_b64 %}
+  <div class="section-title">Anexos fotográficos</div>
+  <div class="fotos-grid">
+    {% for foto in fotos_b64 %}
+    <div class="foto-item">
+      <img src="data:image/{{ foto.mime }};base64,{{ foto.b64 }}" alt="Foto">
+      {% if foto.descripcion %}
+      <div class="foto-desc">{{ foto.descripcion }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="pdf-footer">
+    <span>SoftCom CCG — Sistema de Gestión de Infraestructura</span>
+    <span>Generado el {{ reporte.creado_en|date:"d/m/Y H:i" }}</span>
+  </div>
+
+</body>
+</html>

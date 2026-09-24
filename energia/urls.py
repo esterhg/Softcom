@@ -129,6 +129,7 @@ urlpatterns = [
     path('consultas/', include('consultas.urls', namespace='consultas')),
     path('invitaciones/', include('invitaciones.urls', namespace='invitaciones')),
     path('notificaciones/', include('notificaciones.urls', namespace='notificaciones')),
+    path('monitoreo/', include('monitoreo.urls', namespace='monitoreo')),
     # complete-registration en la raíz (el link del correo apunta a esta URL)
     path('complete-registration', __import__('invitaciones.views', fromlist=['complete_registration']).complete_registration, name='complete_registration'),
 
