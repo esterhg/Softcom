@@ -626,11 +626,7 @@ def sync_individual_ticket(username, password, company_name, ticket_folio, fecha
                     page.wait_for_timeout(800)
 
                     # Filtrar responsable — usar get_by_placeholder como selector primario
-<<<<<<< HEAD
-                    robot_log("Filtrando por 'soporte'...")
-=======
                     robot_log("Filtrando por 'MAO'...")
->>>>>>> fix/scraper-responsable-mao
                     filtrar_loc = None
                     for loc_fn in [
                         lambda: page.get_by_placeholder("Filtrar"),
