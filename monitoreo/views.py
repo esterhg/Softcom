@@ -407,6 +407,7 @@ def _generar_pdf_bytes(reporte, request):
     from django.conf import settings as django_settings
     from django.template.loader import render_to_string
     from playwright.sync_api import sync_playwright
+    from collections import defaultdict
 
     # Logo en base64
     logo_b64  = ''
@@ -417,27 +418,98 @@ def _generar_pdf_bytes(reporte, request):
         with open(logo_path, 'rb') as f:
             logo_b64 = base64.b64encode(f.read()).decode('utf-8')
 
-    # Fotos en base64
+    # Prefetch filas
+    filas = list(reporte.filas.select_related('elevador').order_by('orden'))
+
+    # Estadísticas
+    novedades_list = [
+        f for f in filas
+        if f.estado not in ('operativo', 'sin_novedad') or f.descripcion_novedad.strip()
+    ]
+    novedades_count = len([f for f in filas if f.estado not in ('operativo', 'sin_novedad')])
+
+    # Grupos por ubicación
+    grupos_dict = defaultdict(list)
+    for fila in filas:
+        ubicacion = fila.elevador.ubicacion or 'Sin ubicación'
+        grupos_dict[ubicacion].append(fila)
+
+    grupos_ubicacion = []
+    for ubicacion, filas_grupo in grupos_dict.items():
+        nombres = ', '.join(f.elevador.nombre for f in filas_grupo)
+        buen_estado = sum(1 for f in filas_grupo if f.estado in ('operativo', 'sin_novedad'))
+        con_novedad_items = [f for f in filas_grupo if f.estado not in ('operativo', 'sin_novedad')]
+        con_novedad = len(con_novedad_items)
+        elevadores_novedad = ', '.join(f.elevador.nombre for f in con_novedad_items) if con_novedad_items else ''
+        grupos_ubicacion.append({
+            'ubicacion': ubicacion,
+            'nombres': nombres,
+            'buen_estado': buen_estado,
+            'con_novedad': con_novedad,
+            'elevadores_novedad': elevadores_novedad,
+        })
+
+    # Fotos en base64 — con referencia al elevador si es foto de novedad
     fotos_b64 = []
-    for foto in reporte.fotos.all():
+
+    # Primero fotos vinculadas a filas con novedad
+    fila_elevadores = {f.elevador.nombre: f for f in novedades_list}
+    fotos_reporte = list(reporte.fotos.select_related('reporte').order_by('subido_en'))
+
+    # Por simplificación: las primeras N fotos las asignamos a los elevadores con novedad
+    fotos_usadas_para_novedad = set()
+    foto_idx_por_elev = {}
+    for i, fila in enumerate(novedades_list):
+        if i < len(fotos_reporte):
+            foto_idx_por_elev[fila.elevador.nombre] = i
+            fotos_usadas_para_novedad.add(i)
+
+    for idx, foto in enumerate(fotos_reporte):
         try:
             foto.imagen.open('rb')
             data = foto.imagen.read()
             foto.imagen.close()
             ext  = os.path.splitext(str(foto.imagen))[-1].lower().strip('.')
             mime = {'jpg': 'jpeg', 'jpeg': 'jpeg', 'png': 'png', 'gif': 'gif', 'webp': 'webp'}.get(ext, 'jpeg')
+
+            # Determinar etiqueta del anexo
+            elev_nombre = None
+            elev_ubicacion = None
+            for nombre, fi in foto_idx_por_elev.items():
+                if fi == idx:
+                    elev_nombre = nombre
+                    fila_match = next((f for f in novedades_list if f.elevador.nombre == nombre), None)
+                    elev_ubicacion = fila_match.elevador.ubicacion if fila_match else ''
+                    break
+
+            if elev_nombre:
+                label = f'{elev_nombre} · {elev_ubicacion} — Foto {idx + 1} de {len(fotos_reporte)}'
+            else:
+                label = f'Evidencia {idx + 1 - len(fotos_usadas_para_novedad)}'
+
             fotos_b64.append({
                 'b64': base64.b64encode(data).decode('utf-8'),
                 'mime': mime,
-                'descripcion': foto.descripcion,
+                'descripcion': foto.descripcion or label,
+                'elevador': elev_nombre or '',
             })
         except Exception as exc:
             logger.warning('No se pudo leer foto %s: %s', foto.pk, exc)
 
+    # Agregar conteo de fotos a las filas de novedades
+    fotos_por_elevador = defaultdict(int)
+    for i, (nombre, fi) in enumerate(foto_idx_por_elev.items()):
+        fotos_por_elevador[nombre] += 1
+    for fila in novedades_list:
+        fila.fotos_count = fotos_por_elevador.get(fila.elevador.nombre, 0)
+
     html_content = render_to_string('monitoreo/reporte_pdf.html', {
-        'reporte':  reporte,
-        'logo_b64': logo_b64,
-        'fotos_b64': fotos_b64,
+        'reporte':          reporte,
+        'logo_b64':         logo_b64,
+        'fotos_b64':        fotos_b64,
+        'novedades_count':  novedades_count,
+        'novedades_list':   novedades_list,
+        'grupos_ubicacion': grupos_ubicacion,
     }, request=request)
 
     with sync_playwright() as p:
@@ -451,7 +523,7 @@ def _generar_pdf_bytes(reporte, request):
         pdf_bytes = page.pdf(
             format='A4',
             print_background=True,
-            margin={'top': '15mm', 'bottom': '15mm', 'left': '12mm', 'right': '12mm'},
+            margin={'top': '12mm', 'bottom': '12mm', 'left': '12mm', 'right': '12mm'},
         )
         browser.close()
 

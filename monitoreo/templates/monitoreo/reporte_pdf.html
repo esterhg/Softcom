@@ -2,320 +2,444 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Reporte de Elevadores #{{ reporte.pk }}</title>
+  <title>Reporte de Monitoreo de Elevadores</title>
   <style>
     @font-face {
       font-family: 'Artifakt Element';
       src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
       font-weight: 400;
-      font-style: normal;
     }
-    @font-face {
-      font-family: 'Artifakt Element';
-      src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
-      font-weight: 700;
-      font-style: normal;
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: 'Artifakt Element', 'Segoe UI', Arial, sans-serif;
-      font-size: 10pt;
-      color: #32363a;
+      font-size: 9.5pt;
+      color: #1a1a1a;
       background: #fff;
     }
 
-    /* ---- Header institucional ---- */
+    /* ── Header institucional ── */
     .pdf-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      border-bottom: 3px solid #0070f2;
-      padding-bottom: 10px;
-      margin-bottom: 16px;
+      display: table;
+      width: 100%;
+      border: 1.5px solid #999;
+      border-collapse: collapse;
+      margin-bottom: 14px;
     }
-    .pdf-header-logo img {
-      height: 52px;
-      max-width: 160px;
-      object-fit: contain;
+    .pdf-header-logo {
+      display: table-cell;
+      width: 110px;
+      border-right: 1.5px solid #999;
+      padding: 8px 10px;
+      vertical-align: middle;
+      text-align: center;
     }
-    .pdf-header-titles {
-      flex: 1;
-      padding-left: 18px;
+    .pdf-header-logo img { height: 54px; max-width: 100px; }
+    .pdf-header-middle {
+      display: table-cell;
+      vertical-align: top;
+      border-right: 1.5px solid #999;
     }
-    .pdf-header-org {
-      font-size: 8pt;
-      color: #6a6d70;
-      margin-bottom: 2px;
-    }
-    .pdf-header-site {
-      font-size: 9pt;
-      font-weight: 700;
-      color: #32363a;
-      margin-bottom: 3px;
-    }
-    .pdf-header-nav {
-      font-size: 8.5pt;
-      color: #6a6d70;
-    }
-    .pdf-header-nav span { color: #0070f2; font-weight: 600; }
-    .pdf-header-right {
-      text-align: right;
-      min-width: 160px;
-    }
-    .pdf-header-docno {
-      font-size: 9pt;
-      font-weight: 700;
-      color: #0070f2;
-    }
-    .pdf-header-date {
-      font-size: 8pt;
-      color: #6a6d70;
-      margin-top: 3px;
-    }
-
-    /* ---- Título de sección ---- */
-    .section-title {
-      background: #0070f2;
+    .pdf-header-middle .org-name {
+      background: #1a1a1a;
       color: #fff;
-      font-size: 9.5pt;
+      font-size: 10pt;
       font-weight: 700;
-      padding: 4px 10px;
-      margin-bottom: 10px;
-      margin-top: 14px;
-      border-radius: 2px;
+      text-align: center;
+      padding: 5px 10px;
+      border-bottom: 1.5px solid #999;
+      letter-spacing: .02em;
     }
-    .section-title:first-of-type { margin-top: 0; }
-
-    /* ---- Datos del reporte ---- */
-    .datos-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px 14px;
-      margin-bottom: 10px;
-    }
-    .dato-field label {
-      display: block;
-      font-size: 7.5pt;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      color: #6a6d70;
-      margin-bottom: 1px;
-    }
-    .dato-field span {
-      font-size: 9.5pt;
-      color: #32363a;
-    }
-    .observaciones-box {
-      background: #f7f9fc;
-      border: 1px solid #e0e0e0;
-      border-radius: 3px;
-      padding: 6px 10px;
-      font-size: 9pt;
-      color: #32363a;
-      white-space: pre-wrap;
-      margin-bottom: 10px;
-    }
-
-    /* ---- Tabla de elevadores ---- */
-    .tabla-elev {
+    .pdf-header-meta {
+      display: table;
       width: 100%;
       border-collapse: collapse;
-      font-size: 9pt;
-      margin-bottom: 12px;
     }
-    .tabla-elev th {
-      background: #f0f4f8;
-      color: #32363a;
-      font-weight: 700;
-      font-size: 8pt;
-      text-transform: uppercase;
-      letter-spacing: .03em;
-      padding: 5px 8px;
-      border: 1px solid #d9d9d9;
-      text-align: left;
-    }
-    .tabla-elev td {
-      padding: 5px 8px;
-      border: 1px solid #e0e0e0;
+    .pdf-header-meta td {
+      padding: 4px 10px;
+      border-bottom: 1px solid #ddd;
+      font-size: 8.5pt;
       vertical-align: middle;
     }
-    .tabla-elev tr:nth-child(even) td { background: #fafafa; }
-
-    /* Badges */
-    .badge-pdf {
-      display: inline-block;
-      padding: 1px 7px;
-      border-radius: 3px;
+    .pdf-header-meta td:first-child { font-weight: 700; width: 42%; border-right: 1px solid #ddd; }
+    .pdf-header-meta tr:last-child td { border-bottom: none; }
+    .pdf-header-right {
+      display: table-cell;
+      width: 140px;
+      vertical-align: top;
+    }
+    .pdf-header-right .correlativo-box {
+      background: #f5f5f5;
+      border-bottom: 1px solid #ddd;
+      padding: 5px 8px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-align: center;
+    }
+    .pdf-header-right .correlativo-val {
+      color: #cc0000;
       font-size: 8pt;
       font-weight: 700;
+      text-align: center;
+      display: block;
+      margin-top: 2px;
     }
-    .b-operativo      { background: #dcfce7; color: #166534; }
-    .b-fuera          { background: #fee2e2; color: #991b1b; }
-    .b-mantenimiento  { background: #fef3c7; color: #92400e; }
-    .b-falla          { background: #fef9c3; color: #713f12; }
-    .b-sin-novedad    { background: #f1f5f9; color: #475569; }
+    .pdf-header-right .fecha-hora {
+      display: table;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .pdf-header-right .fecha-hora td {
+      padding: 4px 8px;
+      font-size: 8.5pt;
+      border-bottom: 1px solid #ddd;
+      vertical-align: middle;
+    }
+    .pdf-header-right .fecha-hora td:first-child { font-weight: 700; border-right: 1px solid #ddd; }
 
-    .check-icon { color: #107e3e; font-size: 11pt; }
-    .warn-icon  { color: #bb0000; font-size: 11pt; }
+    /* ── Sección título ── */
+    .section-header {
+      background: #2d2d2d;
+      color: #fff;
+      font-size: 10pt;
+      font-weight: 700;
+      text-align: center;
+      padding: 5px 10px;
+      letter-spacing: .05em;
+      margin-bottom: 0;
+    }
 
-    /* ---- Fotos anexas ---- */
+    /* ── Tabla de datos (info general) ── */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #999;
+      margin-bottom: 14px;
+    }
+    .info-table td {
+      padding: 5px 10px;
+      border: 1px solid #c0c0c0;
+      font-size: 9pt;
+      vertical-align: middle;
+    }
+    .info-table td.lbl { font-weight: 700; background: #f5f5f5; width: 18%; }
+    .info-table td.val { width: 32%; }
+
+    /* ── Tabla de resumen por ubicación ── */
+    .resumen-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #999;
+      margin-bottom: 14px;
+    }
+    .resumen-table th {
+      background: #2d2d2d;
+      color: #fff;
+      font-size: 8.5pt;
+      font-weight: 700;
+      padding: 5px 8px;
+      border: 1px solid #555;
+      text-align: center;
+    }
+    .resumen-table td {
+      padding: 4px 8px;
+      border: 1px solid #c0c0c0;
+      font-size: 8.5pt;
+      vertical-align: middle;
+    }
+    .resumen-table tr:nth-child(even) td { background: #f9f9f9; }
+    .resumen-table td.td-elev { font-size: 8pt; color: #333; }
+    .resumen-table td.td-num { text-align: center; }
+    .resumen-table td.td-novedad { text-align: center; color: #cc0000; font-weight: 700; }
+
+    /* ── Tabla de novedades ── */
+    .novedades-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #999;
+      margin-bottom: 14px;
+    }
+    .novedades-table th {
+      background: #2d2d2d;
+      color: #fff;
+      font-size: 8.5pt;
+      font-weight: 700;
+      padding: 5px 8px;
+      border: 1px solid #555;
+      text-align: left;
+    }
+    .novedades-table td {
+      padding: 5px 8px;
+      border: 1px solid #c0c0c0;
+      font-size: 9pt;
+      vertical-align: top;
+    }
+    .novedades-table tr:nth-child(even) td { background: #fafafa; }
+    .estado-badge {
+      font-weight: 700;
+      font-size: 8.5pt;
+    }
+    .estado-mantenimiento { color: #e9730c; }
+    .estado-fuera         { color: #bb0000; }
+    .estado-falla         { color: #d97706; }
+    .estado-operativo     { color: #107e3e; }
+
+    /* ── Fotos – página de anexos ── */
+    .fotos-page { page-break-before: always; }
+    .fotos-header {
+      background: #2d2d2d;
+      color: #fff;
+      font-size: 10pt;
+      font-weight: 700;
+      text-align: center;
+      padding: 6px 10px;
+      letter-spacing: .05em;
+      margin-bottom: 12px;
+    }
     .fotos-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-top: 8px;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
     }
-    .foto-item {
-      border: 1px solid #d9d9d9;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .foto-item img {
+    .foto-box { border: 1px solid #ccc; }
+    .foto-box img {
       width: 100%;
-      height: 120px;
+      height: 210px;
       object-fit: cover;
       display: block;
     }
-    .foto-desc {
-      padding: 3px 6px;
+    .foto-caption {
+      padding: 4px 8px;
       font-size: 7.5pt;
-      color: #6a6d70;
-      background: #fafafa;
-      border-top: 1px solid #e0e0e0;
+      color: #333;
+      background: #f5f5f5;
+      border-top: 1px solid #ddd;
+      font-weight: 600;
     }
 
-    /* ---- Footer ---- */
+    /* ── Footer ── */
     .pdf-footer {
-      margin-top: 20px;
-      border-top: 1px solid #d9d9d9;
-      padding-top: 8px;
+      margin-top: 16px;
+      border-top: 1px solid #ccc;
+      padding-top: 6px;
       display: flex;
       justify-content: space-between;
-      font-size: 7.5pt;
-      color: #aaa;
+      font-size: 7pt;
+      color: #888;
     }
 
-    @media print {
-      body { margin: 0; }
-    }
+    @media print { body { margin: 0; } }
   </style>
 </head>
 <body>
 
-  <!-- Header -->
+{% with filas_novedad=reporte.filas.all %}
+{% with fecha=reporte.fecha_hora %}
+
+{# ── Calcular estadísticas ── #}
+{% with total_elevadores=reporte.filas.count %}
+
+{# ── PÁGINA 1 ── #}
+
+{# Header institucional #}
+<div class="pdf-header">
+  <div class="pdf-header-logo">
+    {% if logo_b64 %}
+    <img src="data:image/png;base64,{{ logo_b64 }}" alt="OCC">
+    {% endif %}
+  </div>
+  <div class="pdf-header-middle">
+    <div class="org-name">OPERADORA DE INFRAESTRUCTURA DE HONDURAS,<br>S.A. DE C.V.</div>
+    <table class="pdf-header-meta">
+      <tr>
+        <td>Título del Documento:</td>
+        <td>Reporte de Monitoreo de Elevadores</td>
+      </tr>
+      <tr>
+        <td>Proyecto:</td>
+        <td>Centro Cívico Gubernamental</td>
+      </tr>
+    </table>
+  </div>
+  <div class="pdf-header-right">
+    <div class="correlativo-box">
+      Correlativo:
+      <span class="correlativo-val">ME-{{ fecha|date:"Ymd" }}-{{ fecha|date:"Hi" }}</span>
+    </div>
+    <table class="fecha-hora">
+      <tr>
+        <td>Fecha:</td><td>{{ fecha|date:"d/m/Y" }}</td>
+      </tr>
+      <tr>
+        <td>Hora:</td><td>{{ fecha|date:"H:i" }}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+{# Título principal #}
+<div class="section-header">MONITOREO DE ELEVADORES</div>
+
+{# Info del reporte #}
+<table class="info-table" style="margin-top:0;">
+  <tr>
+    <td class="lbl">Supervisor OCC:</td>
+    <td class="val">{{ reporte.supervisor_display }}</td>
+    <td class="lbl">Técnico responsable:</td>
+    <td class="val">{{ reporte.tecnico_display }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Total elevadores:</td>
+    <td class="val">{{ total_elevadores }}</td>
+    <td class="lbl">Buen estado:</td>
+    <td class="val">
+      {% with bs=0 %}
+      {% for f in reporte.filas.all %}{% if f.estado == 'operativo' or f.estado == 'sin_novedad' %}{{ forloop.counter }}{% endif %}{% endfor %}
+      {% comment %}Usamos JS-like counting via template{% endcomment %}
+      {{ reporte.filas.all|length }}
+      {% endwith %}
+    </td>
+  </tr>
+  <tr>
+    <td class="lbl">Con novedad:</td>
+    <td class="val" colspan="3">
+      {% with cnt=0 %}
+      {% for f in reporte.filas.all %}{% if f.estado != 'operativo' and f.estado != 'sin_novedad' %}{% if forloop.first %}{% endif %}{% endif %}{% endfor %}
+      {# Calculado en la vista #}
+      {{ novedades_count }}
+      {% endwith %}
+    </td>
+  </tr>
+</table>
+
+{# Resumen por ubicación #}
+{% if grupos_ubicacion %}
+<div class="section-header">RESUMEN POR UBICACIÓN</div>
+<table class="resumen-table">
+  <thead>
+    <tr>
+      <th style="width:20%;">Ubicación</th>
+      <th>Elevadores</th>
+      <th style="width:14%;">Buen estado</th>
+      <th style="width:14%;">Con novedad</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for grupo in grupos_ubicacion %}
+    <tr>
+      <td>{{ grupo.ubicacion }}</td>
+      <td class="td-elev">{{ grupo.nombres }}</td>
+      <td class="td-num">{{ grupo.buen_estado }}</td>
+      <td class="td-novedad">{% if grupo.con_novedad > 0 %}{{ grupo.elevadores_novedad }}{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# Novedades registradas #}
+{% if novedades_list %}
+<div class="section-header">NOVEDADES REGISTRADAS</div>
+<table class="novedades-table">
+  <thead>
+    <tr>
+      <th style="width:12%;">Elevador</th>
+      <th style="width:18%;">Ubicación</th>
+      <th style="width:18%;">Estado</th>
+      <th>Descripción</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for nov in novedades_list %}
+    <tr>
+      <td><strong>{{ nov.elevador.nombre }}</strong></td>
+      <td>{{ nov.elevador.ubicacion|default:"—" }}</td>
+      <td>
+        <span class="estado-badge
+          {% if nov.estado == 'en_mantenimiento' %}estado-mantenimiento
+          {% elif nov.estado == 'fuera_servicio' %}estado-fuera
+          {% elif nov.estado == 'falla_parcial' %}estado-falla
+          {% else %}estado-operativo{% endif %}">
+          {{ nov.get_estado_display }}
+        </span>
+        {% if nov.fotos_count > 0 %}
+        <br><span style="font-size:7.5pt;color:#666;">{{ nov.fotos_count }} foto(s) en anexos</span>
+        {% endif %}
+      </td>
+      <td style="white-space:pre-wrap;">{{ nov.descripcion_novedad|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if fotos_b64 %}
+<p style="font-size:8pt;color:#333;margin-top:4px;">
+  <strong>Anexos:</strong> {{ fotos_b64|length }} imagen(es) adjunta(s) en las páginas siguientes.
+</p>
+{% endif %}
+
+<div class="pdf-footer">
+  <span>SoftCom CCG — Sistema de Gestión de Infraestructura</span>
+  <span>Generado el {{ reporte.creado_en|date:"d/m/Y H:i" }}</span>
+</div>
+
+{# ── PÁGINA 2+: ANEXOS FOTOGRÁFICOS ── #}
+{% if fotos_b64 %}
+<div class="fotos-page">
+
+  {# Repetir header en la página de anexos #}
   <div class="pdf-header">
     <div class="pdf-header-logo">
       {% if logo_b64 %}
-        <img src="data:image/png;base64,{{ logo_b64 }}" alt="Logo">
+      <img src="data:image/png;base64,{{ logo_b64 }}" alt="OCC">
       {% endif %}
     </div>
-    <div class="pdf-header-titles">
-      <div class="pdf-header-org">Operadora de Infraestructura de Honduras</div>
-      <div class="pdf-header-site">Centro Cívico Gubernamental</div>
-      <div class="pdf-header-nav">Operaciones › Mantenimiento › <span>Monitoreo de Elevadores</span></div>
+    <div class="pdf-header-middle">
+      <div class="org-name">OPERADORA DE INFRAESTRUCTURA DE HONDURAS,<br>S.A. DE C.V.</div>
+      <table class="pdf-header-meta">
+        <tr>
+          <td>Título del Documento:</td>
+          <td>Reporte de Monitoreo de Elevadores</td>
+        </tr>
+        <tr>
+          <td>Proyecto:</td>
+          <td>Centro Cívico Gubernamental</td>
+        </tr>
+      </table>
     </div>
     <div class="pdf-header-right">
-      <div class="pdf-header-docno">Reporte #{{ reporte.pk }}</div>
-      <div class="pdf-header-date">{{ reporte.fecha_hora|date:"d/m/Y H:i" }}</div>
-      <div class="pdf-header-date" style="margin-top:2px;">
-        Estado: <strong>{{ reporte.get_estado_display }}</strong>
+      <div class="correlativo-box">
+        Correlativo:
+        <span class="correlativo-val">ME-{{ fecha|date:"Ymd" }}-{{ fecha|date:"Hi" }}</span>
       </div>
+      <table class="fecha-hora">
+        <tr><td>Fecha:</td><td>{{ fecha|date:"d/m/Y" }}</td></tr>
+        <tr><td>Hora:</td><td>{{ fecha|date:"H:i" }}</td></tr>
+      </table>
     </div>
   </div>
 
-  <!-- Sección Datos -->
-  <div class="section-title">Datos del reporte</div>
-  <div class="datos-grid">
-    <div class="dato-field">
-      <label>Supervisor OCC</label>
-      <span>{{ reporte.supervisor_display }}</span>
-    </div>
-    <div class="dato-field">
-      <label>Fecha y hora del reporte</label>
-      <span>{{ reporte.fecha_hora|date:"d/m/Y H:i" }}</span>
-    </div>
-    <div class="dato-field">
-      <label>Técnico responsable</label>
-      <span>{{ reporte.tecnico_display }}</span>
-    </div>
-  </div>
-  {% if reporte.observaciones_generales %}
-  <div style="margin-bottom:6px;"><strong style="font-size:8pt;text-transform:uppercase;color:#6a6d70;">Observaciones generales</strong></div>
-  <div class="observaciones-box">{{ reporte.observaciones_generales }}</div>
-  {% endif %}
+  <div class="fotos-header">ANEXOS FOTOGRÁFICOS</div>
 
-  <!-- Tabla de elevadores -->
-  <div class="section-title">Estado de elevadores</div>
-  <table class="tabla-elev">
-    <thead>
-      <tr>
-        <th style="width:28px;">Op.</th>
-        <th>Elevador</th>
-        <th style="width:125px;">Estado</th>
-        <th style="width:100px;">Clasificación</th>
-        <th>Descripción de la novedad</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for fila in reporte.filas.all %}
-      <tr>
-        <td style="text-align:center;">
-          {% if fila.estado == 'operativo' or fila.estado == 'sin_novedad' %}
-            <span class="check-icon">✓</span>
-          {% else %}
-            <span class="warn-icon">✕</span>
-          {% endif %}
-        </td>
-        <td>
-          <span style="font-size:7.5pt;color:#6a6d70;">{{ fila.elevador.codigo }}</span><br>
-          <strong>{{ fila.elevador.nombre }}</strong>
-          {% if fila.elevador.ubicacion %}<br><span style="font-size:7.5pt;color:#aaa;">{{ fila.elevador.ubicacion }}</span>{% endif %}
-        </td>
-        <td>
-          {% if fila.estado == 'operativo' %}
-            <span class="badge-pdf b-operativo">Operativo</span>
-          {% elif fila.estado == 'fuera_servicio' %}
-            <span class="badge-pdf b-fuera">Fuera de Servicio</span>
-          {% elif fila.estado == 'en_mantenimiento' %}
-            <span class="badge-pdf b-mantenimiento">En Mantenimiento</span>
-          {% elif fila.estado == 'falla_parcial' %}
-            <span class="badge-pdf b-falla">Falla Parcial</span>
-          {% else %}
-            <span class="badge-pdf b-sin-novedad">Sin Novedad</span>
-          {% endif %}
-        </td>
-        <td>{{ fila.get_clasificacion_display|default:"—" }}</td>
-        <td style="font-size:8.5pt;white-space:pre-wrap;">{{ fila.descripcion_novedad|default:"Sin novedad" }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5" style="text-align:center;color:#aaa;padding:14px;">No se registraron elevadores.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <!-- Fotos anexas -->
-  {% if fotos_b64 %}
-  <div class="section-title">Anexos fotográficos</div>
   <div class="fotos-grid">
     {% for foto in fotos_b64 %}
-    <div class="foto-item">
-      <img src="data:image/{{ foto.mime }};base64,{{ foto.b64 }}" alt="Foto">
-      {% if foto.descripcion %}
-      <div class="foto-desc">{{ foto.descripcion }}</div>
-      {% endif %}
+    <div class="foto-box">
+      <img src="data:image/{{ foto.mime }};base64,{{ foto.b64 }}" alt="Anexo {{ forloop.counter }}">
+      <div class="foto-caption">
+        Anexo {{ forloop.counter }}
+        {% if foto.elevador %} · {{ foto.elevador }}{% endif %}
+        {% if foto.descripcion %} · {{ foto.descripcion }}{% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>
-  {% endif %}
 
-  <!-- Footer -->
-  <div class="pdf-footer">
-    <span>SoftCom CCG — Sistema de Gestión de Infraestructura</span>
-    <span>Generado el {{ reporte.creado_en|date:"d/m/Y H:i" }}</span>
-  </div>
+</div>
+{% endif %}
+
+{% endwith %}
+{% endwith %}
+{% endwith %}
 
 </body>
 </html>
