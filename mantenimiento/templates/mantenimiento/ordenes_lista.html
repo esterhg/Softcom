@@ -253,6 +253,13 @@
         </div>
         <div style="display:flex; gap:8px;">
             <a href="/admin/mantenimiento/ordentrabajo/fiori-completa-page/new/" target="_blank" class="fiori-btn" style="background:var(--fiori-blue); color:white; border-color:var(--fiori-blue);">+ Nueva OT</a>
+            <a id="btn-export-excel"
+               href="/mantenimiento/ordenes/export-excel/?{{ request.GET.urlencode }}"
+               class="fiori-btn"
+               style="background:#107e3e; color:white; border-color:#107e3e;"
+               title="Descargar todas las órdenes con los filtros activos">
+                📥 Descargar Excel
+            </a>
             <a href="/mantenimiento/" class="fiori-btn">← Dashboard</a>
         </div>
     </div>

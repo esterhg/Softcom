@@ -16,6 +16,7 @@ app_name = 'mantenimiento'
 urlpatterns = [
     path('', views.mantenimiento_dashboard, name='dashboard'),
     path('ordenes/', views.ordenes_lista_view, name='ordenes_lista'),
+    path('ordenes/export-excel/', views.export_ordenes_excel, name='ordenes_export_excel'),
     path('ordenes/bulk-delete/', views.ordenes_bulk_delete, name='ordenes_bulk_delete'),
     path('ordenes/bulk-status/', views.ordenes_bulk_status, name='ordenes_bulk_status'),
     path('ordenes/<int:pk>/reporte/', views.ot_reporte_html, name='ot_reporte_html'),

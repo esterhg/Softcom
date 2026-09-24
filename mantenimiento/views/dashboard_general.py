@@ -351,3 +351,219 @@ def ot_reporte_html(request, pk):
         'colaboradores': ot.colaboradores_puesto.all(),
     }
     return render(request, 'mantenimiento/ot_reporte_html.html', context)
+
+
+@staff_member_required
+def export_ordenes_excel(request):
+    """
+    Descarga un archivo Excel con todas las órdenes de trabajo que coincidan
+    con los filtros activos del listado (/mantenimiento/ordenes/).
+    Los parámetros GET son los mismos que ordenes_lista_view.
+    """
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from django.http import HttpResponse
+    from django.db.models import Q
+    from django.utils import timezone
+    from datetime import datetime as dt
+
+    # ── Replicar los filtros del listado ──────────────────────────────────────
+    q         = request.GET.get('q', '')
+    estado    = request.GET.get('estado', '')
+    tipo      = request.GET.get('tipo', '')
+    prioridad = request.GET.get('prioridad', '')
+    rutina_id = request.GET.get('rutina', '').split(',')[0].strip()
+    if rutina_id and not rutina_id.isdigit():
+        rutina_id = ''
+
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+
+    def _valid_date(s):
+        try:
+            p = dt.strptime(s, '%Y-%m-%d')
+            return s if p.year >= 2020 else ''
+        except (ValueError, TypeError):
+            return ''
+
+    fecha_desde = _valid_date(fecha_desde)
+    fecha_hasta = _valid_date(fecha_hasta)
+
+    ordenes = OrdenTrabajo.objects.select_related(
+        'rutina', 'ubicacion', 'tecnico_puesto', 'empresa_responsable', 'cierre'
+    ).prefetch_related('activos').order_by('-inicio_programado')
+
+    if q:
+        ordenes = ordenes.filter(
+            Q(codigo_de_orden__icontains=q) |
+            Q(descripcion_corta__icontains=q) |
+            Q(descripcion_detallada__icontains=q) |
+            Q(rutina__nombre__icontains=q) |
+            Q(ubicacion__nombre__icontains=q)
+        )
+    if estado:
+        ordenes = ordenes.filter(estado=estado)
+    if tipo:
+        ordenes = ordenes.filter(tipo=tipo)
+    if prioridad:
+        ordenes = ordenes.filter(prioridad=prioridad)
+    if rutina_id:
+        ordenes = ordenes.filter(rutina_id=rutina_id)
+    if fecha_desde:
+        ordenes = ordenes.filter(inicio_programado__date__gte=fecha_desde)
+    if fecha_hasta:
+        ordenes = ordenes.filter(inicio_programado__date__lte=fecha_hasta)
+
+    # ── Crear el workbook ─────────────────────────────────────────────────────
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Órdenes de Trabajo"
+
+    # Estilos
+    header_fill   = PatternFill("solid", fgColor="354A5F")   # azul shell SAP
+    header_font   = Font(name="Calibri", bold=True, color="FFFFFF", size=10)
+    header_align  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    cell_align    = Alignment(vertical="center", wrap_text=False)
+    thin          = Side(style="thin", color="D9D9D9")
+    cell_border   = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    status_colors = {
+        'ESPERA':     'FEF7E0',
+        'PROGRAMADA': 'E8F0FE',
+        'EJECUCION':  'FFF3CD',
+        'REALIZADA':  'E6F4EA',
+        'CANCELADA':  'F1F3F4',
+    }
+    prio_colors = {
+        'BAJA':    'F1F5F9',
+        'MEDIA':   'EFF6FF',
+        'ALTA':    'FEF2F2',
+        'CRITICA': '7F1D1D',
+    }
+
+    # ── Encabezados ───────────────────────────────────────────────────────────
+    headers = [
+        "Código OT", "Tipo", "Prioridad", "Estado",
+        "Descripción", "Rutina", "Ubicación",
+        "Técnico / Responsable", "Empresa",
+        "Inicio Programado", "Fin Programado",
+        "Fecha Ejecución", "Activos",
+        "HH Reales", "Comentarios Cierre",
+        "Creado En",
+    ]
+    col_widths = [16, 14, 11, 14, 35, 30, 25, 22, 22, 18, 18, 18, 30, 10, 40, 18]
+
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font   = header_font
+        cell.fill   = header_fill
+        cell.alignment = header_align
+        cell.border = cell_border
+        ws.column_dimensions[get_column_letter(col_idx)].width = col_widths[col_idx - 1]
+
+    ws.row_dimensions[1].height = 28
+    ws.freeze_panes = "A2"
+
+    # ── Filas de datos ────────────────────────────────────────────────────────
+    tz_local = timezone.get_current_timezone()
+
+    def fmt_dt(value):
+        if not value:
+            return ""
+        local = timezone.localtime(value, tz_local) if timezone.is_aware(value) else value
+        return local.strftime("%d/%m/%Y %H:%M")
+
+    for row_idx, ot in enumerate(ordenes, start=2):
+        cierre = getattr(ot, 'cierre', None)
+        activos_str = ", ".join(a.codigo_interno or a.nombre for a in ot.activos.all()) or "—"
+
+        row_data = [
+            ot.codigo_de_orden or "—",
+            ot.get_tipo_display(),
+            ot.get_prioridad_display(),
+            ot.get_estado_display(),
+            ot.descripcion_corta or "—",
+            ot.rutina.nombre if ot.rutina else "—",
+            str(ot.ubicacion) if ot.ubicacion else "—",
+            str(ot.tecnico_puesto) if ot.tecnico_puesto else (
+                ot.tecnico.get_full_name() or ot.tecnico.username if ot.tecnico else "—"
+            ),
+            str(ot.empresa_responsable) if ot.empresa_responsable else "—",
+            fmt_dt(ot.inicio_programado),
+            fmt_dt(ot.fin_programado),
+            fmt_dt(ot.fecha_ejecucion),
+            activos_str,
+            cierre.horas_hombre if cierre else "",
+            cierre.comentarios or "" if cierre else "",
+            fmt_dt(ot.creado_en),
+        ]
+
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.alignment = cell_align
+            cell.border    = cell_border
+            cell.font      = Font(name="Calibri", size=9)
+
+        # Color de fondo por estado (columna 4)
+        estado_color = status_colors.get(ot.estado)
+        if estado_color:
+            ws.cell(row=row_idx, column=4).fill = PatternFill("solid", fgColor=estado_color)
+
+        # Color de fondo por prioridad (columna 3)
+        prio_color = prio_colors.get(ot.prioridad)
+        if prio_color:
+            ws.cell(row=row_idx, column=3).fill = PatternFill("solid", fgColor=prio_color)
+
+        # Texto blanco para prioridad CRITICA
+        if ot.prioridad == 'CRITICA':
+            ws.cell(row=row_idx, column=3).font = Font(name="Calibri", size=9, color="FFFFFF", bold=True)
+
+        # Filas alternadas
+        if row_idx % 2 == 0:
+            for col_idx in range(1, len(headers) + 1):
+                existing = ws.cell(row=row_idx, column=col_idx).fill
+                if existing.fill_type == "none" or not existing.fgColor.rgb or existing.fgColor.rgb == "00000000":
+                    ws.cell(row=row_idx, column=col_idx).fill = PatternFill("solid", fgColor="F7F7F7")
+
+    # ── Autofilter en encabezados ─────────────────────────────────────────────
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
+
+    # ── Metadata y nombre de archivo ─────────────────────────────────────────
+    total_rows = row_idx - 1 if len(list(ordenes)) > 0 else 0  # approximate
+
+    # Segunda hoja: resumen de filtros aplicados
+    ws_meta = wb.create_sheet(title="Filtros Aplicados")
+    ws_meta.column_dimensions["A"].width = 25
+    ws_meta.column_dimensions["B"].width = 40
+    meta_header_fill = PatternFill("solid", fgColor="0A6ED1")
+    meta_rows = [
+        ("Parámetro", "Valor"),
+        ("Generado el", dt.now().strftime("%d/%m/%Y %H:%M")),
+        ("Generado por", request.user.get_full_name() or request.user.username),
+        ("Búsqueda (q)", q or "—"),
+        ("Estado", estado or "Todos"),
+        ("Tipo", tipo or "Todos"),
+        ("Prioridad", prioridad or "Todas"),
+        ("Rutina ID", rutina_id or "—"),
+        ("Fecha desde", fecha_desde or "—"),
+        ("Fecha hasta", fecha_hasta or "—"),
+    ]
+    for r_idx, (k, v) in enumerate(meta_rows, start=1):
+        ws_meta.cell(row=r_idx, column=1, value=k).font = Font(
+            bold=True, color="FFFFFF" if r_idx == 1 else "32363A", name="Calibri", size=10
+        )
+        ws_meta.cell(row=r_idx, column=2, value=str(v)).font = Font(name="Calibri", size=10)
+        if r_idx == 1:
+            ws_meta.cell(row=r_idx, column=1).fill = meta_header_fill
+            ws_meta.cell(row=r_idx, column=2).fill = meta_header_fill
+            ws_meta.cell(row=r_idx, column=2).font = Font(bold=True, color="FFFFFF", name="Calibri", size=10)
+
+    # ── Respuesta HTTP ────────────────────────────────────────────────────────
+    filename = "ordenes_trabajo_{}.xlsx".format(dt.now().strftime("%Y%m%d_%H%M%S"))
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response

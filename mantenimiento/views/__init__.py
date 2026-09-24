@@ -62,7 +62,7 @@ from .mobile import (
     mobile_checklist_supervisor_api,
 )
 from .dashboard import dashboard_cargas, asignar_puesto_ajax
-from .dashboard_general import mantenimiento_dashboard, ordenes_lista_view, ordenes_bulk_delete, ordenes_bulk_status, ot_reporte_html
+from .dashboard_general import mantenimiento_dashboard, ordenes_lista_view, ordenes_bulk_delete, ordenes_bulk_status, ot_reporte_html, export_ordenes_excel
 from .ai_search import buscador_ia_cronograma, api_busqueda_ia
 from . import import_personal
 from . import import_procedimientos
