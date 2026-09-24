@@ -232,7 +232,7 @@ def reporte_editar(request, pk):
             logger.exception('Error editando reporte de elevadores')
             messages.error(request, f'Error al guardar el reporte: {exc}')
 
-    filas_dict = {f.elevador_id: f for f in reporte.filas.select_related('elevador').all()}
+    filas_dict = {f.elevador_id: f for f in reporte.filas.select_related('elevador').order_by('orden')}
 
     return render(request, 'monitoreo/reporte_form.html', {
         'title': f'Editar Reporte #{reporte.pk}',
@@ -464,23 +464,11 @@ def _procesar_form_reporte(request, instance):
 
     reporte = instance if instance is not None else ReporteElevador(creado_por=request.user)
 
-    # Supervisor
-    sup_id = post.get('supervisor_id') or None
-    if sup_id:
-        reporte.supervisor_id          = int(sup_id)
-        reporte.supervisor_nombre_manual = ''
-    else:
-        reporte.supervisor_id          = None
-        reporte.supervisor_nombre_manual = post.get('supervisor_manual', '').strip()
-
-    # Técnico
-    tec_id = post.get('tecnico_id') or None
-    if tec_id:
-        reporte.tecnico_id          = int(tec_id)
-        reporte.tecnico_nombre_manual = ''
-    else:
-        reporte.tecnico_id          = None
-        reporte.tecnico_nombre_manual = post.get('tecnico_manual', '').strip()
+    # Supervisor y Técnico — siempre texto libre (sin catálogo)
+    reporte.supervisor_id            = None
+    reporte.supervisor_nombre_manual = post.get('supervisor_manual', '').strip()
+    reporte.tecnico_id               = None
+    reporte.tecnico_nombre_manual    = post.get('tecnico_manual', '').strip()
 
     # Fecha/hora
     fh_str = post.get('fecha_hora', '').strip()
@@ -496,19 +484,26 @@ def _procesar_form_reporte(request, instance):
     reporte.estado = post.get('estado', 'borrador')
     reporte.save()
 
-    # Filas de elevadores (recrear)
-    elevador_ids   = post.getlist('elevador_id[]')
-    estados        = post.getlist('estado[]')
-    clasificaciones = post.getlist('clasificacion[]')
-    descripciones  = post.getlist('descripcion_novedad[]')
+    # Filas de elevadores (texto libre — sin catálogo)
+    elevador_nombres = post.getlist('elevador_nombre[]')
+    estados          = post.getlist('estado[]')
+    clasificaciones  = post.getlist('clasificacion[]')
+    descripciones    = post.getlist('descripcion_novedad[]')
 
     reporte.filas.all().delete()
-    for idx, elev_id in enumerate(elevador_ids):
-        if not elev_id:
+    for idx, nombre in enumerate(elevador_nombres):
+        nombre = nombre.strip()
+        if not nombre:
             continue
+        # Buscar o crear el elevador por nombre
+        from .models import Elevador
+        elevador, _ = Elevador.objects.get_or_create(
+            nombre=nombre,
+            defaults={'codigo': f'ELV-{nombre[:20].upper().replace(" ","-")}', 'activo': True},
+        )
         FilaReporteElevador.objects.create(
             reporte=reporte,
-            elevador_id=int(elev_id),
+            elevador=elevador,
             estado=estados[idx] if idx < len(estados) else 'operativo',
             clasificacion=clasificaciones[idx] if idx < len(clasificaciones) else '',
             descripcion_novedad=descripciones[idx] if idx < len(descripciones) else '',

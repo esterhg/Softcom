@@ -7,34 +7,49 @@
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
 <style>
-  .col-elevador-name { min-width: 140px; }
-  .col-estado        { min-width: 175px; }
-  .col-clasif        { min-width: 145px; }
-  .col-desc          { min-width: 220px; }
+  /* ── Print / Imagen ── */
+  @media print {
+    .no-print { display: none !important; }
+    .mon-card { box-shadow: none !important; border: 1px solid #ccc !important; }
+    body { background: #fff !important; }
+  }
 
-  /* Colorear select de estado */
-  select.estado-select { transition: background .15s; }
+  /* ── Tabla de elevadores ── */
+  #tabla-elevadores th, #tabla-elevadores td { vertical-align: middle; }
+  #tabla-elevadores .col-op    { width: 72px; text-align: center; }
+  #tabla-elevadores .col-elev  { min-width: 160px; }
+  #tabla-elevadores .col-est   { min-width: 150px; }
+  #tabla-elevadores .col-clas  { min-width: 130px; }
+  #tabla-elevadores .col-desc  { min-width: 200px; }
+  #tabla-elevadores .col-del   { width: 42px; text-align: center; }
 
-  #zona-fotos-upload {
+  /* ── Fotos ── */
+  #zona-upload {
     border: 2px dashed #d9d9d9;
     border-radius: .5rem;
-    padding: 1.25rem 1rem;
+    padding: 1.2rem 1rem;
     text-align: center;
     cursor: pointer;
     color: #6a6d70;
     transition: border-color .15s, background .15s;
     margin-top: .75rem;
   }
-  #zona-fotos-upload:hover, #zona-fotos-upload.drag-over {
-    border-color: #0070f2;
-    background: #eff6ff;
-    color: #0070f2;
+  #zona-upload:hover, #zona-upload.over {
+    border-color: #0070f2; background: #eff6ff; color: #0070f2;
   }
+
+  /* ── Restablecer todos ── */
+  .btn-reset-row {
+    background: none; border: none; cursor: pointer;
+    color: #0070f2; font-size: .78rem; padding: .2rem .4rem;
+    transition: color .15s;
+  }
+  .btn-reset-row:hover { color: #bb0000; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="padding: 1.25rem 1.5rem; background: var(--fiori-bg, #eff2f5); min-height: calc(100vh - 56px);">
+<div style="padding:1.25rem 1.5rem;background:#eff2f5;min-height:calc(100vh - 56px);">
 
   <!-- Breadcrumb -->
   <div class="mon-breadcrumb">
@@ -45,18 +60,27 @@
 
   <!-- Page Header -->
   <div class="mon-page-header">
-    <h1><i class="fas fa-elevator" style="color:#0070f2;margin-right:.45rem;"></i>{{ title }}</h1>
-    <a href="{% url 'monitoreo:historial_reportes' %}" class="mon-btn mon-btn-secondary" target="_blank">
-      <i class="fas fa-history"></i> Todos los reportes
-    </a>
+    <div>
+      <div style="font-size:.8rem;color:#6a6d70;font-weight:500;text-transform:uppercase;letter-spacing:.05em;">
+        Operaciones › Mantenimiento
+      </div>
+      <h1 style="margin:.15rem 0 0;">
+        <i class="fas fa-elevator" style="color:#0070f2;margin-right:.45rem;"></i>Monitoreo de Elevadores
+      </h1>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a href="{% url 'monitoreo:historial_reportes' %}" class="mon-btn mon-btn-secondary" target="_blank">
+        <i class="fas fa-history"></i> Todos los reportes
+      </a>
+    </div>
   </div>
 
   <form method="post" enctype="multipart/form-data" id="form-reporte" novalidate>
     {% csrf_token %}
 
-    <!-- ====================================================
-         SECCIÓN 1: Datos del reporte
-    ==================================================== -->
+    <!-- ══════════════════════════════════════════════════════
+         SECCIÓN 1 — Datos del reporte
+    ══════════════════════════════════════════════════════ -->
     <div class="mon-card">
       <div class="mon-card-header">
         <h2 class="mon-card-title">
@@ -68,27 +92,11 @@
 
         <!-- Supervisor OCC -->
         <div class="mon-form-group">
-          <label for="supervisor_id">Supervisor OCC</label>
-          <select name="supervisor_id" id="supervisor_id" class="mon-form-control"
-                  onchange="toggleManual(this,'blk-sup-manual')">
-            <option value="">— Escribir manualmente —</option>
-            {% for u in usuarios %}
-            <option value="{{ u.pk }}"
-              {% if reporte and reporte.supervisor_id == u.pk %}selected{% endif %}>
-              {{ u.get_full_name|default:u.username }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- Supervisor manual -->
-        <div class="mon-form-group" id="blk-sup-manual"
-          {% if reporte and reporte.supervisor_id %}style="display:none;"{% endif %}>
-          <label for="supervisor_manual">Nombre del supervisor</label>
+          <label for="supervisor_manual">Supervisor OCC</label>
           <input type="text" name="supervisor_manual" id="supervisor_manual"
                  class="mon-form-control"
                  value="{{ reporte.supervisor_nombre_manual|default:'' }}"
-                 placeholder="Nombre completo">
+                 placeholder="Nombre del supervisor">
         </div>
 
         <!-- Fecha y hora -->
@@ -100,32 +108,16 @@
                  required>
         </div>
 
-        <!-- Técnico -->
+        <!-- Técnico responsable -->
         <div class="mon-form-group">
-          <label for="tecnico_id">Técnico responsable</label>
-          <select name="tecnico_id" id="tecnico_id" class="mon-form-control"
-                  onchange="toggleManual(this,'blk-tec-manual')">
-            <option value="">— Escribir manualmente —</option>
-            {% for u in usuarios %}
-            <option value="{{ u.pk }}"
-              {% if reporte and reporte.tecnico_id == u.pk %}selected{% endif %}>
-              {{ u.get_full_name|default:u.username }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- Técnico manual -->
-        <div class="mon-form-group" id="blk-tec-manual"
-          {% if reporte and reporte.tecnico_id %}style="display:none;"{% endif %}>
-          <label for="tecnico_manual">Nombre del técnico</label>
+          <label for="tecnico_manual">Técnico responsable</label>
           <input type="text" name="tecnico_manual" id="tecnico_manual"
                  class="mon-form-control"
                  value="{{ reporte.tecnico_nombre_manual|default:'' }}"
-                 placeholder="Nombre completo">
+                 placeholder="Nombre del técnico">
         </div>
 
-        <!-- Estado del reporte -->
+        <!-- Estado -->
         <div class="mon-form-group">
           <label for="estado">Estado del reporte</label>
           <select name="estado" id="estado" class="mon-form-control">
@@ -146,90 +138,46 @@
       </div>
     </div>
 
-    <!-- ====================================================
-         SECCIÓN 2: Estado de elevadores
-    ==================================================== -->
+    <!-- ══════════════════════════════════════════════════════
+         SECCIÓN 2 — Tabla de elevadores
+    ══════════════════════════════════════════════════════ -->
     <div class="mon-card">
       <div class="mon-card-header">
         <h2 class="mon-card-title">
           <i class="fas fa-table" style="color:#0070f2;margin-right:.4rem;"></i>Estado de elevadores
         </h2>
-        <span class="mon-card-subtitle">Complete el estado de cada elevador para este turno</span>
+        <div style="display:flex;gap:.5rem;align-items:center;">
+          <button type="button" class="mon-btn mon-btn-ghost mon-btn-sm" onclick="restablecerTodos()" title="Restablecer todos a Operativo">
+            <i class="fas fa-undo"></i> Restablecer todos
+          </button>
+          <button type="button" class="mon-btn mon-btn-secondary mon-btn-sm" onclick="agregarFila()">
+            <i class="fas fa-plus"></i> Agregar fila
+          </button>
+        </div>
       </div>
 
-      {% if elevadores %}
       <div class="mon-table-wrapper">
         <table class="mon-table" id="tabla-elevadores">
           <thead>
             <tr>
-              <th class="col-elevador-name">Elevador</th>
-              <th class="col-estado">Estado</th>
-              <th class="col-clasif">Clasificación</th>
+              <th class="col-op">Operativo</th>
+              <th class="col-elev">Elevador</th>
+              <th class="col-est">Estado</th>
+              <th class="col-clas">Clasificación</th>
               <th class="col-desc">Descripción de la novedad</th>
+              <th class="col-del no-print"></th>
             </tr>
           </thead>
-          <tbody>
-            {% for elev in elevadores %}
-            <tr data-elev-id="{{ elev.pk }}">
-              <input type="hidden" name="elevador_id[]" value="{{ elev.pk }}">
-
-              <!-- Nombre -->
-              <td class="col-elevador-name">
-                <span style="font-size:.78rem;color:#6a6d70;display:block;">{{ elev.codigo }}</span>
-                <strong>{{ elev.nombre }}</strong>
-                {% if elev.ubicacion %}
-                  <span style="font-size:.74rem;color:#aaa;display:block;">{{ elev.ubicacion }}</span>
-                {% endif %}
-              </td>
-
-              <!-- Estado -->
-              <td class="col-estado">
-                <select name="estado[]" class="estado-select" onchange="colorEstadoSelect(this)">
-                  <option value="operativo">Operativo</option>
-                  <option value="sin_novedad">Sin Novedad</option>
-                  <option value="falla_parcial">Falla Parcial</option>
-                  <option value="en_mantenimiento">En Mantenimiento</option>
-                  <option value="fuera_servicio">Fuera de Servicio</option>
-                </select>
-              </td>
-
-              <!-- Clasificación -->
-              <td class="col-clasif">
-                <select name="clasificacion[]">
-                  <option value="">—</option>
-                  <option value="mecanica">Mecánica</option>
-                  <option value="electrica">Eléctrica</option>
-                  <option value="electronica">Electrónica</option>
-                  <option value="hidraulica">Hidráulica</option>
-                  <option value="externa">Externa</option>
-                  <option value="n_a">N/A</option>
-                </select>
-              </td>
-
-              <!-- Descripción -->
-              <td class="col-desc">
-                <textarea name="descripcion_novedad[]"
-                          placeholder="Descripción de la novedad…" rows="2"></textarea>
-              </td>
-            </tr>
-            {% endfor %}
+          <tbody id="tbody-elevadores">
+            {# Las filas se inyectan por JS al cargar #}
           </tbody>
         </table>
       </div>
-      {% else %}
-      <div class="mon-empty">
-        <i class="fas fa-elevator"></i>
-        <p>No hay elevadores activos registrados.</p>
-        <a href="/admin/monitoreo/elevador/add/" class="mon-btn mon-btn-primary mon-btn-sm" style="margin-top:.5rem;">
-          <i class="fas fa-plus"></i> Agregar elevador
-        </a>
-      </div>
-      {% endif %}
     </div>
 
-    <!-- ====================================================
-         SECCIÓN 3: Fotos anexas
-    ==================================================== -->
+    <!-- ══════════════════════════════════════════════════════
+         SECCIÓN 3 — Fotos anexas
+    ══════════════════════════════════════════════════════ -->
     <div class="mon-card">
       <div class="mon-card-header">
         <h2 class="mon-card-title">
@@ -244,197 +192,268 @@
         Puedes escribir una descripción para cada una.
       </p>
 
-      <!-- Fotos existentes (solo en modo editar) -->
+      <!-- Fotos existentes (modo editar) -->
       {% if reporte and reporte.fotos.exists %}
-      <div class="mon-fotos-grid" id="grid-fotos-existentes">
+      <div class="mon-fotos-grid" id="grid-existentes">
         {% for foto in reporte.fotos.all %}
         <div class="mon-foto-item" id="foto-ex-{{ foto.pk }}">
           <img src="{{ foto.imagen.url }}" alt="foto">
           <div class="mon-foto-desc">
-            <input type="text" value="{{ foto.descripcion }}"
-                   placeholder="Descripción…"
-                   data-foto-pk="{{ foto.pk }}"
-                   class="inp-desc-existente">
+            <input type="text" value="{{ foto.descripcion }}" placeholder="Descripción…" class="inp-desc-ex">
           </div>
-          <button type="button" class="mon-foto-remove" title="Quitar"
-                  onclick="marcarFotoEliminar({{ foto.pk }})">
+          <button type="button" class="mon-foto-remove" onclick="marcarEliminar({{ foto.pk }})">
             <i class="fas fa-times"></i>
           </button>
-          {# Input disabled por defecto; se habilita al marcar para eliminar #}
-          <input type="hidden" name="fotos_eliminar[]" id="del-{{ foto.pk }}"
-                 value="" disabled>
+          <input type="hidden" name="fotos_eliminar[]" id="del-{{ foto.pk }}" value="" disabled>
         </div>
         {% endfor %}
       </div>
       {% endif %}
 
-      <!-- Preview de fotos nuevas -->
-      <div class="mon-fotos-grid" id="grid-fotos-nuevas"></div>
+      <!-- Preview nuevas -->
+      <div class="mon-fotos-grid" id="grid-nuevas"></div>
 
-      <!-- Zona de upload / drag & drop -->
-      <div id="zona-fotos-upload"
+      <!-- Zona drag & drop -->
+      <div id="zona-upload"
            onclick="document.getElementById('inp-fotos').click()"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="onDropFotos(event)">
+           ondragover="event.preventDefault();this.classList.add('over')"
+           ondragleave="this.classList.remove('over')"
+           ondrop="onDrop(event)">
         <i class="fas fa-cloud-upload-alt" style="font-size:1.8rem;display:block;margin-bottom:.4rem;"></i>
         <strong>+ Agregar imágenes</strong>
         <p style="margin:.3rem 0 0;font-size:.77rem;">
           Arrastra imágenes aquí o haz clic para seleccionar
         </p>
       </div>
-      <input type="file" id="inp-fotos" name="fotos_nuevas"
-             multiple accept="image/*" style="display:none;"
-             onchange="previewFotosNuevas(this.files)">
+      <input type="file" id="inp-fotos" name="fotos_nuevas" multiple accept="image/*"
+             style="display:none;" onchange="previewFotos(this.files)">
     </div>
 
-    <!-- Acciones finales -->
-    <div style="display:flex;gap:.75rem;justify-content:flex-end;flex-wrap:wrap;padding-bottom:2rem;">
-      <a href="{% url 'monitoreo:reportes_lista' %}" class="mon-btn mon-btn-secondary">
-        <i class="fas fa-times"></i> Cancelar
-      </a>
-      <button type="submit" class="mon-btn mon-btn-primary">
-        <i class="fas fa-save"></i>
-        {% if modo == 'editar' %}Guardar cambios{% else %}Crear reporte{% endif %}
-      </button>
+    <!-- Acciones -->
+    <div style="display:flex;gap:.75rem;justify-content:space-between;flex-wrap:wrap;padding-bottom:2rem;">
+      <div style="display:flex;gap:.5rem;">
+        <a href="{% url 'monitoreo:reportes_lista' %}" class="mon-btn mon-btn-secondary no-print">
+          <i class="fas fa-times"></i> Cancelar
+        </a>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        {% if modo == 'editar' %}
+        <a href="{% url 'monitoreo:reporte_pdf' reporte.pk %}" class="mon-btn mon-btn-secondary no-print" target="_blank">
+          <i class="fas fa-file-pdf" style="color:#bb0000;"></i> Descargar PDF
+        </a>
+        <button type="button" class="mon-btn mon-btn-secondary no-print" onclick="window.print()">
+          <i class="fas fa-image"></i> Descargar imagen
+        </button>
+        {% endif %}
+        <button type="submit" class="mon-btn mon-btn-primary">
+          <i class="fas fa-save"></i>
+          {% if modo == 'editar' %}Guardar cambios{% else %}Guardar reporte{% endif %}
+        </button>
+      </div>
     </div>
 
   </form>
 </div>
 
-{# ──────────────────────────────────────────────────────────────────────────
-   Datos de prefill para modo edición (inyectados como JSON en el DOM)
-────────────────────────────────────────────────────────────────────────── #}
+{# ── Datos prefill (modo edición) ── #}
 {% if modo == 'editar' and filas_dict %}
 <script id="filas-data" type="application/json">
-{
-  {% for elev_id, fila in filas_dict.items %}
-  "{{ elev_id }}": {
-    "estado": "{{ fila.estado }}",
-    "clasificacion": "{{ fila.clasificacion }}",
-    "descripcion": "{{ fila.descripcion_novedad|escapejs }}"
-  }{% if not forloop.last %},{% endif %}
-  {% endfor %}
-}
+[{% for elev_id, fila in filas_dict.items %}{"nombre":"{{ fila.elevador.nombre|escapejs }}","estado":"{{ fila.estado }}","clasificacion":"{{ fila.clasificacion }}","descripcion":"{{ fila.descripcion_novedad|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
 </script>
 {% endif %}
 
 <script>
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                             */
-/* ------------------------------------------------------------------ */
-function toggleManual(sel, blockId) {
-  const block = document.getElementById(blockId);
-  if (block) block.style.display = sel.value ? 'none' : '';
-}
+/* ================================================================
+   Tabla dinámica de elevadores
+================================================================ */
+const ESTADOS = [
+  {v:'operativo',      l:'Operativo'},
+  {v:'sin_novedad',    l:'Sin Novedad'},
+  {v:'falla_parcial',  l:'Falla Parcial'},
+  {v:'en_mantenimiento',l:'En Mantenimiento'},
+  {v:'fuera_servicio', l:'Fuera de Servicio'},
+];
+const CLASIFICACIONES = [
+  {v:'',           l:'—'},
+  {v:'mecanica',   l:'Mecánica'},
+  {v:'electrica',  l:'Eléctrica'},
+  {v:'electronica',l:'Electrónica'},
+  {v:'hidraulica', l:'Hidráulica'},
+  {v:'externa',    l:'Externa'},
+  {v:'n_a',        l:'N/A'},
+];
+const COLORES_ESTADO = {
+  'operativo':        '#dcfce7',
+  'sin_novedad':      '#f1f5f9',
+  'falla_parcial':    '#fef9c3',
+  'en_mantenimiento': '#fef3c7',
+  'fuera_servicio':   '#fee2e2',
+};
 
-function colorEstadoSelect(sel) {
-  const colors = {
-    'operativo':        '#dcfce7',
-    'sin_novedad':      '#f1f5f9',
-    'falla_parcial':    '#fef9c3',
-    'en_mantenimiento': '#fef3c7',
-    'fuera_servicio':   '#fee2e2',
-  };
-  sel.style.background = colors[sel.value] || '#fff';
-}
-
-/* ------------------------------------------------------------------ */
-/*  Prefill de filas al cargar (modo editar)                           */
-/* ------------------------------------------------------------------ */
-document.addEventListener('DOMContentLoaded', function () {
-  // Aplicar colores iniciales en todos los selects
-  document.querySelectorAll('.estado-select').forEach(colorEstadoSelect);
-
-  // Prefill desde JSON embebido
-  const dataEl = document.getElementById('filas-data');
-  if (!dataEl) return;
-  let filasData = {};
-  try { filasData = JSON.parse(dataEl.textContent); } catch(e) { return; }
-
-  document.querySelectorAll('#tabla-elevadores tbody tr').forEach(function (tr) {
-    const elevId = tr.dataset.elevId;
-    const data = filasData[elevId];
-    if (!data) return;
-
-    const selEstado = tr.querySelector('select[name="estado[]"]');
-    if (selEstado) { selEstado.value = data.estado; colorEstadoSelect(selEstado); }
-
-    const selClasif = tr.querySelector('select[name="clasificacion[]"]');
-    if (selClasif) selClasif.value = data.clasificacion;
-
-    const ta = tr.querySelector('textarea[name="descripcion_novedad[]"]');
-    if (ta) ta.value = data.descripcion;
+function buildSelEstado(val) {
+  let s = '<select name="estado[]" class="estado-select" onchange="syncOpCheck(this);colorSelect(this)">';
+  ESTADOS.forEach(e => {
+    s += `<option value="${e.v}"${e.v===val?' selected':''}>${e.l}</option>`;
   });
+  return s + '</select>';
+}
+
+function buildSelClasif(val) {
+  let s = '<select name="clasificacion[]">';
+  CLASIFICACIONES.forEach(c => {
+    s += `<option value="${c.v}"${c.v===val?' selected':''}>${c.l}</option>`;
+  });
+  return s + '</select>';
+}
+
+function colorSelect(sel) {
+  sel.style.background = COLORES_ESTADO[sel.value] || '#fff';
+}
+
+function syncOpCheck(estadoSel) {
+  const tr = estadoSel.closest('tr');
+  const chk = tr.querySelector('.op-check');
+  if (!chk) return;
+  const op = estadoSel.value === 'operativo' || estadoSel.value === 'sin_novedad';
+  chk.checked = op;
+  chk.style.accentColor = op ? '#107e3e' : '#bb0000';
+}
+
+function onCheckChange(chk) {
+  const tr = chk.closest('tr');
+  const sel = tr.querySelector('.estado-select');
+  if (!sel) return;
+  sel.value = chk.checked ? 'operativo' : 'fuera_servicio';
+  colorSelect(sel);
+}
+
+function crearFila(data) {
+  data = data || {nombre:'', estado:'operativo', clasificacion:'', descripcion:''};
+  const tr = document.createElement('tr');
+  const esOp = data.estado === 'operativo' || data.estado === 'sin_novedad';
+  tr.innerHTML = `
+    <td class="col-op">
+      <input type="checkbox" class="op-check"
+             style="width:18px;height:18px;cursor:pointer;accent-color:${esOp?'#107e3e':'#bb0000'};"
+             ${esOp?'checked':''} onchange="onCheckChange(this)">
+    </td>
+    <td class="col-elev">
+      <input type="text" name="elevador_nombre[]" value="${data.nombre}"
+             placeholder="Nombre del elevador"
+             style="width:100%;border:1px solid #d9d9d9;border-radius:4px;padding:.35rem .5rem;font-size:.84rem;font-family:inherit;">
+    </td>
+    <td class="col-est">${buildSelEstado(data.estado)}</td>
+    <td class="col-clas">${buildSelClasif(data.clasificacion)}</td>
+    <td class="col-desc">
+      <textarea name="descripcion_novedad[]" rows="2"
+                style="width:100%;border:1px solid #d9d9d9;border-radius:4px;padding:.35rem .5rem;font-size:.84rem;font-family:inherit;resize:vertical;"
+                placeholder="Descripción de la novedad…">${data.descripcion}</textarea>
+    </td>
+    <td class="col-del no-print">
+      <button type="button" class="mon-btn mon-btn-danger mon-btn-sm" onclick="this.closest('tr').remove()" title="Eliminar fila">
+        <i class="fas fa-trash"></i>
+      </button>
+    </td>`;
+
+  // Colorear el select de estado
+  setTimeout(() => {
+    const sel = tr.querySelector('.estado-select');
+    if (sel) colorSelect(sel);
+  }, 0);
+
+  return tr;
+}
+
+function agregarFila(data) {
+  document.getElementById('tbody-elevadores').appendChild(crearFila(data));
+}
+
+function restablecerTodos() {
+  document.querySelectorAll('#tbody-elevadores .estado-select').forEach(sel => {
+    sel.value = 'operativo';
+    colorSelect(sel);
+    syncOpCheck(sel);
+  });
+  document.querySelectorAll('#tbody-elevadores textarea').forEach(ta => ta.value = '');
+  document.querySelectorAll('#tbody-elevadores select[name="clasificacion[]"]').forEach(s => s.value = '');
+}
+
+/* ── Inicializar tabla al cargar ── */
+document.addEventListener('DOMContentLoaded', function () {
+  const dataEl = document.getElementById('filas-data');
+  if (dataEl) {
+    // Modo edición: prefill con filas existentes
+    try {
+      const filas = JSON.parse(dataEl.textContent);
+      filas.forEach(f => agregarFila(f));
+    } catch(e) { console.warn('Error parseando filas:', e); }
+  }
+
+  // Si no hay filas (modo crear o sin datos), agregar filas vacías por defecto
+  if (document.getElementById('tbody-elevadores').children.length === 0) {
+    for (let i = 0; i < 5; i++) agregarFila();
+  }
 });
 
-/* ------------------------------------------------------------------ */
-/*  Preview de fotos nuevas                                            */
-/* ------------------------------------------------------------------ */
-// Usamos un DataTransfer para mantener la lista acumulada de archivos
+/* ================================================================
+   Fotos
+================================================================ */
 let dtAccum = new DataTransfer();
 
-function previewFotosNuevas(files) {
-  const grid = document.getElementById('grid-fotos-nuevas');
-  Array.from(files).forEach(function (file) {
+function previewFotos(files) {
+  const grid = document.getElementById('grid-nuevas');
+  Array.from(files).forEach(file => {
     dtAccum.items.add(file);
     const idx = dtAccum.files.length - 1;
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = e => {
       const div = document.createElement('div');
       div.className = 'mon-foto-item';
-      div.dataset.fileIdx = idx;
       div.innerHTML = `
-        <img src="${e.target.result}" alt="nueva">
+        <img src="${e.target.result}" alt="">
         <div class="mon-foto-desc">
-          <input type="text" placeholder="Descripción…" style="border:none;background:transparent;width:100%;font-size:.75rem;">
+          <input type="text" placeholder="Descripción…"
+                 style="border:none;background:transparent;width:100%;font-size:.75rem;font-family:inherit;">
         </div>
-        <button type="button" class="mon-foto-remove" onclick="quitarFotaNueva(this, ${idx})">
+        <button type="button" class="mon-foto-remove" onclick="quitarFotaNueva(${idx},this)">
           <i class="fas fa-times"></i>
         </button>`;
       grid.appendChild(div);
     };
     reader.readAsDataURL(file);
   });
-  // Sincronizar el input real
   document.getElementById('inp-fotos').files = dtAccum.files;
 }
 
-function quitarFotaNueva(btn, idx) {
-  // Reconstruir DataTransfer sin este archivo
+function quitarFotaNueva(idx, btn) {
   const newDt = new DataTransfer();
-  Array.from(dtAccum.files).forEach(function (f, i) {
-    if (i !== idx) newDt.items.add(f);
-  });
+  Array.from(dtAccum.files).forEach((f,i) => { if(i!==idx) newDt.items.add(f); });
   dtAccum = newDt;
   document.getElementById('inp-fotos').files = dtAccum.files;
   btn.closest('.mon-foto-item').remove();
 }
 
 function quitarTodasFotos() {
-  // Nuevas
-  document.getElementById('grid-fotos-nuevas').innerHTML = '';
+  document.getElementById('grid-nuevas').innerHTML = '';
   dtAccum = new DataTransfer();
   document.getElementById('inp-fotos').files = dtAccum.files;
-
-  // Existentes
-  document.querySelectorAll('[id^="foto-ex-"]').forEach(function (el) {
-    const pk = el.id.replace('foto-ex-', '');
-    marcarFotoEliminar(pk);
+  document.querySelectorAll('[id^="foto-ex-"]').forEach(el => {
+    const pk = el.id.replace('foto-ex-','');
+    marcarEliminar(pk);
   });
 }
 
-function marcarFotoEliminar(pk) {
-  const el = document.getElementById('foto-ex-' + pk);
-  if (el) { el.style.opacity = '.3'; el.style.pointerEvents = 'none'; }
-  const inp = document.getElementById('del-' + pk);
-  if (inp) { inp.value = pk; inp.disabled = false; }
+function marcarEliminar(pk) {
+  const el = document.getElementById('foto-ex-'+pk);
+  if(el){ el.style.opacity='.3'; el.style.pointerEvents='none'; }
+  const inp = document.getElementById('del-'+pk);
+  if(inp){ inp.value=pk; inp.disabled=false; }
 }
 
-function onDropFotos(e) {
+function onDrop(e) {
   e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  previewFotosNuevas(e.dataTransfer.files);
+  e.currentTarget.classList.remove('over');
+  previewFotos(e.dataTransfer.files);
 }
 </script>
 {% endblock %}
