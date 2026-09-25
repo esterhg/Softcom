@@ -506,3 +506,213 @@ body {
 .bento-panel--historico .panel-title {
     color: #78909c !important;
 }
+
+/* ================================================================
+   DARK MODE — ticket_dashboard.css
+   Activado con [data-theme="dark"] en <html>.
+   Las variables ya usadas (--sap-*) se redefinen aquí para que el
+   CSS interno del dashboard responda al tema sin depender de
+   fiori_tokens.html (que no siempre carga antes que este CSS).
+
+   Principios:
+   - Superficies: escala azul-gris oscura
+   - Semánticos (success/warning/danger): más claros para contraste,
+     conservando identidad de color
+   - Colores de marca en cluster cards: NO se tocan (son intencionales)
+   ================================================================ */
+
+[data-theme="dark"] {
+    --sap-shell-bg:  #1a2332;
+    --sap-card-bg:   #1e293b;
+    --sap-primary:   #4d9ef7;
+    --sap-success:   #4ade80;   /* verde claro — legible sobre oscuro */
+    --sap-warning:   #fbbf24;   /* naranja claro — legible sobre oscuro */
+    --sap-danger:    #f87171;   /* rojo claro — legible sobre oscuro */
+    --sap-text:      #e2e8f0;
+    --sap-text-muted: #94a3b8;
+    --sap-border:    #334155;
+    --sap-shadow:    0 0.125rem 0.5rem rgba(0,0,0,0.4);
+}
+
+/* ── Body ── */
+[data-theme="dark"] body {
+    background-color: #0f172a;
+    color: #e2e8f0;
+}
+
+/* ── Dashboard wrapper ── */
+[data-theme="dark"] .dashboard-wrapper {
+    background: transparent;
+}
+
+/* ── Fiori Shell / Header bar ── */
+[data-theme="dark"] .fiori-shell {
+    background: #1a2332;
+    border-bottom-color: #334155;
+}
+
+/* ── Tarjetas de grupos de tickets ── */
+[data-theme="dark"] .group-card {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .group-header {
+    background: linear-gradient(135deg, #162032 0%, #1e293b 100%);
+    border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .group-body {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .group-footer {
+    background: #162032;
+    border-top-color: #334155;
+}
+
+[data-theme="dark"] .group-stats-visual {
+    border-top-color: #334155;
+}
+
+[data-theme="dark"] .chart-legend .legend-item.total {
+    border-top-color: #334155;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .ticket-item {
+    background: #162032;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .ticket-item:hover {
+    background: #273549;
+    border-color: #4d9ef7;
+}
+
+/* ── Botones ── */
+[data-theme="dark"] .btn-back {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .btn-back:hover {
+    background: #273549;
+}
+
+[data-theme="dark"] .btn-fiori {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .btn-fiori:hover {
+    background: #273549;
+    border-color: #475569;
+}
+
+[data-theme="dark"] .btn-fiori.ghost {
+    color: #4d9ef7;
+}
+
+[data-theme="dark"] .btn-fiori.ghost:hover {
+    background: rgba(77,158,247,0.08);
+}
+
+/* ── Sync badges — semánticos, mantienen color pero ajustan fondo ── */
+[data-theme="dark"] .sync-badge {
+    background: #064e3b;
+    border-color: #166534;
+    color: #4ade80;
+}
+
+[data-theme="dark"] .sync-badge--unknown {
+    background: #334155;
+    border-color: #475569;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .sync-badge--running {
+    background: #1e3a5f;
+    border-color: #1d4ed8;
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .sync-badge--error {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #f87171;
+}
+
+/* ── Histórico panel ── */
+[data-theme="dark"] .btn-historico {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-historico:hover,
+[data-theme="dark"] .btn-historico--open {
+    background: #273549;
+    border-color: #4d9ef7;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .historico-panel {
+    border-top-color: #334155;
+}
+
+[data-theme="dark"] .bento-panel--historico {
+    background: #162032 !important;
+    border-color: #273549 !important;
+}
+
+[data-theme="dark"] .bento-panel--historico .panel-title {
+    color: #94a3b8 !important;
+}
+
+/* ── Side panel ── */
+[data-theme="dark"] .side-panel {
+    background: #1e293b;
+    border-left-color: #334155;
+}
+
+[data-theme="dark"] .side-panel-header {
+    background: #162032;
+    border-bottom-color: #334155;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .side-panel-body {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .side-panel-footer {
+    background: #162032;
+    border-top-color: #334155;
+}
+
+/* ── Badges de estado dentro de las cards ── */
+[data-theme="dark"] .badge.bg-success-soft { background-color: #064e3b !important; color: #4ade80 !important; }
+[data-theme="dark"] .badge.bg-warning-soft { background-color: #78350f !important; color: #fcd34d !important; }
+
+/* ── Group ID chip ── */
+[data-theme="dark"] .group-id {
+    background: rgba(77,158,247,0.15);
+    color: #4d9ef7;
+}
+
+/* ── Botón inline verde (Cluster Manual) — conserva identidad ── */
+/* Este botón tiene style="background:#2e7d32" inline — no se puede
+   sobreescribir desde CSS. Es intencional (color de acción de creación).
+   En dark mode se adapta levemente via filter para no quemar. */
+[data-theme="dark"] .header-actions [style*="background: #2e7d32"],
+[data-theme="dark"] .header-actions [style*="background:#2e7d32"] {
+    filter: brightness(1.2);
+}
+
+/* ── Protección: gráficas Chart.js no se tocan ── */
+[data-theme="dark"] canvas { background: transparent !important; }

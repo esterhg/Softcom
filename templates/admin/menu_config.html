@@ -16,6 +16,62 @@
             </div>
         </div>
         <div class="card-body">
+            <!-- ═══════════════════════════════════════════════════════════
+                 SECCIÓN: Apariencia / Tema
+                 ══════════════════════════════════════════════════════════ -->
+            <div class="theme-config-section" style="margin-bottom:2rem;">
+                <h5 style="font-weight:700; margin-bottom:0.25rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-palette" style="color:#0064d2;"></i> Apariencia
+                </h5>
+                <p style="color:#556b82; font-size:0.85rem; margin-bottom:1.25rem;">
+                    Elige cómo se ve la interfaz. La preferencia se guarda localmente en este dispositivo.
+                </p>
+
+                <div class="theme-option-cards" style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; max-width:520px;">
+
+                    <!-- Claro -->
+                    <button type="button" class="theme-option-card" data-theme-mode="light"
+                            aria-label="Tema claro"
+                            style="display:flex; flex-direction:column; align-items:center; gap:8px;
+                                   padding:16px 12px; border-radius:8px; cursor:pointer;
+                                   border:2px solid #e2e8f0; background:#fff;
+                                   transition:border-color 0.2s, box-shadow 0.2s; text-align:center;">
+                        <span style="font-size:1.6rem;" aria-hidden="true">☀️</span>
+                        <span style="font-weight:700; font-size:0.85rem; color:#1d2d3d;">Claro</span>
+                        <span style="font-size:0.75rem; color:#556b82;">Siempre claro</span>
+                    </button>
+
+                    <!-- Oscuro -->
+                    <button type="button" class="theme-option-card" data-theme-mode="dark"
+                            aria-label="Tema oscuro"
+                            style="display:flex; flex-direction:column; align-items:center; gap:8px;
+                                   padding:16px 12px; border-radius:8px; cursor:pointer;
+                                   border:2px solid #e2e8f0; background:#fff;
+                                   transition:border-color 0.2s, box-shadow 0.2s; text-align:center;">
+                        <span style="font-size:1.6rem;" aria-hidden="true">🌙</span>
+                        <span style="font-weight:700; font-size:0.85rem; color:#1d2d3d;">Oscuro</span>
+                        <span style="font-size:0.75rem; color:#556b82;">Siempre oscuro</span>
+                    </button>
+
+                    <!-- Dispositivo -->
+                    <button type="button" class="theme-option-card" data-theme-mode="system"
+                            aria-label="Seguir configuración del dispositivo"
+                            style="display:flex; flex-direction:column; align-items:center; gap:8px;
+                                   padding:16px 12px; border-radius:8px; cursor:pointer;
+                                   border:2px solid #e2e8f0; background:#fff;
+                                   transition:border-color 0.2s, box-shadow 0.2s; text-align:center;">
+                        <span style="font-size:1.6rem;" aria-hidden="true">💻</span>
+                        <span style="font-weight:700; font-size:0.85rem; color:#1d2d3d;">Dispositivo</span>
+                        <span style="font-size:0.75rem; color:#556b82;">Automático</span>
+                    </button>
+
+                </div>
+
+                <p id="theme-current-label" style="margin-top:10px; font-size:0.8rem; color:#556b82;"></p>
+            </div>
+
+            <hr style="margin:0 0 2rem 0;">
+
             <form method="post">
                 {% csrf_token %}
 
@@ -357,6 +413,76 @@
 
     // ====== INIT ======
     renderCustom();
+
+    // ══════════════════════════════════════════════════════
+    // Selector de Tema — Apariencia
+    // ══════════════════════════════════════════════════════
+    (function initThemeConfig() {
+        const THEME_KEY = 'softcom_theme_preference';
+        const VALID = ['light', 'dark', 'system'];
+        const mql = window.matchMedia('(prefers-color-scheme: dark)');
+
+        const labels = {
+            light:  'Modo claro activo — siempre usa el tema claro.',
+            dark:   'Modo oscuro activo — siempre usa el tema oscuro.',
+            system: 'Sigue al dispositivo — cambia automáticamente con tu SO.'
+        };
+
+        function getSaved() {
+            const s = localStorage.getItem(THEME_KEY);
+            return VALID.includes(s) ? s : 'system';
+        }
+
+        function applyHighlight(mode) {
+            document.querySelectorAll('.theme-option-card').forEach(function(card) {
+                const isActive = card.dataset.themeMode === mode;
+                card.style.borderColor = isActive ? '#0064d2' : '#e2e8f0';
+                card.style.boxShadow   = isActive ? '0 0 0 3px rgba(0,100,210,0.15)' : 'none';
+
+                // Ajustar colores del texto en modo oscuro de la propia página
+                const nameSpan  = card.querySelectorAll('span')[1];
+                const descSpan  = card.querySelectorAll('span')[2];
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                card.style.background    = isDark ? (isActive ? '#1e3a5f' : '#1e293b') : (isActive ? '#f0f7ff' : '#fff');
+                card.style.borderColor   = isActive ? '#0064d2' : (isDark ? '#334155' : '#e2e8f0');
+                if (nameSpan) nameSpan.style.color = isDark ? '#e2e8f0' : '#1d2d3d';
+                if (descSpan) descSpan.style.color = isDark ? '#94a3b8' : '#556b82';
+            });
+
+            const lbl = document.getElementById('theme-current-label');
+            if (lbl) lbl.textContent = labels[mode] || '';
+        }
+
+        // Activar clicks en las tarjetas
+        document.querySelectorAll('.theme-option-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+                const mode = card.dataset.themeMode;
+                if (typeof window.setThemeMode === 'function') {
+                    window.setThemeMode(mode);
+                } else {
+                    // fallback mínimo si el engine aún no está en esta página
+                    localStorage.setItem(THEME_KEY, mode);
+                    const isDark = mode === 'dark' || (mode === 'system' && mql.matches);
+                    if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+                    else document.documentElement.removeAttribute('data-theme');
+                }
+                applyHighlight(mode);
+            });
+        });
+
+        // Sincronizar cuando el engine emite el evento
+        window.addEventListener('softcom:themechange', function() {
+            applyHighlight(getSaved());
+        });
+
+        // Estado inicial
+        applyHighlight(getSaved());
+
+        // Re-aplicar highlight si el SO cambia (modo system)
+        mql.addEventListener('change', function() {
+            applyHighlight(getSaved());
+        });
+    })();
 })();
 </script>
 {% endblock %}

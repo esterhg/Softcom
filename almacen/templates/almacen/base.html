@@ -633,40 +633,81 @@
     </script>
     {% block extra_js %}{% endblock %}
 
-<!-- Botón flotante de cambio de tema (Modo Oscuro/Claro) -->
-<button id="theme-toggle-btn" onclick="toggleTheme()" 
-        style="
-            position: fixed;
-            bottom: 100px;
-            right: 20px;
-            z-index: 9999;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
-            background: var(--sap-card-bg);
-            color: var(--sap-text-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            transition: transform 0.2s, background 0.2s;
-        "
-        title="Cambiar tema">
-    <i class="fas fa-moon"></i>
+<!-- Selector de tema (Claro / Dispositivo / Oscuro) -->
+<div id="almacen-theme-panel" style="
+        position: fixed; bottom: 108px; right: 16px; z-index: 9999;
+        display: flex; flex-direction: column; gap: 4px;
+        background: var(--sap-card-bg, #fff); border: 1px solid var(--sap-border-color, #d9d9d9);
+        border-radius: 10px; padding: 6px 5px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        opacity: 0; pointer-events: none; transform: translateY(6px);
+        transition: opacity 0.2s, transform 0.2s;">
+    <button class="pts-btn" data-theme-mode="light"  title="Claro"       style="width:34px;height:34px;border:none;border-radius:7px;background:transparent;font-size:1rem;cursor:pointer;">☀️</button>
+    <button class="pts-btn" data-theme-mode="system" title="Dispositivo" style="width:34px;height:34px;border:none;border-radius:7px;background:transparent;font-size:1rem;cursor:pointer;">💻</button>
+    <button class="pts-btn" data-theme-mode="dark"   title="Oscuro"      style="width:34px;height:34px;border:none;border-radius:7px;background:transparent;font-size:1rem;cursor:pointer;">🌙</button>
+</div>
+<button id="almacen-theme-trigger" title="Cambiar tema de la interfaz" aria-label="Cambiar tema" style="
+        position: fixed; bottom: 100px; right: 20px; z-index: 10000;
+        width: 44px; height: 44px; border-radius: 50%; border: none;
+        background: var(--sap-card-bg, #fff); color: var(--sap-text-color, #32363a);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15); cursor: pointer;
+        display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+    <span id="almacen-theme-icon">🌙</span>
 </button>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const btn = document.getElementById('theme-toggle-btn');
-        if (btn) {
-            const icon = btn.querySelector('i');
-            if (icon && window.getCurrentTheme) {
-                icon.className = window.getCurrentTheme() === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
+(function() {
+    var panel   = document.getElementById('almacen-theme-panel');
+    var trigger = document.getElementById('almacen-theme-trigger');
+    var iconEl  = document.getElementById('almacen-theme-icon');
+    var mql     = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function getSaved() {
+        var s = localStorage.getItem('softcom_theme_preference');
+        return ['light','dark','system'].indexOf(s) !== -1 ? s : 'system';
+    }
+
+    function syncBtns(mode) {
+        panel.querySelectorAll('.pts-btn').forEach(function(b) {
+            b.style.background = b.dataset.themeMode === mode
+                ? 'var(--sap-brand-color, #0070f2)' : 'transparent';
+            b.style.setProperty('filter', b.dataset.themeMode === mode ? 'brightness(1) saturate(0) invert(1)' : 'none');
+        });
+        var dark = mode === 'dark' || (mode === 'system' && mql.matches);
+        iconEl.textContent = dark ? '☀️' : '🌙';
+    }
+
+    trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var open = panel.style.opacity === '1';
+        panel.style.opacity    = open ? '0' : '1';
+        panel.style.pointerEvents = open ? 'none' : 'auto';
+        panel.style.transform  = open ? 'translateY(6px)' : 'translateY(0)';
+    });
+
+    document.addEventListener('click', function(e) {
+        if (e.target !== trigger && !panel.contains(e.target)) {
+            panel.style.opacity = '0';
+            panel.style.pointerEvents = 'none';
+            panel.style.transform = 'translateY(6px)';
         }
     });
+
+    panel.addEventListener('click', function(e) {
+        var btn = e.target.closest('.pts-btn');
+        if (!btn) return;
+        if (typeof window.setThemeMode === 'function') window.setThemeMode(btn.dataset.themeMode);
+        syncBtns(btn.dataset.themeMode);
+        setTimeout(function() {
+            panel.style.opacity = '0';
+            panel.style.pointerEvents = 'none';
+            panel.style.transform = 'translateY(6px)';
+        }, 250);
+    });
+
+    window.addEventListener('softcom:themechange', function() { syncBtns(getSaved()); });
+    mql.addEventListener('change', function() { syncBtns(getSaved()); });
+    document.addEventListener('DOMContentLoaded', function() { syncBtns(getSaved()); });
+})();
 </script>
 
 </body>

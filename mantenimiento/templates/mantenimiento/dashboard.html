@@ -5,6 +5,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% trans "Gestión de Mantenimiento" %}</title>
+<!-- Anti-FOWT: aplica tema antes del primer paint -->
+<script>
+(function(){var k='softcom_theme_preference',v=localStorage.getItem(k),m=['light','dark','system'].indexOf(v)!==-1?v:'system',d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');})();
+</script>
+{% include 'core/fiori_tokens.html' %}
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -637,6 +642,78 @@
         color: #6a6d70;
         font-size: 0.8rem;
     }
+
+    /* ── Dark Mode — mantenimiento/dashboard.html ──────────────────────
+       Las variables --sapBlue, --sapBg, --sapCardBg, --sapText, etc.
+       se gestionan via variables puente en fiori_tokens.html.
+       Solo cubrimos:
+       - Elementos con colores fijos no pasados por variable
+       - Search dropdown (background: #fff hardcodeado)
+       - Badges de estado (bg hardcodeados, pero conservan color semántico)
+       Los colores funcionales (sapPositive/Critical/Negative) mantienen
+       su identidad visual adaptada a mayor claridad en fondo oscuro.
+       ────────────────────────────────────────────────────────────── */
+
+    /* Search dropdown */
+    [data-theme="dark"] .global-search-dropdown {
+        background: var(--sapCardBg);
+        border-color: var(--sapBorder);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    [data-theme="dark"] .gs-section-header {
+        background: #0f172a;
+        color: var(--sapTextMuted);
+        border-bottom-color: var(--sapBorder);
+    }
+
+    [data-theme="dark"] .gs-item {
+        color: var(--sapText);
+        border-bottom-color: #273549;
+    }
+
+    [data-theme="dark"] .gs-item:hover { background: #273549; }
+
+    [data-theme="dark"] .gs-item-icon.ot     { background: #1e3a5f; color: var(--sapBlue); }
+    [data-theme="dark"] .gs-item-icon.aviso  { background: #78350f; color: var(--sapCritical); }
+    [data-theme="dark"] .gs-item-icon.activo { background: #064e3b; color: var(--sapPositive); }
+
+    [data-theme="dark"] .gs-item-subtitle,
+    [data-theme="dark"] .gs-item-meta,
+    [data-theme="dark"] .gs-empty,
+    [data-theme="dark"] .gs-loading { color: var(--sapTextMuted); }
+
+    /* Badges de estado del cronograma de OTs */
+    [data-theme="dark"] .bg-programada { background: #064e3b; color: var(--sapPositive); border-color: var(--sapPositive); }
+    [data-theme="dark"] .bg-espera     { background: #78350f; color: var(--sapCritical); border-color: var(--sapCritical); }
+    [data-theme="dark"] .bg-ejecucion  { background: #1e3a5f; color: var(--sapBlue);     border-color: var(--sapBlue); }
+    [data-theme="dark"] .bg-critico    { background: #7f1d1d; color: var(--sapNegative); border-color: var(--sapNegative); }
+
+    /* Shell search input */
+    [data-theme="dark"] .shell-search-input {
+        background: rgba(255,255,255,0.08);
+        border-color: rgba(255,255,255,0.15);
+        color: #fff;
+    }
+
+    [data-theme="dark"] .shell-search-input::placeholder { color: rgba(255,255,255,0.4); }
+    [data-theme="dark"] .shell-search-input:focus {
+        background: rgba(255,255,255,0.12);
+        border-color: rgba(255,255,255,0.3);
+    }
+
+    /* Tabla de OTs recientes */
+    [data-theme="dark"] .custom-table tr { border-bottom-color: #273549; }
+    [data-theme="dark"] .custom-table td { color: var(--sapText); }
+
+    /* Items de menú de acceso rápido */
+    [data-theme="dark"] .menu-item:hover {
+        background: #273549;
+        border-color: var(--sapBorder);
+    }
+
+    /* Avisos urgentes */
+    [data-theme="dark"] .aviso-item { border-bottom-color: #273549; }
 </style>
 </head>
 <body>

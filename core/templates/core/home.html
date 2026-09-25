@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inicio - SoftCom CCG</title>
+    <!-- Anti-FOWT: aplica tema antes del primer paint -->
+    <script>
+    (function(){var k='softcom_theme_preference',v=localStorage.getItem(k),m=['light','dark','system'].indexOf(v)!==-1?v:'system',d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');})();
+    </script>
+    {% include 'core/fiori_tokens.html' %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <style>
@@ -56,34 +61,57 @@
         .sap-card.expanded .card-body { display: block; }
         .col-heading { font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 12px 14px 2px; }
         .sublink { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--dark); font-size: .88rem; padding: 9px 14px; }
-        .sublink:hover { background: #f0f0f0; }
+        .sublink:hover { background: var(--body-bg); }
         .sublink i { width: 16px; text-align: center; color: var(--primary); font-size: .82rem; }
-        .direct-btn { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 14px; border: 1px solid var(--primary); background: #fff; color: var(--primary); text-decoration: none; font-weight: 600; padding: 8px; font-size: .85rem; }
+        .direct-btn { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 14px; border: 1px solid var(--primary); background: var(--surface, #fff); color: var(--primary); text-decoration: none; font-weight: 600; padding: 8px; font-size: .85rem; }
         .direct-btn:hover { background: var(--primary); color: #fff; }
         .empty-msg { color: var(--muted); font-size: .85rem; text-align: center; padding: 14px; }
-        .edit-badge { position: absolute; top: 8px; right: 8px; z-index: 20; width: 30px; height: 30px; border: 1px solid var(--border); cursor: pointer; background: #fff; color: var(--muted); font-size: .85rem; display: none; align-items: center; justify-content: center; }
+        .edit-badge { position: absolute; top: 8px; right: 8px; z-index: 20; width: 30px; height: 30px; border: 1px solid var(--border); cursor: pointer; background: var(--surface, #fff); color: var(--muted); font-size: .85rem; display: none; align-items: center; justify-content: center; }
         body.editing .edit-badge { display: flex; }
-        .edit-badge:hover { background: #f0f0f0; }
+        .edit-badge:hover { background: var(--body-bg); }
         .sap-card.hidden-card { opacity: .45; filter: grayscale(.4); }
         .sap-card.hidden-card .edit-badge { background: #bb0000; color: #fff; }
         body.editing .sap-card { cursor: default; }
         body.editing .sap-card .edit-badge { pointer-events: auto; }
         body.editing .sap-card .sublink, body.editing .sap-card .direct-btn { pointer-events: none; }
-        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--dark); color: #fff; padding: 12px 22px; font-size: .9rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,.25); opacity: 0; transition: all .25s; z-index: 500; border: 1px solid #fff; }
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--dark); color: #fff; padding: 12px 22px; font-size: .9rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,.25); opacity: 0; transition: all .25s; z-index: 500; border: 1px solid var(--border); }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: none; align-items: center; justify-content: center; z-index: 400; padding: 20px; }
         .modal-overlay.show { display: flex; }
-        .modal { background: #fff; border: 1px solid var(--border); width: 100%; max-width: 420px; padding: 22px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
-        .modal h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 16px; }
+        .modal { background: var(--surface, #fff); border: 1px solid var(--border); width: 100%; max-width: 420px; padding: 22px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+        .modal h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 16px; color: var(--dark); }
         .field { margin-bottom: 14px; }
         .field label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .03em; }
-        .field input, .field select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); font-size: .9rem; font-family: inherit; outline: none; }
+        .field input, .field select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); background: var(--surface, #fff); color: var(--dark); font-size: .9rem; font-family: inherit; outline: none; }
         .field input:focus, .field select:focus { border-color: var(--primary); }
         .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
         .modal-actions .btn { flex: 1; justify-content: center; }
         .icon-options { display: flex; flex-wrap: wrap; gap: 8px; }
-        .icon-options button { width: 40px; height: 40px; border: 1px solid var(--border); background: #fff; cursor: pointer; color: var(--dark); font-size: 1rem; }
-        .icon-options button.active { border-color: var(--primary); color: var(--primary); background: #eef4fc; }
+        .icon-options button { width: 40px; height: 40px; border: 1px solid var(--border); background: var(--surface, #fff); cursor: pointer; color: var(--dark); font-size: 1rem; }
+        .icon-options button.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light, #eef4fc); }
+
+        /* ── Dark mode local — home.html ───────────────────────────────
+           Las variables --primary, --dark, --muted, --body-bg, --border
+           ya las gestiona fiori_tokens.html mediante variables puente.
+           Solo cubrimos los elementos que tienen valores #fff hardcodeados
+           o referencias que no pasan por variable.
+           ──────────────────────────────────────────────────────────── */
+        [data-theme="dark"] header {
+            background: #1a2332;
+            border-bottom-color: #334155;
+        }
+        [data-theme="dark"] .sap-card {
+            background: var(--surface, #1e293b);
+        }
+        [data-theme="dark"] .sap-card:hover {
+            box-shadow: 0 0 0 2px rgba(77,158,247,.4);
+        }
+        [data-theme="dark"] .card-body {
+            background: var(--surface, #1e293b);
+        }
+        [data-theme="dark"] .btn { background: var(--surface, #1e293b); }
+        [data-theme="dark"] .btn:hover { background: #273549; }
+        [data-theme="dark"] .modal-overlay { background: rgba(0,0,0,.75); }
     </style>
 </head>
 <body>

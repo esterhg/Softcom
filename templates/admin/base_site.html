@@ -191,6 +191,53 @@
         } else {
             nav.appendChild(configLi);
         }
+
+        // ── Selector de Tema (Claro / Oscuro / Dispositivo) ──────────────
+        var themeLi = document.createElement('li');
+        themeLi.className = 'nav-item d-none d-sm-inline-block';
+        themeLi.style.cssText = 'display:flex!important;align-items:center;';
+
+        var themeWidget = document.createElement('div');
+        themeWidget.className = 'theme-switcher-nav';
+        themeWidget.setAttribute('role', 'group');
+        themeWidget.setAttribute('aria-label', 'Selector de tema');
+
+        var modes = [
+            { mode: 'light',  icon: 'fas fa-sun',            title: 'Claro' },
+            { mode: 'dark',   icon: 'fas fa-moon',           title: 'Oscuro' },
+            { mode: 'system', icon: 'fas fa-desktop',        title: 'Dispositivo' }
+        ];
+
+        modes.forEach(function(m) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'tsn-btn';
+            btn.dataset.themeMode = m.mode;
+            btn.setAttribute('title', m.title);
+            btn.setAttribute('aria-label', m.title);
+            btn.innerHTML = '<i class="' + m.icon + '" aria-hidden="true"></i>';
+            themeWidget.appendChild(btn);
+        });
+
+        themeLi.appendChild(themeWidget);
+
+        if (ayudaLi && ayudaLi !== inicioLi) {
+            nav.insertBefore(themeLi, ayudaLi);
+        } else {
+            nav.appendChild(themeLi);
+        }
+
+        // Sincronizar estado visual del selector con el modo guardado
+        function syncThemeBtns() {
+            var saved = (typeof getThemeMode === 'function') ? getThemeMode() : (localStorage.getItem('softcom_theme_preference') || 'system');
+            themeWidget.querySelectorAll('.tsn-btn').forEach(function(b) {
+                b.classList.toggle('active', b.dataset.themeMode === saved);
+            });
+        }
+        syncThemeBtns();
+
+        // Re-sincronizar cuando cambie el tema desde cualquier otro lugar
+        window.addEventListener('softcom:themechange', syncThemeBtns);
     }
 
     if (document.readyState === 'loading') {
@@ -204,6 +251,21 @@
 
 {% block extrahead %}
 {{ block.super }}
+<!--
+    Theme Engine — cargado PRIMERO para evitar flash of wrong theme (FOWT).
+    Aplica data-theme="dark" al <html> antes de que el navegador pinte nada.
+-->
+<script>
+(function(){
+    var THEME_KEY = 'softcom_theme_preference';
+    var VALID = ['light','dark','system'];
+    var saved = localStorage.getItem(THEME_KEY);
+    var mode = VALID.indexOf(saved) !== -1 ? saved : 'system';
+    var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) document.documentElement.setAttribute('data-theme','dark');
+    else document.documentElement.removeAttribute('data-theme');
+})();
+</script>
 <link rel="stylesheet" href="{% static 'notificaciones/css/notificaciones.css' %}">
 <style>
     body, .main-header, .content-wrapper, .main-sidebar, .nav-link, h1, h2, h3, h4, h5, h6,

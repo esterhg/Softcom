@@ -5,6 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cronograma de Mantenimiento {{ year }}</title>
+    <!-- Anti-FOWT: aplica tema antes del primer paint -->
+    <script>
+    (function(){var k='softcom_theme_preference',v=localStorage.getItem(k),m=['light','dark','system'].indexOf(v)!==-1?v:'system',d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');})();
+    </script>
+    {% load static %}
+    {% include 'core/fiori_tokens.html' %}
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
@@ -381,6 +387,111 @@
                 padding-left: 30px;
             }
         }
+
+        /* ── Dark Mode — cronograma.html ────────────────────────────────
+           Las variables --bg, --card-bg, --border, --text-main, --text-muted
+           se gestionan via variables puente en fiori_tokens.html.
+           Aquí solo cubrimos los colores hardcodeados en clases específicas:
+           - Filas de jerarquía (row-group, row-middle, row-sub)
+           - Header de meses/semanas en thead
+           - Columna sticky
+           - Botones y toggles
+           Los colores de las píldoras de mantenimiento (.mark-pill con
+           colores por prioridad asignados via JS) NO se tocan — son
+           colores semánticos de estado.
+           ────────────────────────────────────────────────────────────── */
+        [data-theme="dark"] body { padding: 20px; }
+
+        [data-theme="dark"] .header {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        [data-theme="dark"] .view-toggle {
+            background: #273549;
+        }
+
+        [data-theme="dark"] .toggle-btn.active {
+            background: #1e293b;
+            color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        [data-theme="dark"] .btn {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-color: #334155;
+        }
+
+        [data-theme="dark"] .btn:hover { background: #273549; }
+
+        /* Columna sticky — necesita fondo explícito para no quedar transparente */
+        [data-theme="dark"] .col-fixed {
+            background: #1e293b;
+            border-right-color: #4d9ef7 !important;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.4);
+        }
+
+        [data-theme="dark"] thead tr:first-child .col-fixed {
+            background: #162032;
+        }
+
+        /* Cabecera de meses — mantiene aspecto oscuro pero más suave */
+        [data-theme="dark"] .header-month {
+            background: #162032;
+            color: #e2e8f0;
+        }
+
+        [data-theme="dark"] .header-week {
+            background: #1e293b;
+        }
+
+        /* Filas de jerarquía:
+           row-group (nivel 1): era #1e293b con texto blanco — en dark
+           ya está oscuro, así que diferenciamos con un azul más saturado */
+        [data-theme="dark"] .row-group {
+            background-color: #0f172a;
+            color: #e2e8f0 !important;
+        }
+
+        [data-theme="dark"] .row-group:hover {
+            background-color: #162032;
+        }
+
+        [data-theme="dark"] .row-group .col-fixed {
+            background: #0f172a;
+        }
+
+        /* row-middle (nivel 2): era gris claro — en dark usamos slate medio */
+        [data-theme="dark"] .row-middle {
+            background-color: #1e293b;
+            color: #e2e8f0;
+        }
+
+        [data-theme="dark"] .row-middle .col-fixed {
+            background: #1e293b;
+        }
+
+        [data-theme="dark"] .row-middle:hover {
+            background-color: #273549;
+        }
+
+        /* row-sub (nivel 3): era verde menta — en dark usamos un tono verde
+           muy sutil para mantener la diferenciación de nivel sin quemar */
+        [data-theme="dark"] .row-sub {
+            background-color: #0d2016;
+            color: #4ade80;
+        }
+
+        [data-theme="dark"] .row-sub .col-fixed {
+            background: #0d2016;
+        }
+
+        /* Mark summary vacío — era gris claro */
+        [data-theme="dark"] .mark-summary {
+            background-color: #334155;
+        }
+
+        /* mark-summary.realizada conserva su verde semántico — no tocar */
     </style>
 </head>
 

@@ -1,10 +1,25 @@
-{% load static %}
+﻿{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>{% block title %}Portal Subcontratistas{% endblock %} | SoftCoM-CCG</title>
+    <!--
+        Anti-FOWT: aplica data-theme ANTES del primer paint del navegador,
+        usando la misma lÃ³gica que el engine principal en fiori_tokens.html.
+    -->
+    <script>
+    (function(){
+        var THEME_KEY = 'softcom_theme_preference';
+        var saved = localStorage.getItem(THEME_KEY);
+        var VALID = ['light','dark','system'];
+        var mode = VALID.indexOf(saved) !== -1 ? saved : 'system';
+        var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) document.documentElement.setAttribute('data-theme','dark');
+        else document.documentElement.removeAttribute('data-theme');
+    })();
+    </script>
     {% include 'core/pwa_tags.html' %}
     {% include 'core/fiori_tokens.html' %}
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -118,13 +133,13 @@
             color: var(--sap-text-color);
             border: 1px solid var(--sap-card-border);
         }
-        .btn-secondary:hover { background: #e0e0e0; }
+        .btn-secondary:hover { background: var(--sap-group-bg, #e0e0e0); }
         .btn-success {
-            background: #256f3a;
+            background: var(--sap-success, #256f3a);
             color: white;
         }
         .btn-danger {
-            background: #bb2d3b;
+            background: var(--sap-error, #bb2d3b);
             color: white;
         }
         .btn-sm {
@@ -143,11 +158,11 @@
             font-size: 11px;
             font-weight: 600;
         }
-        .badge-success { background: #d4edda; color: #155724; }
-        .badge-warning { background: #fff3cd; color: #856404; }
-        .badge-danger { background: #f8d7da; color: #721c24; }
-        .badge-info { background: #d1ecf1; color: #0c5460; }
-        .badge-secondary { background: #e2e3e5; color: #383d41; }
+        .badge-success { background: var(--sap-success-bg, #d4edda); color: var(--sap-success, #155724); }
+        .badge-warning { background: var(--sap-warning-bg, #fff3cd); color: var(--sap-warning, #856404); }
+        .badge-danger  { background: var(--sap-error-bg, #f8d7da);   color: var(--sap-error, #721c24); }
+        .badge-info    { background: var(--sap-information-bg, #d1ecf1); color: var(--sap-information, #0c5460); }
+        .badge-secondary { background: var(--sap-neutral-bg, #e2e3e5); color: var(--sap-neutral, #383d41); }
         .stat-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -167,12 +182,12 @@
         }
         .stat-card .stat-label {
             font-size: 12px;
-            color: #666;
+            color: var(--sap-text-muted, #666);
             margin-top: 4px;
         }
         .progress-bar {
             height: 8px;
-            background: #e9ecef;
+            background: var(--sap-neutral-bg, #e9ecef);
             border-radius: 4px;
             overflow: hidden;
             margin: 8px 0;
@@ -183,8 +198,8 @@
             border-radius: 4px;
             transition: width 0.3s;
         }
-        .progress-bar .progress-fill.success { background: #256f3a; }
-        .progress-bar .progress-fill.warning { background: #e67e22; }
+        .progress-bar .progress-fill.success { background: var(--sap-success, #256f3a); }
+        .progress-bar .progress-fill.warning { background: var(--sap-warning, #e67e22); }
         .table {
             width: 100%;
             border-collapse: collapse;
@@ -192,7 +207,7 @@
         .table th, .table td {
             padding: 10px 8px;
             text-align: left;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--sap-border-color, #eee);
             font-size: 13px;
         }
         .table th {
@@ -206,11 +221,11 @@
         .empty-state {
             text-align: center;
             padding: 32px 16px;
-            color: #999;
+            color: var(--sap-text-muted, #999);
         }
         .empty-state ion-icon {
             font-size: 48px;
-            color: #ddd;
+            color: var(--sap-border-color, #ddd);
         }
         .empty-state p { margin: 12px 0 0; font-size: 14px; }
         .bottom-nav {
@@ -245,24 +260,26 @@
             font-size: 13px;
             font-weight: 500;
         }
-        .alert-error { background: #f8d7da; color: #721c24; border-left: 4px solid #bb2d3b; }
-        .alert-success { background: #d4edda; color: #155724; border-left: 4px solid #256f3a; }
-        .alert-info { background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8; }
+        .alert-error   { background: var(--sap-error-bg, #f8d7da);       color: var(--sap-error, #721c24);       border-left: 4px solid var(--sap-error, #bb2d3b); }
+        .alert-success { background: var(--sap-success-bg, #d4edda);      color: var(--sap-success, #155724);     border-left: 4px solid var(--sap-success, #256f3a); }
+        .alert-info    { background: var(--sap-information-bg, #d1ecf1);   color: var(--sap-information, #0c5460); border-left: 4px solid var(--sap-information, #17a2b8); }
         .form-group { margin-bottom: 14px; }
         .form-group label {
             display: block;
             font-size: 13px;
             font-weight: 600;
-            color: #555;
+            color: var(--sap-text-muted, #555);
             margin-bottom: 4px;
         }
         .form-control {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--sap-border-color, #ddd);
             border-radius: var(--sap-border-radius);
             font-size: 14px;
             font-family: inherit;
+            background-color: var(--sap-card-bg, #fff);
+            color: var(--sap-text-color);
             transition: border-color 0.2s;
         }
         .form-control:focus {
@@ -285,28 +302,108 @@
             height: 18px;
         }
         .file-upload-zone {
-            border: 2px dashed #ddd;
+            border: 2px dashed var(--sap-border-color, #ddd);
             border-radius: var(--sap-border-radius);
             padding: 24px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .file-upload-zone:hover { border-color: var(--sap-primary); background: #f0f7ff; }
-        .file-upload-zone ion-icon { font-size: 36px; color: #ccc; }
-        .file-upload-zone p { margin: 8px 0 0; font-size: 13px; color: #999; }
+        .file-upload-zone:hover {
+            border-color: var(--sap-primary);
+            background: var(--sap-information-bg, #f0f7ff);
+        }
+        .file-upload-zone ion-icon {
+            font-size: 36px;
+            color: var(--sap-border-color, #ccc);
+        }
+        .file-upload-zone p { margin: 8px 0 0; font-size: 13px; color: var(--sap-text-muted, #999); }
         .file-list-item {
             display: flex;
             align-items: center;
             gap: 10px;
             padding: 10px;
-            background: #f8f9fa;
+            background: var(--sap-group-bg, #f8f9fa);
             border-radius: var(--sap-border-radius);
             margin-bottom: 8px;
         }
         .file-list-item .file-info { flex: 1; }
-        .file-list-item .file-info .file-name { font-size: 13px; font-weight: 500; }
-        .file-list-item .file-info .file-meta { font-size: 11px; color: #999; }
+        .file-list-item .file-info .file-name { font-size: 13px; font-weight: 500; color: var(--sap-text-color); }
+        .file-list-item .file-info .file-meta { font-size: 11px; color: var(--sap-text-muted, #999); }
+
+        /* â”€â”€ Selector de tema flotante (mobile) â”€â”€ */
+        .portal-theme-selector {
+            position: fixed;
+            bottom: 88px;         /* por encima del bottom-nav */
+            right: 16px;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: var(--sap-card-bg);
+            border: 1px solid var(--sap-border-color);
+            border-radius: 12px;
+            padding: 8px 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(8px);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .portal-theme-selector.open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .portal-theme-selector .pts-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--sap-text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .portal-theme-selector .pts-btn:hover {
+            background: var(--sap-group-bg);
+            color: var(--sap-text-color);
+        }
+        .portal-theme-selector .pts-btn.active {
+            background: var(--sap-brand-color, #0070f2);
+            color: #ffffff;
+        }
+
+        /* BotÃ³n disparador del selector flotante */
+        .portal-theme-trigger {
+            position: fixed;
+            bottom: 88px;
+            right: 16px;
+            z-index: 301;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: var(--sap-card-bg);
+            color: var(--sap-text-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .portal-theme-trigger:hover { transform: scale(1.08); }
+        .portal-theme-trigger.panel-open {
+            /* Cuando el panel estÃ¡ abierto, desplazar el trigger hacia arriba */
+            transform: translateY(-170px);
+        }
+
         @media (max-width: 480px) {
             .form-row { grid-template-columns: 1fr; }
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -330,7 +427,7 @@
             </a>
             <div class="notif-dropdown" id="notif-dropdown"></div>
         </div>
-        <a href="{% url 'portalsub:logout' %}" class="header-icon" title="Cerrar sesión">
+        <a href="{% url 'portalsub:logout' %}" class="header-icon" title="Cerrar sesiÃ³n">
             <ion-icon name="log-out-outline"></ion-icon>
         </a>
     </div>
@@ -360,7 +457,7 @@
         </a>
         <a href="{% url 'portalsub:ordenes_list' %}" class="{% if active_tab == 'ordenes' %}active{% endif %}">
             <ion-icon name="receipt-outline"></ion-icon>
-            <span>Órdenes</span>
+            <span>Ã“rdenes</span>
         </a>
         <a href="{% url 'portalsub:personal_list' %}" class="{% if active_tab == 'personal' %}active{% endif %}">
             <ion-icon name="people-outline"></ion-icon>
@@ -389,41 +486,101 @@
 </script>
 {% endif %}
 
-<!-- Botón flotante de cambio de tema (Modo Oscuro/Claro) -->
-<button id="theme-toggle-btn" onclick="toggleTheme()" 
-        style="
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            z-index: 9999;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
-            background: var(--sap-card-bg);
-            color: var(--sap-text-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            transition: transform 0.2s, background 0.2s;
-        "
+<!--
+    â”€â”€ Selector de Tema flotante (Portal Subcontratistas) â”€â”€
+    Tres botones: â˜€ï¸ Claro / ðŸŒ™ Oscuro / ðŸ’» Dispositivo
+    Usa el engine de fiori_tokens.html (window.setThemeMode).
+-->
+<div class="portal-theme-selector" id="portal-theme-panel" role="group" aria-label="Selector de tema">
+    <button class="pts-btn" data-theme-mode="light"  title="Claro"       aria-label="Tema claro">â˜€ï¸</button>
+    <button class="pts-btn" data-theme-mode="system" title="Dispositivo" aria-label="Seguir dispositivo">ðŸ’»</button>
+    <button class="pts-btn" data-theme-mode="dark"   title="Oscuro"      aria-label="Tema oscuro">ðŸŒ™</button>
+</div>
+
+<button class="portal-theme-trigger" id="portal-theme-trigger"
+        aria-label="Cambiar tema de la interfaz"
         title="Cambiar tema">
-    <i class="fas fa-moon"></i>
+    <span id="portal-theme-icon">ðŸŒ™</span>
 </button>
+
 <script>
-    // Actualizar icono inicial del botón
-    document.addEventListener('DOMContentLoaded', function() {
-        const btn = document.getElementById('theme-toggle-btn');
-        if (btn) {
-            const icon = btn.querySelector('i');
-            if (icon && window.getCurrentTheme) {
-                icon.className = window.getCurrentTheme() === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
+(function() {
+    const THEME_KEY = 'softcom_theme_preference';
+    const VALID     = ['light', 'dark', 'system'];
+    const mql       = window.matchMedia('(prefers-color-scheme: dark)');
+    const panel     = document.getElementById('portal-theme-panel');
+    const trigger   = document.getElementById('portal-theme-trigger');
+    const iconEl    = document.getElementById('portal-theme-icon');
+
+    const icons = { light: 'â˜€ï¸', dark: 'ðŸŒ™', system: 'ðŸ’»' };
+
+    function getSaved() {
+        const s = localStorage.getItem(THEME_KEY);
+        return VALID.includes(s) ? s : 'system';
+    }
+
+    function syncPanel(mode) {
+        panel.querySelectorAll('.pts-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.themeMode === mode);
+        });
+        // El icono del trigger muestra el tema activo actual (no el modo guardado)
+        const resolvedIsDark = mode === 'dark' || (mode === 'system' && mql.matches);
+        iconEl.textContent = resolvedIsDark ? 'â˜€ï¸' : 'ðŸŒ™';   // invertido: muestra lo que *activarÃ­as*
+    }
+
+    // Abrir/cerrar el panel al hacer click en el trigger
+    trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isOpen = panel.classList.toggle('open');
+        trigger.classList.toggle('panel-open', isOpen);
+        trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    // Cerrar al hacer click fuera del panel
+    document.addEventListener('click', function(e) {
+        if (!panel.contains(e.target) && e.target !== trigger) {
+            panel.classList.remove('open');
+            trigger.classList.remove('panel-open');
+            trigger.setAttribute('aria-expanded', 'false');
         }
     });
+
+    // Clicks en los botones del panel
+    panel.addEventListener('click', function(e) {
+        const btn = e.target.closest('.pts-btn');
+        if (!btn || !btn.dataset.themeMode) return;
+        const mode = btn.dataset.themeMode;
+        if (typeof window.setThemeMode === 'function') {
+            window.setThemeMode(mode);
+        } else {
+            localStorage.setItem(THEME_KEY, mode);
+            const isDark = mode === 'dark' || (mode === 'system' && mql.matches);
+            if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+            else document.documentElement.removeAttribute('data-theme');
+        }
+        syncPanel(mode);
+        // Cerrar el panel despuÃ©s de elegir
+        setTimeout(function() {
+            panel.classList.remove('open');
+            trigger.classList.remove('panel-open');
+        }, 300);
+    });
+
+    // Escuchar cambios del engine principal
+    window.addEventListener('softcom:themechange', function() {
+        syncPanel(getSaved());
+    });
+
+    // Escuchar cambio del SO (actÃºa solo en modo system)
+    mql.addEventListener('change', function() {
+        syncPanel(getSaved());
+    });
+
+    // Estado inicial
+    document.addEventListener('DOMContentLoaded', function() {
+        syncPanel(getSaved());
+    });
+})();
 </script>
 
 </body>

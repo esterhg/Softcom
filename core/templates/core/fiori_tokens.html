@@ -1,110 +1,323 @@
 <style>
+    /* ================================================================
+       SoftCom CCG — Design Tokens (fiori_tokens.html)
+       Sistema de variables CSS centralizado.
+       Modo claro definido en :root.
+       Modo oscuro activado con [data-theme="dark"] en <html>.
+       Protección de impresión: @media print preserva colores de papel.
+       ================================================================ */
+
     :root {
-        /* SAP Fiori Horizon Color Palette - MODO CLARO */
-        /* Primary / Shell */
-        --sap-shell-bg: #354a5f;
+        /* ── Shell / Header ── */
+        --sap-shell-bg:    #354a5f;
         --sap-shell-color: #ffffff;
-        
-        /* Brand Colors */
-        --sap-brand-color: #0070f2;
+
+        /* ── Marca ── */
+        --sap-brand-color:     #0070f2;
         --sap-highlight-color: #0056b3;
-        
-        /* Accents */
+
+        /* ── Acentos ── */
         --sap-accent-1: #e06c00;
         --sap-accent-2: #346187;
         --sap-accent-3: #1c4c6e;
-        
-        /* Semantic Colors */
-        --sap-success: #107e3e;
-        --sap-success-bg: #e5f5ea;
-        --sap-warning: #e9730c;
-        --sap-warning-bg: #fff4e6;
-        --sap-error: #bb0000;
-        --sap-error-bg: #ffebeb;
-        --sap-information: #0a6ed1;
+
+        /* ── Semánticos — NUNCA suprimir, solo adaptar contraste ── */
+        --sap-success:        #107e3e;
+        --sap-success-bg:     #e5f5ea;
+        --sap-success-border: #107e3e;
+        --sap-warning:        #e9730c;
+        --sap-warning-bg:     #fff4e6;
+        --sap-warning-border: #e9730c;
+        --sap-error:          #bb0000;
+        --sap-error-bg:       #ffebeb;
+        --sap-error-border:   #bb0000;
+        --sap-information:    #0a6ed1;
         --sap-information-bg: #e8f0f8;
-        --sap-neutral: #6a6d70;
-        --sap-neutral-bg: #f2f2f2;
-        
-        /* Backgrounds - Modo Claro */
-        --sap-bg-color: #f5f6f7;
-        --sap-card-bg: #ffffff;
-        --sap-group-bg: #ebeef0;
-        
-        /* Text Colors - Modo Claro */
-        --sap-text-color: #32363a;
-        --sap-text-muted: #6a6d70;
+        --sap-neutral:        #6a6d70;
+        --sap-neutral-bg:     #f2f2f2;
+
+        /* ── Fondos ── */
+        --sap-bg-color:  #f5f6f7;
+        --sap-card-bg:   #ffffff;
+        --sap-group-bg:  #ebeef0;
+
+        /* ── Texto ── */
+        --sap-text-color:    #32363a;
+        --sap-text-muted:    #6a6d70;
         --sap-text-inverted: #ffffff;
-        
-        /* Borders & Shadows */
+
+        /* ── Bordes y sombras ── */
         --sap-border-color: #d9d9d9;
         --sap-border-radius: 2px;
         --sap-card-shadow: 0 0 0 1px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
-        
-        /* Font */
+
+        /* ── Tipografía ── */
         --sap-font-family: 'Artifakt Element', 'Outfit', '72', '72Full', Arial, Helvetica, sans-serif;
+
+        /* ================================================================
+           VARIABLES PUENTE — Aliases que unifican los distintos nombres
+           de variables que usan los templates standalone del proyecto.
+           Al redefinirse en [data-theme="dark"], todos los templates que
+           usen cualquiera de estos nombres responden automáticamente.
+           ================================================================ */
+
+        /* ── Puentes para mantenimiento/dashboard.html ── */
+        --sapBlue:      #0070b2;
+        --sapBlueDark:  #005b8f;
+        --sapBg:        #f5f6f7;
+        --sapCardBg:    #ffffff;
+        --sapText:      #32363a;
+        --sapTextMuted: #6a6d70;
+        --sapBorder:    #d9d9d9;
+        --sapShellBg:   #1d2d3e;
+        --sapShellText: #ffffff;
+        /* Semánticos de mantenimiento — alias, NO se oscurecen para no perder significado */
+        --sapPositive:  #2b7c2b;
+        --sapCritical:  #e9730c;
+        --sapNegative:  #bb0000;
+        --sapNeutral:   #6a6d70;
+
+        /* ── Puentes para inventarios/base_inventarios.html ── */
+        --primary:       #0a6ed1;
+        --primary-hover: #0958a8;
+        --primary-light: #eff6ff;
+        --accent:        #6366f1;
+        --bg:            #f7f8fa;
+        --surface:       #ffffff;
+        --border:        #e2e8f0;
+        --text:          #1e293b;
+        --text-muted:    #64748b;
+        --shadow-sm:     0 1px 2px rgba(0,0,0,0.04);
+        --shadow:        0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+        --shadow-lg:     0 8px 30px rgba(0,0,0,0.08);
+
+        /* ── Puentes para home.html ── */
+        --dark:     #32363a;
+        --muted:    #6a6d70;
+        --body-bg:  #f5f6f7;
+
+        /* ── Puentes para ticket_dashboard.css ── */
+        --sap-card-bg-ticket: #ffffff;
+        --sap-shell-bg-ticket: #eff4f9;
+        --sap-primary:   #0070f2;
+        --sap-success-ticket: #28a745;
+        --sap-text:      #32363a;
+        --sap-text-muted-ticket: #6a6d70;
+        --sap-border-ticket: #d8d8d8;
+        --sap-shadow:    0 0.125rem 0.5rem rgba(0,0,0,0.05);
+
+        /* ── Puentes para inventarios/master_catalog.html ── */
+        --sap-blue:      #0a6ed1;
+        --sap-shell:     #354a5f;
+        --sap-bg:        #f3f5f7;
+        --sap-field-bg:  #ffffff;
+        --sap-card:      #ffffff;
+        --sap-highlight: #0854a0;
+
+        /* ── Puentes para cronograma.html ── */
+        --bg-page:  #f1f5f9;
+        --card-bg:  #ffffff;
+
+        /* ── Puentes para presupuestos/requisicion_styles.html ── */
+        --primary-color:    #0070f2;
+        --secondary-color:  #6366f1;
+        --bg-body:          #f5f6f7;
+        --border-color:     #d9d9d9;
+        --text-primary:     #32363a;
+        --text-secondary:   #6a6d70;
     }
 
-    /* SAP Fiori Horizon Color Palette - MODO OSCURO */
+    /* ================================================================
+       MODO OSCURO
+       Redefine todas las variables puente además de los tokens canónicos.
+       Principios aplicados:
+         1. Backgrounds y superficies → escala azul-gris oscura.
+         2. Textos → escala gris clara para buen contraste (WCAG AA).
+         3. Semánticos (success/warning/error) → más claros para contraste
+            sobre fondo oscuro, PERO conservando identidad visual.
+         4. Brand colors → levemente más claros para legibilidad.
+         5. Colores de prioridad/categoría → NO se tocan (son de marca).
+         6. Gráficas y visualizaciones → los colores hardcoded en JS
+            son responsabilidad de Chart.js (no hay variable CSS).
+       ================================================================ */
     [data-theme="dark"] {
-        /* Primary / Shell - Oscuro */
-        --sap-shell-bg: #1f2937;
+        /* ── Tokens canónicos ── */
+        --sap-shell-bg:    #1a2332;
         --sap-shell-color: #e5e7eb;
-        
-        /* Brand Colors - Oscuro */
-        --sap-brand-color: #3b82f6;
-        --sap-highlight-color: #60a5fa;
-        
-        /* Accents - Oscuro */
+
+        --sap-brand-color:     #4d9ef7;
+        --sap-highlight-color: #6cb2fa;
+
         --sap-accent-1: #f97316;
         --sap-accent-2: #60a5fa;
         --sap-accent-3: #93c5fd;
-        
-        /* Semantic Colors - Oscuro (más claros para contraste) */
-        --sap-success: #4ade80;
-        --sap-success-bg: #064e3b;
-        --sap-warning: #fbbf24;
-        --sap-warning-bg: #78350f;
-        --sap-error: #f87171;
-        --sap-error-bg: #7f1d1d;
-        --sap-information: #60a5fa;
+
+        /* Semánticos: colores más claros para contraste sobre fondo oscuro */
+        --sap-success:        #4ade80;
+        --sap-success-bg:     #064e3b;
+        --sap-success-border: #166534;
+        --sap-warning:        #fbbf24;
+        --sap-warning-bg:     #78350f;
+        --sap-warning-border: #92400e;
+        --sap-error:          #f87171;
+        --sap-error-bg:       #7f1d1d;
+        --sap-error-border:   #991b1b;
+        --sap-information:    #60a5fa;
         --sap-information-bg: #1e3a5f;
-        --sap-neutral: #9ca3af;
-        --sap-neutral-bg: #374151;
-        
-        /* Backgrounds - Modo Oscuro */
-        --sap-bg-color: #111827;
-        --sap-card-bg: #1f2937;
-        --sap-group-bg: #374151;
-        
-        /* Text Colors - Modo Oscuro */
-        --sap-text-color: #f3f4f6;
-        --sap-text-muted: #9ca3af;
-        --sap-text-inverted: #1f2937;
-        
-        /* Borders & Shadows - Modo Oscuro */
-        --sap-border-color: #4b5563;
-        --sap-card-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 2px 4px rgba(0,0,0,0.3);
+        --sap-neutral:        #9ca3af;
+        --sap-neutral-bg:     #374151;
+
+        --sap-bg-color: #0f172a;
+        --sap-card-bg:  #1e293b;
+        --sap-group-bg: #334155;
+
+        --sap-text-color:    #e2e8f0;
+        --sap-text-muted:    #94a3b8;
+        --sap-text-inverted: #1e293b;
+
+        --sap-border-color: #334155;
+        --sap-card-shadow:  0 0 0 1px rgba(255,255,255,0.06), 0 2px 4px rgba(0,0,0,0.4);
+
+        /* ── Puentes para mantenimiento/dashboard.html ── */
+        --sapBlue:      #4d9ef7;
+        --sapBlueDark:  #6cb2fa;
+        --sapBg:        #0f172a;
+        --sapCardBg:    #1e293b;
+        --sapText:      #e2e8f0;
+        --sapTextMuted: #94a3b8;
+        --sapBorder:    #334155;
+        --sapShellBg:   #1a2332;
+        --sapShellText: #e5e7eb;
+        /* Semánticos de mantenimiento: adaptar para contraste oscuro */
+        --sapPositive:  #4ade80;   /* verde más claro — legible en oscuro */
+        --sapCritical:  #fbbf24;   /* naranja más claro — legible en oscuro */
+        --sapNegative:  #f87171;   /* rojo más claro — legible en oscuro */
+        --sapNeutral:   #9ca3af;
+
+        /* ── Puentes para inventarios/base_inventarios.html ── */
+        --primary:       #4d9ef7;
+        --primary-hover: #6cb2fa;
+        --primary-light: #1e3a5f;
+        --accent:        #818cf8;
+        --bg:            #0f172a;
+        --surface:       #1e293b;
+        --border:        #334155;
+        --text:          #e2e8f0;
+        --text-muted:    #94a3b8;
+        --shadow-sm:     0 1px 2px rgba(0,0,0,0.3);
+        --shadow:        0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+        --shadow-lg:     0 8px 30px rgba(0,0,0,0.5);
+
+        /* ── Puentes para home.html ── */
+        --dark:    #e2e8f0;
+        --muted:   #94a3b8;
+        --body-bg: #0f172a;
+
+        /* ── Puentes para ticket_dashboard.css ── */
+        --sap-card-bg-ticket:    #1e293b;
+        --sap-shell-bg-ticket:   #0f172a;
+        --sap-primary:           #4d9ef7;
+        --sap-success-ticket:    #4ade80;
+        --sap-text:              #e2e8f0;
+        --sap-text-muted-ticket: #94a3b8;
+        --sap-border-ticket:     #334155;
+        --sap-shadow:            0 0.125rem 0.5rem rgba(0,0,0,0.4);
+
+        /* ── Puentes para inventarios/master_catalog.html ── */
+        --sap-blue:      #4d9ef7;
+        --sap-shell:     #1a2332;
+        --sap-bg:        #0f172a;
+        --sap-field-bg:  #1e293b;
+        --sap-card:      #1e293b;
+        --sap-highlight: #6cb2fa;
+
+        /* ── Puentes para cronograma.html ── */
+        --bg-page: #0f172a;
+        --card-bg: #1e293b;
+
+        /* ── Puentes para presupuestos/requisicion_styles.html ── */
+        --primary-color:   #4d9ef7;
+        --secondary-color: #818cf8;
+        --bg-body:         #0f172a;
+        --border-color:    #334155;
+        --text-primary:    #e2e8f0;
+        --text-secondary:  #94a3b8;
     }
 
-    /* Transición suave para cambio de tema */
-    :root, [data-theme="dark"] {
-        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    /* ================================================================
+       PROTECCIÓN DE IMPRESIÓN / PDF
+       Los templates con @media print deben conservar colores de papel
+       independientemente del tema seleccionado.
+       ================================================================ */
+    @media print {
+        /* Restaurar tokens canónicos a sus valores de modo claro */
+        :root, [data-theme="dark"] {
+            --sap-shell-bg:    #354a5f !important;
+            --sap-shell-color: #ffffff !important;
+            --sap-brand-color: #0070f2 !important;
+            --sap-success:        #107e3e !important;
+            --sap-success-bg:     #e5f5ea !important;
+            --sap-warning:        #e9730c !important;
+            --sap-warning-bg:     #fff4e6 !important;
+            --sap-error:          #bb0000 !important;
+            --sap-error-bg:       #ffebeb !important;
+            --sap-information:    #0a6ed1 !important;
+            --sap-information-bg: #e8f0f8 !important;
+            --sap-bg-color:  #ffffff !important;
+            --sap-card-bg:   #ffffff !important;
+            --sap-group-bg:  #f5f6f7 !important;
+            --sap-text-color:    #000000 !important;
+            --sap-text-muted:    #444444 !important;
+            --sap-border-color:  #cccccc !important;
+            --sap-card-shadow:   none    !important;
+            /* Puentes también */
+            --sapBg:     #ffffff !important;
+            --sapCardBg: #ffffff !important;
+            --sapText:   #000000 !important;
+            --bg:        #ffffff !important;
+            --surface:   #ffffff !important;
+            --text:      #000000 !important;
+            --card-bg:   #ffffff !important;
+            --bg-page:   #ffffff !important;
+            --bg-body:   #ffffff !important;
+        }
+
+        /* Forzar fondo blanco en body y suprimir imágenes de fondo */
+        body {
+            background: #ffffff !important;
+            background-image: none !important;
+            color: #000000 !important;
+        }
     }
 
-    /* Common Fiori Utility Classes */
+    /* ================================================================
+       TRANSICIÓN SUAVE
+       Solo en propiedades estructurales — no en transform ni opacity
+       para no interferir con animaciones existentes.
+       ================================================================ */
+    *, *::before, *::after {
+        transition:
+            background-color 0.25s ease,
+            color 0.25s ease,
+            border-color 0.25s ease,
+            box-shadow 0.25s ease;
+    }
+    /* Excluir elementos donde la transición causa artefactos */
+    img, video, svg, canvas, iframe,
+    [class*="chart"], [class*="gantt"], [class*="mark-pill"] {
+        transition: none;
+    }
+
+    /* ================================================================
+       CLASES DE UTILIDAD FIORI
+       Todas usan variables → responden automáticamente al tema.
+       ================================================================ */
     .fiori-card {
         background: var(--sap-card-bg);
         border: 1px solid var(--sap-border-color);
         border-radius: var(--sap-border-radius);
         box-shadow: var(--sap-card-shadow);
         padding: 1rem;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .fiori-card:active {
-        transform: scale(0.98);
-        background: var(--sap-group-bg);
     }
 
     .fiori-btn {
@@ -117,33 +330,13 @@
         font-size: 14px;
         border: 1px solid transparent;
         cursor: pointer;
-        transition: all 0.2s;
         text-decoration: none;
         gap: 8px;
     }
-
-    .fiori-btn-primary {
-        background: var(--sap-brand-color);
-        color: white;
-    }
-
-    .fiori-btn-ghost {
-        background: transparent;
-        border-color: var(--sap-brand-color);
-        color: var(--sap-brand-color);
-    }
-
-    .fiori-btn-accept {
-        background: #e5f5ea;
-        color: #107e3e;
-        border-color: #107e3e;
-    }
-
-    .fiori-btn-reject {
-        background: #ffeded;
-        color: #bb0000;
-        border-color: #bb0000;
-    }
+    .fiori-btn-primary { background: var(--sap-brand-color);  color: white; }
+    .fiori-btn-ghost   { background: transparent; border-color: var(--sap-brand-color); color: var(--sap-brand-color); }
+    .fiori-btn-accept  { background: var(--sap-success-bg);   color: var(--sap-success);  border-color: var(--sap-success-border); }
+    .fiori-btn-reject  { background: var(--sap-error-bg);     color: var(--sap-error);    border-color: var(--sap-error-border); }
 
     .fiori-header {
         background: var(--sap-shell-bg);
@@ -156,120 +349,141 @@
         align-items: center;
         justify-content: space-between;
     }
-</style>
-<!-- Script para cambio de tema (Modo Oscuro/Claro) -->
-<script>
-(function() {
-    // Clave para localStorage
-    const THEME_KEY = 'softcom_theme_preference';
-    
-    // Preferencias del sistema
-    const DARK_SCHEME = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    /**
-     * Obtiene el tema guardado o detecta del sistema
-     */
-    function getPreferredTheme() {
-        const saved = localStorage.getItem(THEME_KEY);
-        if (saved) return saved;
-        return DARK_SCHEME.matches ? 'dark' : 'light';
+
+    /* ── Badges de estado — usan semánticos, adaptan solo fondo ── */
+    .fiori-badge-success { background: var(--sap-success-bg); color: var(--sap-success); border: 1px solid var(--sap-success-border); }
+    .fiori-badge-warning { background: var(--sap-warning-bg); color: var(--sap-warning); border: 1px solid var(--sap-warning-border); }
+    .fiori-badge-error   { background: var(--sap-error-bg);   color: var(--sap-error);   border: 1px solid var(--sap-error-border); }
+    .fiori-badge-info    { background: var(--sap-information-bg); color: var(--sap-information); }
+    .fiori-badge-neutral { background: var(--sap-neutral-bg); color: var(--sap-neutral); }
+
+    /* ── Theme Selector Widget ── */
+    .theme-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        background: rgba(0,0,0,0.08);
+        border-radius: 6px;
+        padding: 2px;
     }
-    
-    /**
-     * Aplica el tema al documento
-     */
+    [data-theme="dark"] .theme-selector { background: rgba(255,255,255,0.1); }
+
+    .theme-selector-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 4px;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s !important;
+        white-space: nowrap;
+    }
+    .theme-selector-btn:hover           { background: rgba(0,0,0,0.08); }
+    [data-theme="dark"] .theme-selector-btn:hover { background: rgba(255,255,255,0.12); }
+
+    .theme-selector-btn.active {
+        background: #ffffff;
+        color: #1d2d3d;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    [data-theme="dark"] .theme-selector-btn.active {
+        background: #334155;
+        color: #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+</style>
+
+<!--
+    =====================================================================
+    SoftCom CCG — Theme Engine v2
+    Soporta: 'light' | 'dark' | 'system'
+    Persistencia: localStorage('softcom_theme_preference')
+    prefers-color-scheme: activo solo en modo 'system'
+    =====================================================================
+-->
+<script>
+(function () {
+    'use strict';
+
+    const THEME_KEY   = 'softcom_theme_preference';
+    const VALID_MODES = ['light', 'dark', 'system'];
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function getSavedMode() {
+        const saved = localStorage.getItem(THEME_KEY);
+        return VALID_MODES.includes(saved) ? saved : 'system';
+    }
+
+    function resolveTheme(mode) {
+        if (mode === 'system') return mql.matches ? 'dark' : 'light';
+        return mode;
+    }
+
     function applyTheme(theme) {
         if (theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
         } else {
             document.documentElement.removeAttribute('data-theme');
         }
-        localStorage.setItem(THEME_KEY, theme);
-        
-        // Actualizar icono del botón si existe
-        updateToggleButton(theme);
     }
-    
-    /**
-     * Actualiza el botón toggle si existe en la página
-     */
-    function updateToggleButton(theme) {
-        const btn = document.getElementById('theme-toggle-btn');
-        if (btn) {
-            const icon = btn.querySelector('i') || btn;
-            if (icon.classList) {
-                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
-            btn.setAttribute('title', theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
-        }
+
+    function setMode(mode) {
+        if (!VALID_MODES.includes(mode)) return;
+        localStorage.setItem(THEME_KEY, mode);
+        applyTheme(resolveTheme(mode));
+        syncAllSelectors(mode);
+        window.dispatchEvent(new CustomEvent('softcom:themechange', {
+            detail: { mode: mode, theme: resolveTheme(mode) }
+        }));
     }
-    
-    /**
-     * Inicializa el tema al cargar
-     */
-    function initTheme() {
-        const theme = getPreferredTheme();
-        applyTheme(theme);
-        
-        // Escuchar cambios en preferencias del sistema
-        DARK_SCHEME.addEventListener('change', (e) => {
-            if (!localStorage.getItem(THEME_KEY)) {
-                applyTheme(e.matches ? 'dark' : 'light');
-            }
+
+    function syncAllSelectors(mode) {
+        document.querySelectorAll('.theme-selector-btn, [data-theme-mode]').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.themeMode === mode);
         });
     }
-    
-    /**
-     * Alterna entre modo claro y oscuro
-     */
-    window.toggleTheme = function() {
-        const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        applyTheme(newTheme);
-        
-        // Disparar evento para que otros componentes escuchen
-        window.dispatchEvent(new CustomEvent('themechange', { detail: { theme: newTheme } }));
+
+    /* ── API pública ── */
+    window.setThemeMode     = setMode;
+    window.getThemeMode     = getSavedMode;
+    window.getCurrentTheme  = function () { return resolveTheme(getSavedMode()); };
+    window.toggleTheme      = function () {
+        const cur = resolveTheme(getSavedMode());
+        setMode(cur === 'dark' ? 'light' : 'dark');
     };
-    
-    /**
-     * Obtiene el tema actual
-     */
-    window.getCurrentTheme = function() {
-        return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    };
-    
-    // Inicializar cuando el DOM esté listo
+
+    /* Reaccionar a cambios del SO en modo 'system' */
+    mql.addEventListener('change', function (e) {
+        if (getSavedMode() === 'system') {
+            applyTheme(e.matches ? 'dark' : 'light');
+            syncAllSelectors('system');
+        }
+    });
+
+    /* Aplicar inmediatamente (antes del primer paint) */
+    (function init() {
+        applyTheme(resolveTheme(getSavedMode()));
+    })();
+
+    /* Sincronizar botones cuando el DOM esté listo */
+    function syncOnReady() { syncAllSelectors(getSavedMode()); }
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTheme);
+        document.addEventListener('DOMContentLoaded', syncOnReady);
     } else {
-        initTheme();
+        syncOnReady();
     }
+
+    /* Click delegation para cualquier botón con data-theme-mode */
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-theme-mode]');
+        if (btn && btn.dataset.themeMode) setMode(btn.dataset.themeMode);
+    });
+
 })();
 </script>
-
-<!-- Botón flotante para cambiar tema (incluir donde se necesite) -->
-<template id="theme-toggle-template">
-    <button id="theme-toggle-btn" onclick="toggleTheme()" 
-            style="
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                z-index: 9999;
-                width: 48px;
-                height: 48px;
-                border-radius: 50%;
-                border: none;
-                background: var(--sap-card-bg);
-                color: var(--sap-text-color);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 20px;
-                transition: transform 0.2s, background 0.2s;
-            "
-            title="Cambiar tema">
-        <i class="fas fa-moon"></i>
-    </button>
-</template>

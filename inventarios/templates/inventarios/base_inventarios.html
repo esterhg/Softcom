@@ -5,6 +5,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Inventarios{% endblock %} | Energía</title>
+    <!-- Anti-FOWT: aplica tema antes del primer paint -->
+    <script>
+    (function(){var k='softcom_theme_preference',v=localStorage.getItem(k),m=['light','dark','system'].indexOf(v)!==-1?v:'system',d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');})();
+    </script>
+    {% include 'core/fiori_tokens.html' %}
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <style>
@@ -125,7 +130,7 @@
 
         /* Tabs */
         .nav-tabs {
-            background: #ffffff;
+            background: var(--surface);
             border-bottom: 2px solid var(--border);
             padding: 0 32px;
             display: flex !important;
@@ -176,6 +181,23 @@
 
         /* Utility */
         .swal2-container { z-index: 20000 !important; }
+
+        /* ── Dark Mode — base_inventarios ──────────────────────────────
+           Las variables --primary, --surface, --bg, --text, --border
+           ya se redefinen via variables puente en fiori_tokens.html.
+           Solo necesitamos cubrir los pocos valores hardcodeados que
+           el CSS usa directamente (box-shadow con rgba, etc.)
+           ─────────────────────────────────────────────────────────── */
+        [data-theme="dark"] .topbar {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        [data-theme="dark"] .nav-tabs {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        [data-theme="dark"] .topbar-brand-icon {
+            /* El background es var(--primary) → ya adaptado */
+            box-shadow: 0 0 0 2px rgba(77,158,247,0.2);
+        }
     </style>
     {% block extrahead %}{% endblock %}
 </head>
