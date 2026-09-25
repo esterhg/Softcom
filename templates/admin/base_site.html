@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+﻿{% extends "admin/base.html" %}
 {% load static admin_nav %}
 
 
@@ -8,7 +8,7 @@
 <script>
 /**
  * Admin Search Hijacker - SoftCom CCG
- * Redirige la búsqueda del navbar a nuestra vista global unificada.
+ * Redirige la bÃºsqueda del navbar a nuestra vista global unificada.
  */
 (function() {
     function setupGlobalSearch() {
@@ -34,7 +34,7 @@
             }
         }, true);
 
-        // Interceptar Click en el botón
+        // Interceptar Click en el botÃ³n
         document.addEventListener('click', function(e) {
             const btn = e.target.closest('button');
             if (btn) {
@@ -56,7 +56,7 @@
                 const form = input.closest('form');
                 if (!form || !(form.closest('.navbar') || form.closest('.main-header') || form.closest('.nav-sidebar'))) return;
 
-                input.placeholder = "Búsqueda Global...";
+                input.placeholder = "BÃºsqueda Global...";
                 input.title = "Buscar en todo el sistema";
                 input.setAttribute('autocomplete', 'off');
                 input.removeAttribute('data-typeahead');
@@ -184,7 +184,7 @@
         configA.className = 'nav-link';
         configA.href = '/admin/menu-config/';
         configA.innerHTML = '<i class="fas fa-sliders-h" style="font-size:0.8rem;"></i>';
-        configA.title = 'Personalizar menú';
+        configA.title = 'Personalizar menÃº';
         configLi.appendChild(configA);
         if (ayudaLi && ayudaLi !== inicioLi) {
             nav.insertBefore(configLi, ayudaLi);
@@ -192,7 +192,7 @@
             nav.appendChild(configLi);
         }
 
-        // ── Selector de Tema (Claro / Oscuro / Dispositivo) ──────────────
+        // â”€â”€ Selector de Tema (Claro / Oscuro / Dispositivo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         var themeLi = document.createElement('li');
         themeLi.className = 'nav-item d-none d-sm-inline-block';
         themeLi.style.cssText = 'display:flex!important;align-items:center;';
@@ -247,12 +247,97 @@
     }
 })();
 </script>
+
+<!-- ═══════════════════════════════════════════════════════
+     SELECTOR DE TEMA — script independiente, siempre corre
+     Se inyecta en .navbar-nav.ml-auto (derecha del header)
+     ═══════════════════════════════════════════════════════ -->
+<script>
+(function() {
+    'use strict';
+
+    function injectThemeSelector() {
+        if (document.getElementById('sc-theme-widget')) return;
+
+        var navbar = document.querySelector('.navbar-nav.ml-auto') ||
+                     document.querySelector('.navbar-nav.ms-auto');
+        if (!navbar) return;
+
+        var li = document.createElement('li');
+        li.className = 'nav-item';
+        li.style.cssText = 'display:flex;align-items:center;padding:0 6px;';
+
+        var widget = document.createElement('div');
+        widget.id = 'sc-theme-widget';
+        widget.setAttribute('role', 'group');
+        widget.setAttribute('aria-label', 'Selector de tema');
+        widget.style.cssText = 'display:inline-flex;align-items:center;gap:1px;background:rgba(0,0,0,0.07);border-radius:6px;padding:3px;';
+
+        var modes = [
+            { mode: 'light',  icon: 'fas fa-sun',     label: 'Claro' },
+            { mode: 'dark',   icon: 'fas fa-moon',    label: 'Oscuro' },
+            { mode: 'system', icon: 'fas fa-desktop', label: 'Dispositivo' }
+        ];
+
+        modes.forEach(function(m) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.dataset.themeMode = m.mode;
+            btn.title = m.label;
+            btn.setAttribute('aria-label', m.label);
+            btn.style.cssText = 'width:30px;height:30px;border:none;border-radius:4px;background:transparent;cursor:pointer;font-size:0.82rem;display:flex;align-items:center;justify-content:center;color:inherit;transition:background .15s;';
+            btn.innerHTML = '<i class="' + m.icon + '" aria-hidden="true"></i>';
+            widget.appendChild(btn);
+        });
+
+        li.appendChild(widget);
+        navbar.insertBefore(li, navbar.firstChild);
+
+        function sync() {
+            var saved = localStorage.getItem('softcom_theme_preference') || 'system';
+            var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            widget.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)';
+            widget.querySelectorAll('button[data-theme-mode]').forEach(function(btn) {
+                var active = btn.dataset.themeMode === saved;
+                btn.style.background = active ? (isDark ? '#334155' : '#ffffff') : 'transparent';
+                btn.style.boxShadow  = active ? '0 1px 3px rgba(0,0,0,0.2)' : 'none';
+                btn.style.color      = active ? (isDark ? '#4d9ef7' : '#0064d2') : '';
+            });
+        }
+
+        widget.addEventListener('click', function(e) {
+            var btn = e.target.closest('button[data-theme-mode]');
+            if (!btn) return;
+            var mode = btn.dataset.themeMode;
+            if (typeof window.setThemeMode === 'function') {
+                window.setThemeMode(mode);
+            } else {
+                localStorage.setItem('softcom_theme_preference', mode);
+                var dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+                else document.documentElement.removeAttribute('data-theme');
+                sync();
+            }
+            sync();
+        });
+
+        sync();
+        window.addEventListener('softcom:themechange', sync);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectThemeSelector);
+    } else {
+        injectThemeSelector();
+    }
+})();
+</script>
 {% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
 <!--
-    Theme Engine — cargado PRIMERO para evitar flash of wrong theme (FOWT).
+    Theme Engine â€” cargado PRIMERO para evitar flash of wrong theme (FOWT).
     Aplica data-theme="dark" al <html> antes de que el navegador pinte nada.
 -->
 <script>
@@ -318,13 +403,13 @@
 <div class="impersonation-banner">
     <span class="impersonation-icon">&#128100;</span>
     <span>
-        <strong>Modo Impersonación</strong> — Estás actuando como
+        <strong>Modo ImpersonaciÃ³n</strong> â€” EstÃ¡s actuando como
         <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
         ({{ request.user.email }})
     </span>
     <a href="{% url 'core:impersonate_stop' %}" class="btn btn-sm"
        style="background:#fbbf24;color:#1e293b;font-weight:700;padding:4px 16px;border-radius:6px;text-decoration:none;">
-        ✕ Volver a mi cuenta
+        âœ• Volver a mi cuenta
     </a>
 </div>
 {% endif %}
@@ -559,7 +644,7 @@
 {{ block.super }}
 
 {% if user.is_superuser or user.groups.all %}
-<!-- UNIFIED MODAL FOR GESTIÓN DE SALIDAS -->
+<!-- UNIFIED MODAL FOR GESTIÃ“N DE SALIDAS -->
 <div class="modal-overlay" id="gestion-salidas-modal">
     <div class="modal-window">
         <div class="modal-header">
@@ -572,9 +657,9 @@
             </h2>
             <div style="display:flex; gap:10px; align-items:center;">
                 <button type="button" id="gs-btn-back" class="close-btn"
-                    style="width:40px; height:40px; font-size:1.2rem; display:none;">←</button>
+                    style="width:40px; height:40px; font-size:1.2rem; display:none;">â†</button>
                 <button type="button" id="close-gestion-salidas" class="close-btn"
-                    style="width:40px; height:40px; font-size:1.2rem;">✕</button>
+                    style="width:40px; height:40px; font-size:1.2rem;">âœ•</button>
             </div>
         </div>
         <div class="modal-body">
@@ -603,7 +688,7 @@
                         <div>
                             <p
                                 style="margin:0; font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">
-                                Almacén</p>
+                                AlmacÃ©n</p>
                             <span id="gs-det-almacen"></span>
                         </div>
                     </div>
@@ -625,16 +710,16 @@
                 </div>
 
                 <div class="form-group" style="margin-top:20px;">
-                    <label style="font-weight:700;">Comentarios del Almacén</label>
+                    <label style="font-weight:700;">Comentarios del AlmacÃ©n</label>
                     <textarea id="gs-comentarios-almacen" class="form-control" rows="2"
                         placeholder="Notas sobre el despacho..."></textarea>
                 </div>
 
                 <div style="display:flex; gap:15px; margin-top:20px;">
                     <button type="button" id="gs-btn-despachar" class="btn btn-success"
-                        style="flex:1; height:50px; font-weight:700;">✅ Despachar Materiales</button>
+                        style="flex:1; height:50px; font-weight:700;">âœ… Despachar Materiales</button>
                     <button type="button" id="gs-btn-rechazar" class="btn btn-danger"
-                        style="flex:1; height:50px; font-weight:700;">❌ Rechazar Solicitud</button>
+                        style="flex:1; height:50px; font-weight:700;">âŒ Rechazar Solicitud</button>
                 </div>
             </div>
         </div>
@@ -661,13 +746,13 @@
         `);
         navbar.prepend(notifBell);
 
-    // Gestión de Salidas (solo Almacenes)
+    // GestiÃ³n de Salidas (solo Almacenes)
     if (!isAlmacen) {
         // Skip inventory badge
     } else {
         const notifyItem = $(`
                     <li class="nav-item dropdown" id="gs-admin-link">
-                        <a class="nav-link" href="#" title="Gestión de Salidas">
+                        <a class="nav-link" href="#" title="GestiÃ³n de Salidas">
                             <i class="fas fa-shipping-fast"></i>
                             <span class="badge badge-warning navbar-badge" id="gs-badge-count" style="display:none; animation: pulse 1.5s infinite;">0</span>
                         </a>
@@ -680,7 +765,7 @@
         });
     }
 
-    // Función Global para abrir el modal
+    // FunciÃ³n Global para abrir el modal
     window.openGSM = function (orderId = null) {
         $('#gestion-salidas-modal').addClass('active');
         if (orderId) {
@@ -721,7 +806,7 @@
             $('#gs-badge-count').text(data.count).toggle(data.count > 0);
 
             if (data.count === 0) {
-                container.html('<div class="text-center py-5" style="color:#64748b;"><ion-icon name="checkmark-done-circle-outline" style="font-size:4rem; color:#10b981;"></ion-icon><p style="font-weight:700; font-size:1.2rem; margin-top:10px;">¡Todo procesado!</p><p>No hay solicitudes pendientes.</p></div>');
+                container.html('<div class="text-center py-5" style="color:#64748b;"><ion-icon name="checkmark-done-circle-outline" style="font-size:4rem; color:#10b981;"></ion-icon><p style="font-weight:700; font-size:1.2rem; margin-top:10px;">Â¡Todo procesado!</p><p>No hay solicitudes pendientes.</p></div>');
                 return;
             }
 
@@ -730,7 +815,7 @@
                 html += `
                             <div class="gs-pedido-row" data-id="${p.id}" style="padding:16px; margin-bottom:12px; cursor:pointer; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
                                 <div>
-                                    <div style="font-weight:700; color:#1e293b;">${p.solicitante} <span class="badge badge-secondary" style="margin-left:8px;">${p.items_count} ítems</span></div>
+                                    <div style="font-weight:700; color:#1e293b;">${p.solicitante} <span class="badge badge-secondary" style="margin-left:8px;">${p.items_count} Ã­tems</span></div>
                                     <div style="font-size:0.85rem; color:#64748b;">${p.fecha} | OT: ${p.ot} | ${p.almacen}</div>
                                 </div>
                                 <ion-icon name="chevron-forward-outline" style="font-size:1.5rem; color:#cbd5e1;"></ion-icon>
@@ -753,7 +838,7 @@
         $('#gs-vista-detalle').show();
         $('#gs-btn-back').show();
         $('#gs-title').text(`Pedido #${id}`);
-        const tbody = $('#gs-items-body').html('<tr><td colspan="5" class="text-center">Cargando ítems...</td></tr>');
+        const tbody = $('#gs-items-body').html('<tr><td colspan="5" class="text-center">Cargando Ã­tems...</td></tr>');
         try {
             const res = await fetch(`/inventarios/api/pedidos/${id}/detalle/`);
             const data = await res.json();
@@ -808,24 +893,24 @@
             });
             const data = await res.json();
             if (data.status === 'success') {
-                Swal.fire('¡Éxito!', data.message, 'success');
+                Swal.fire('Â¡Ã‰xito!', data.message, 'success');
                 $('#gs-btn-back').click();
                 gsLoadPedidos();
             } else {
                 Swal.fire('Error', data.message, 'error');
             }
         } catch (e) {
-            Swal.fire('Error', 'Fallo de conexión.', 'error');
+            Swal.fire('Error', 'Fallo de conexiÃ³n.', 'error');
         }
-        btn.prop('disabled', false).text('✅ Despachar Materiales');
+        btn.prop('disabled', false).text('âœ… Despachar Materiales');
     });
 
     $('#gs-btn-rechazar').click(async function () {
         const { value: m } = await Swal.fire({
-            title: '¿Rechazar solicitud?',
+            title: 'Â¿Rechazar solicitud?',
             input: 'textarea',
             inputLabel: 'Motivo del rechazo',
-            inputPlaceholder: 'Escribe el motivo aquí...',
+            inputPlaceholder: 'Escribe el motivo aquÃ­...',
             showCancelButton: true
         });
 
@@ -841,7 +926,7 @@
                 $('#gs-btn-back').click();
                 gsLoadPedidos();
             } catch (e) {
-                Swal.fire('Error', 'Fallo de conexión.', 'error');
+                Swal.fire('Error', 'Fallo de conexiÃ³n.', 'error');
             }
         }
     });
@@ -856,7 +941,7 @@
                 const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
                 audio.play().catch(() => { });
                 if (Notification.permission === 'granted') {
-                    new Notification('📦 Nueva Solicitud de Material', { body: `Hay ${data.count} pedidos pendientes por atender.` });
+                    new Notification('ðŸ“¦ Nueva Solicitud de Material', { body: `Hay ${data.count} pedidos pendientes por atender.` });
                 }
             }
             lastCount = data.count;
