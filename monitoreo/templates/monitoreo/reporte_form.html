@@ -5,119 +5,353 @@
 
 {% block extrahead %}
 {{ block.super }}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
 <style>
-/* ══ Sección grupo ══════════════════════════════════════════ */
-.grp { background:#fff; border:1px solid #d9d9d9; border-radius:.5rem;
-       margin-bottom:1rem; overflow:hidden;
-       box-shadow:0 1px 4px rgba(0,0,0,.07); }
-.grp-header { background:#0070f2; color:#fff; padding:.55rem 1rem;
-              font-size:.87rem; font-weight:700; letter-spacing:.02em;
-              display:flex; align-items:center; justify-content:space-between; }
-.grp-header .cnt { font-size:.77rem; font-weight:400; display:flex; gap:.6rem; }
-.badge-ok  { background:rgba(255,255,255,.22); border-radius:10px; padding:1px 8px; }
-.badge-nov { background:rgba(255,80,80,.35);   border-radius:10px; padding:1px 8px; }
+/* ═══════════════════════════════════════════════════════════
+   BASE — mobile first
+═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
 
-/* ══ Grid de tarjetas ═══════════════════════════════════════ */
-.elev-grid { display:grid;
-             grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-             gap:.6rem; padding:.75rem .9rem; }
+.mon-wrap {
+  padding: .75rem;
+  background: #eff2f5;
+  min-height: calc(100vh - 56px);
+}
+@media (min-width: 640px) { .mon-wrap { padding: 1.25rem 1.5rem; } }
 
-/* ══ Tarjeta elevador ═══════════════════════════════════════ */
-.ec { border:2px solid #86efac; border-radius:.45rem; background:#f0fdf4;
-      cursor:pointer; transition:border-color .12s, box-shadow .12s;
-      user-select:none; }
-.ec:hover { box-shadow:0 2px 8px rgba(0,0,0,.1); }
-.ec.nov   { border-color:#fca5a5; background:#fff5f5; }
+/* ── Breadcrumb ── */
+.mon-breadcrumb {
+  font-size: .75rem;
+  color: #6a6d70;
+  margin-bottom: .5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mon-breadcrumb a { color: #0070f2; text-decoration: none; }
 
-.ec-top { padding:.5rem .65rem .4rem;
-          display:flex; align-items:center; gap:.45rem; }
-.ec-dot { width:18px; height:18px; border-radius:50%;
-          background:#16a34a; display:flex; align-items:center;
-          justify-content:center; font-size:.65rem; color:#fff;
-          flex-shrink:0; transition:background .12s; }
-.ec.nov .ec-dot { background:#dc2626; }
-.ec-name { font-weight:700; font-size:.9rem; color:#32363a; flex:1; }
-.ec-lbl  { font-size:.68rem; font-weight:600; padding:.12rem .45rem;
-           border-radius:8px; white-space:nowrap; margin-left:auto; }
-.lbl-ok  { background:#dcfce7; color:#166534; }
-.lbl-fs  { background:#fee2e2; color:#991b1b; }
-.lbl-mt  { background:#fef3c7; color:#92400e; }
-.lbl-fp  { background:#fef9c3; color:#713f12; }
+/* ── Page header ── */
+.mon-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+@media (min-width: 640px) {
+  .mon-page-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+.mon-page-header h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #32363a;
+  margin: 0;
+}
+@media (min-width: 640px) { .mon-page-header h1 { font-size: 1.35rem; } }
 
-/* ══ Panel de novedad ═══════════════════════════════════════ */
-.ec-panel { display:none; padding:.5rem .65rem .6rem;
-            border-top:1px solid #fca5a5; background:#fffbfb;
-            flex-direction:column; gap:.35rem; }
-.ec.nov .ec-panel { display:flex; }
-.ec-panel label { font-size:.69rem; font-weight:700; color:#6a6d70;
-                  text-transform:uppercase; letter-spacing:.03em; }
-.ec-panel select, .ec-panel textarea {
-  width:100%; border:1px solid #d9d9d9; border-radius:4px;
-  padding:.28rem .4rem; font-size:.78rem; font-family:inherit;
-  background:#fff; color:#32363a; }
+/* ── Card ── */
+.mon-card {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: .5rem;
+  padding: .85rem;
+  margin-bottom: .85rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+@media (min-width: 640px) { .mon-card { padding: 1.1rem 1.4rem; margin-bottom: 1rem; } }
+
+.mon-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-bottom: .7rem;
+  padding-bottom: .6rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+.mon-card-title {
+  font-size: .92rem;
+  font-weight: 700;
+  color: #32363a;
+  margin: 0;
+}
+
+/* ── Form grid ── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: .75rem;
+}
+@media (min-width: 480px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .form-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.mon-form-group { display: flex; flex-direction: column; gap: .25rem; }
+.mon-form-group label {
+  font-size: .73rem;
+  font-weight: 700;
+  color: #6a6d70;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.mon-form-control {
+  width: 100%;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  padding: .5rem .65rem;
+  font-size: .88rem;
+  font-family: inherit;
+  color: #32363a;
+  background: #fff;
+  transition: border-color .15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mon-form-control:focus {
+  outline: none;
+  border-color: #0070f2;
+  box-shadow: 0 0 0 2px rgba(0,112,242,.12);
+}
+
+/* ── Sección grupos ── */
+.grp {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: .5rem;
+  margin-bottom: .75rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.grp-header {
+  background: #0070f2;
+  color: #fff;
+  padding: .55rem .85rem;
+  font-size: .84rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+.grp-header .grp-name { display: flex; align-items: center; gap: .4rem; }
+.grp-header .cnt { font-size: .75rem; font-weight: 400; display: flex; gap: .5rem; flex-wrap: wrap; }
+.badge-ok  { background: rgba(255,255,255,.22); border-radius: 10px; padding: 1px 8px; }
+.badge-nov { background: rgba(255,80,80,.35);   border-radius: 10px; padding: 1px 8px; }
+
+/* ── Grid elevadores ── */
+.elev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: .5rem;
+  padding: .65rem .75rem;
+}
+@media (min-width: 480px)  { .elev-grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); } }
+@media (min-width: 768px)  { .elev-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); } }
+@media (min-width: 1200px) { .elev-grid { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); } }
+
+/* ── Tarjeta elevador ── */
+.ec {
+  border: 2px solid #86efac;
+  border-radius: .4rem;
+  background: #f0fdf4;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s, transform .1s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ec:active { transform: scale(.97); }
+.ec.nov { border-color: #fca5a5; background: #fff5f5; }
+
+.ec-top {
+  padding: .5rem .6rem .4rem;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.ec-dot {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem; color: #fff;
+  flex-shrink: 0;
+  transition: background .12s;
+}
+.ec.nov .ec-dot { background: #dc2626; }
+.ec-name { font-weight: 700; font-size: .9rem; color: #32363a; flex: 1; min-width: 0; }
+.ec-lbl {
+  font-size: .65rem; font-weight: 600;
+  padding: .1rem .4rem; border-radius: 8px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.lbl-ok { background: #dcfce7; color: #166534; }
+.lbl-fs { background: #fee2e2; color: #991b1b; }
+.lbl-mt { background: #fef3c7; color: #92400e; }
+.lbl-fp { background: #fef9c3; color: #713f12; }
+
+/* ── Panel novedad ── */
+.ec-panel {
+  display: none;
+  padding: .5rem .6rem .6rem;
+  border-top: 1px solid #fca5a5;
+  background: #fffbfb;
+  flex-direction: column;
+  gap: .35rem;
+}
+.ec.nov .ec-panel { display: flex; }
+
+.ec-panel label {
+  font-size: .67rem; font-weight: 700;
+  color: #6a6d70; text-transform: uppercase; letter-spacing: .03em;
+}
+.ec-panel select,
+.ec-panel textarea {
+  width: 100%;
+  border: 1px solid #d9d9d9; border-radius: 4px;
+  padding: .32rem .45rem; font-size: .8rem; font-family: inherit;
+  background: #fff; color: #32363a;
+  -webkit-appearance: none; appearance: none;
+}
 .ec-panel select:focus, .ec-panel textarea:focus {
-  outline:none; border-color:#0070f2;
-  box-shadow:0 0 0 2px rgba(0,112,242,.12); }
-.ec-panel textarea { min-height:52px; resize:vertical; }
+  outline: none; border-color: #0070f2;
+  box-shadow: 0 0 0 2px rgba(0,112,242,.12);
+}
+.ec-panel textarea { min-height: 56px; resize: vertical; }
 
-/* ══ Fotos ══════════════════════════════════════════════════ */
-#zona-up { border:2px dashed #d9d9d9; border-radius:.5rem;
-           padding:1.1rem; text-align:center; cursor:pointer;
-           color:#6a6d70; transition:border-color .14s,background .14s;
-           margin-top:.65rem; }
-#zona-up:hover,#zona-up.over { border-color:#0070f2; background:#eff6ff; color:#0070f2; }
-.fp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr));
-           gap:.55rem; margin-top:.6rem; }
-.fp-item { border:1px solid #d9d9d9; border-radius:.35rem;
-           overflow:hidden; position:relative; }
-.fp-item img { width:100%; height:88px; object-fit:cover; display:block; }
-.fp-cap { padding:.22rem .38rem; border-top:1px solid #eee; background:#fafafa; }
-.fp-cap input { width:100%; border:none; background:transparent;
-                font-size:.71rem; font-family:inherit; color:#32363a; }
-.fp-del { position:absolute; top:.25rem; right:.25rem;
-          background:rgba(187,0,0,.85); color:#fff; border:none;
-          border-radius:50%; width:19px; height:19px; cursor:pointer;
-          display:flex; align-items:center; justify-content:center;
-          font-size:.58rem; }
-.fp-del:hover { background:#950000; }
+/* ── Fotos ── */
+#zona-up {
+  border: 2px dashed #d9d9d9;
+  border-radius: .5rem;
+  padding: 1.25rem .75rem;
+  text-align: center; cursor: pointer;
+  color: #6a6d70;
+  transition: border-color .14s, background .14s;
+  margin-top: .65rem;
+}
+#zona-up:hover, #zona-up.over { border-color: #0070f2; background: #eff6ff; color: #0070f2; }
 
-/* ══ Spinner ════════════════════════════════════════════════ */
-#ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
-      z-index:9999; align-items:center; justify-content:center; }
-#ov.show { display:flex; }
-.ov-box { background:#fff; border-radius:.7rem; padding:1.75rem 2.25rem;
-          text-align:center; box-shadow:0 8px 32px rgba(0,0,0,.2); }
-.ov-ring { width:44px; height:44px; border:4px solid #e0e0e0;
-           border-top-color:#0070f2; border-radius:50%;
-           animation:spin .8s linear infinite; margin:0 auto .65rem; }
-@keyframes spin { to { transform:rotate(360deg); } }
+.fp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: .5rem; margin-top: .6rem;
+}
+@media (min-width: 480px) { .fp-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); } }
+
+.fp-item { border: 1px solid #d9d9d9; border-radius: .35rem; overflow: hidden; position: relative; }
+.fp-item img { width: 100%; height: 80px; object-fit: cover; display: block; }
+@media (min-width: 480px) { .fp-item img { height: 90px; } }
+.fp-cap { padding: .22rem .38rem; border-top: 1px solid #eee; background: #fafafa; }
+.fp-cap input { width: 100%; border: none; background: transparent; font-size: .71rem; font-family: inherit; }
+.fp-del {
+  position: absolute; top: .25rem; right: .25rem;
+  background: rgba(187,0,0,.85); color: #fff; border: none;
+  border-radius: 50%; width: 22px; height: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: .62rem;
+}
+.fp-del:hover { background: #950000; }
+
+/* ── Botones ── */
+.mon-btn {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .48rem .9rem; border-radius: 4px; border: 1px solid transparent;
+  font-size: .84rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background .15s, border-color .15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.mon-btn-primary  { background: #0070f2; color: #fff; border-color: #0070f2; }
+.mon-btn-primary:hover  { background: #0058c0; }
+.mon-btn-secondary { background: #fff; color: #32363a; border-color: #d9d9d9; }
+.mon-btn-secondary:hover { background: #f5f5f5; }
+.mon-btn-ghost { background: transparent; color: #0070f2; border-color: transparent; }
+.mon-btn-ghost:hover { background: #eff6ff; }
+.mon-btn-sm { padding: .3rem .65rem; font-size: .78rem; }
+
+/* ── Acciones footer ── */
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  padding: .75rem 0 2rem;
+}
+@media (min-width: 480px) {
+  .form-actions {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+.form-actions-right { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ── Resumen global ── */
+#resumen-global {
+  font-size: .8rem; color: #6a6d70;
+  background: #f5f7fa; border: 1px solid #e0e4ea;
+  border-radius: 20px; padding: .25rem .75rem;
+  display: inline-block;
+}
+
+/* ── Spinner ── */
+#ov {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 9999;
+  align-items: center; justify-content: center;
+}
+#ov.show { display: flex; }
+.ov-box {
+  background: #fff; border-radius: .7rem;
+  padding: 1.5rem 2rem; text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,.22);
+  width: min(90vw, 280px);
+}
+.ov-ring {
+  width: 44px; height: 44px;
+  border: 4px solid #e0e0e0; border-top-color: #0070f2;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin: 0 auto .65rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Resumen section title bar ── */
+.sec-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: .5rem; margin-bottom: .65rem;
+}
+.sec-bar h2 { margin: 0; font-size: .95rem; font-weight: 700; color: #32363a; }
+@media (min-width: 640px) { .sec-bar h2 { font-size: 1rem; } }
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="padding:1.25rem 1.5rem;background:#eff2f5;min-height:calc(100vh - 56px);">
+<div class="mon-wrap">
 
   <!-- Breadcrumb -->
   <div class="mon-breadcrumb">
     <a href="/"><i class="fas fa-home"></i> Inicio</a> ›
-    <a href="{% url 'monitoreo:reportes_lista' %}">Monitoreo de Elevadores</a> ›
-    <span>{% if modo == 'editar' %}Editar Reporte #{{ reporte.pk }}{% else %}Nuevo Reporte{% endif %}</span>
+    <a href="{% url 'monitoreo:reportes_lista' %}">Monitoreo</a> ›
+    <span>{% if modo == 'editar' %}Editar #{{ reporte.pk }}{% else %}Nuevo Reporte{% endif %}</span>
   </div>
 
   <!-- Page Header -->
   <div class="mon-page-header">
     <div>
-      <div style="font-size:.73rem;color:#6a6d70;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.1rem;">
+      <div style="font-size:.72rem;color:#6a6d70;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem;">
         Operaciones › Mantenimiento
       </div>
-      <h1 style="margin:0;">
-        <i class="fas fa-elevator" style="color:#0070f2;margin-right:.45rem;"></i>Monitoreo de Elevadores
+      <h1>
+        <i class="fas fa-elevator" style="color:#0070f2;margin-right:.4rem;"></i>Monitoreo de Elevadores
       </h1>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
-      <span id="resumen-global" style="font-size:.82rem;color:#6a6d70;"></span>
-      <a href="{% url 'monitoreo:historial_reportes' %}" class="mon-btn mon-btn-secondary" target="_blank">
+      <span id="resumen-global"></span>
+      <a href="{% url 'monitoreo:historial_reportes' %}" class="mon-btn mon-btn-secondary mon-btn-sm" target="_blank">
         <i class="fas fa-history"></i> Historial
       </a>
     </div>
@@ -126,19 +360,19 @@
   <form method="post" enctype="multipart/form-data" id="form-rpt" novalidate>
     {% csrf_token %}
 
-    <!-- ══ Datos del reporte ══════════════════════════════════ -->
+    <!-- ══ Datos del reporte ══════════════════════════════════════ -->
     <div class="mon-card">
       <div class="mon-card-header">
         <h2 class="mon-card-title">
-          <i class="fas fa-info-circle" style="color:#0070f2;margin-right:.4rem;"></i>Datos del reporte
+          <i class="fas fa-info-circle" style="color:#0070f2;margin-right:.35rem;"></i>Datos del reporte
         </h2>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9rem;">
+      <div class="form-grid">
         <div class="mon-form-group">
           <label>Supervisor OCC</label>
           <input type="text" name="supervisor_manual" class="mon-form-control"
                  value="{{ reporte.supervisor_nombre_manual|default:'' }}"
-                 placeholder="Nombre del supervisor">
+                 placeholder="Nombre del supervisor" autocomplete="off">
         </div>
         <div class="mon-form-group">
           <label>Fecha y hora</label>
@@ -154,16 +388,16 @@
           </select>
         </div>
       </div>
-      <div class="mon-form-group" style="margin-top:.2rem;">
+      <div class="mon-form-group" style="margin-top:.55rem;">
         <label>Observaciones generales</label>
         <textarea name="observaciones_generales" class="mon-form-control" rows="2"
                   placeholder="Observaciones del turno…">{{ reporte.observaciones_generales|default:'' }}</textarea>
       </div>
     </div>
 
-    <!-- ══ Elevadores por grupo ═══════════════════════════════ -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;flex-wrap:wrap;gap:.5rem;">
-      <h2 style="margin:0;font-size:1rem;font-weight:700;color:#32363a;">
+    <!-- ══ Elevadores por grupo ═══════════════════════════════════ -->
+    <div class="sec-bar">
+      <h2>
         <i class="fas fa-elevator" style="color:#0070f2;margin-right:.4rem;"></i>Estado de elevadores
       </h2>
       <button type="button" class="mon-btn mon-btn-secondary mon-btn-sm" onclick="resetAll()">
@@ -174,7 +408,10 @@
     {% for grupo_nombre, elevs in grupos_elevadores.items %}
     <div class="grp" data-grp="{{ forloop.counter }}">
       <div class="grp-header">
-        <span><i class="fas fa-building" style="opacity:.8;margin-right:.4rem;"></i>{{ grupo_nombre }}</span>
+        <span class="grp-name">
+          <i class="fas fa-building" style="opacity:.8;"></i>
+          {{ grupo_nombre }}
+        </span>
         <div class="cnt">
           <span class="badge-ok">✓ <span class="c-ok">{{ elevs|length }}</span> ok</span>
           <span class="badge-nov" style="display:none;">⚠ <span class="c-nov">0</span> novedad</span>
@@ -182,18 +419,16 @@
       </div>
       <div class="elev-grid">
         {% for elev in elevs %}
-        {% with fila=filas_dict|default_if_none:'' %}
-        <div class="ec{% if filas_dict and elev.pk in filas_dict and filas_dict|dictsort:elev.pk %} {% endif %}"
+        <div class="ec"
              id="ec-{{ elev.pk }}"
              data-eid="{{ elev.pk }}"
              data-grp="{{ forloop.parentloop.counter }}"
              onclick="toggle({{ elev.pk }},this)">
 
-          {# Inputs enviados al POST #}
-          <input type="hidden" name="elevador_id[]"        value="{{ elev.pk }}">
-          <input type="hidden" name="estado[]"             value="operativo" id="st-{{ elev.pk }}">
-          <input type="hidden" name="clasificacion[]"      value=""          id="cl-{{ elev.pk }}">
-          <input type="hidden" name="descripcion_novedad[]" value=""         id="dn-{{ elev.pk }}">
+          <input type="hidden" name="elevador_id[]"         value="{{ elev.pk }}">
+          <input type="hidden" name="estado[]"              value="operativo" id="st-{{ elev.pk }}">
+          <input type="hidden" name="clasificacion[]"       value=""          id="cl-{{ elev.pk }}">
+          <input type="hidden" name="descripcion_novedad[]" value=""          id="dn-{{ elev.pk }}">
 
           <div class="ec-top">
             <div class="ec-dot"><i class="fas fa-check"></i></div>
@@ -201,18 +436,16 @@
             <span class="ec-lbl lbl-ok" id="lb-{{ elev.pk }}">OK</span>
           </div>
 
-          <!-- Panel novedad -->
           <div class="ec-panel" onclick="event.stopPropagation()">
             <label>Estado</label>
-            <select id="esel-{{ elev.pk }}"
-                    onchange="onEstado({{ elev.pk }},this.value)">
+            <select id="esel-{{ elev.pk }}" onchange="onEstado({{ elev.pk }},this.value)">
               <option value="fuera_servicio">Fuera de Servicio</option>
               <option value="en_mantenimiento">En Mantenimiento</option>
               <option value="falla_parcial">Falla Parcial</option>
             </select>
             <label style="margin-top:.3rem;">Clasificación</label>
-            <select onchange="document.getElementById('cl-{{ elev.pk }}').value=this.value"
-                    id="csel-{{ elev.pk }}">
+            <select id="csel-{{ elev.pk }}"
+                    onchange="document.getElementById('cl-{{ elev.pk }}').value=this.value">
               <option value="">—</option>
               <option value="mecanica">Mecánica</option>
               <option value="electrica">Eléctrica</option>
@@ -222,45 +455,45 @@
               <option value="n_a">N/A</option>
             </select>
             <label style="margin-top:.3rem;">Descripción</label>
-            <textarea id="ta-{{ elev.pk }}"
-                      placeholder="¿Qué ocurrió?…"
+            <textarea id="ta-{{ elev.pk }}" placeholder="¿Qué ocurrió?…"
                       oninput="document.getElementById('dn-{{ elev.pk }}').value=this.value"></textarea>
           </div>
         </div>
-        {% endwith %}
         {% endfor %}
       </div>
     </div>
     {% empty %}
-    <div class="mon-empty" style="background:#fff;border:1px solid #d9d9d9;border-radius:.5rem;padding:2rem;">
-      <i class="fas fa-elevator" style="font-size:2rem;color:#d9d9d9;display:block;margin-bottom:.5rem;"></i>
-      <p>No hay elevadores registrados. Ejecuta <code>python manage.py migrate</code> para cargarlos.</p>
+    <div style="background:#fff;border:1px solid #d9d9d9;border-radius:.5rem;padding:2rem;text-align:center;color:#6a6d70;">
+      <i class="fas fa-elevator" style="font-size:2rem;opacity:.3;display:block;margin-bottom:.5rem;"></i>
+      <p>No hay elevadores. Ejecuta <code>python manage.py migrate</code></p>
     </div>
     {% endfor %}
 
-    <!-- ══ Fotos anexas ════════════════════════════════════════ -->
-    <div class="mon-card" style="margin-top:1rem;">
+    <!-- ══ Fotos anexas ═══════════════════════════════════════════ -->
+    <div class="mon-card" style="margin-top:.85rem;">
       <div class="mon-card-header">
         <h2 class="mon-card-title">
-          <i class="fas fa-images" style="color:#0070f2;margin-right:.4rem;"></i>Fotos anexas
+          <i class="fas fa-images" style="color:#0070f2;margin-right:.35rem;"></i>Fotos anexas
         </h2>
         <button type="button" class="mon-btn mon-btn-ghost mon-btn-sm" onclick="clearAll()">
           <i class="fas fa-times"></i> Quitar todas
         </button>
       </div>
-      <p style="font-size:.79rem;color:#6a6d70;margin-bottom:.5rem;">
-        Las fotos aparecen como anexos en el PDF e imagen generada.
+      <p style="font-size:.78rem;color:#6a6d70;margin-bottom:.5rem;">
+        Las fotos se incluyen como anexos en el PDF generado.
       </p>
 
-      <!-- Fotos existentes en edición -->
       {% if reporte and reporte.fotos.exists %}
       <div class="fp-grid" id="fp-ex">
         {% for foto in reporte.fotos.all %}
         <div class="fp-item" id="fex-{{ foto.pk }}">
           <img src="{{ foto.imagen.url }}" alt="">
-          <div class="fp-cap"><input type="text" value="{{ foto.descripcion }}" placeholder="Descripción…"></div>
+          <div class="fp-cap">
+            <input type="text" value="{{ foto.descripcion }}" placeholder="Descripción…">
+          </div>
           <button type="button" class="fp-del" onclick="delExisting({{ foto.pk }})">
-            <i class="fas fa-times"></i></button>
+            <i class="fas fa-times"></i>
+          </button>
           <input type="hidden" name="fotos_eliminar[]" id="fd-{{ foto.pk }}" value="" disabled>
         </div>
         {% endfor %}
@@ -274,46 +507,46 @@
            ondragover="event.preventDefault();this.classList.add('over')"
            ondragleave="this.classList.remove('over')"
            ondrop="onDrop(event)">
-        <i class="fas fa-cloud-upload-alt" style="font-size:1.9rem;display:block;margin-bottom:.35rem;"></i>
-        <strong>+ Agregar imágenes</strong>
-        <p style="margin:.25rem 0 0;font-size:.75rem;">Arrastra aquí o haz clic para seleccionar</p>
+        <i class="fas fa-cloud-upload-alt" style="font-size:1.8rem;display:block;margin-bottom:.35rem;"></i>
+        <strong style="font-size:.88rem;">+ Agregar imágenes</strong>
+        <p style="margin:.25rem 0 0;font-size:.74rem;">Arrastra aquí o toca para seleccionar</p>
       </div>
       <input type="file" id="inp-f" name="fotos_nuevas" multiple accept="image/*"
              style="display:none;" onchange="addPhotos(this.files)">
     </div>
 
-    <!-- ══ Acciones ════════════════════════════════════════════ -->
-    <div style="display:flex;gap:.65rem;justify-content:space-between;
-                flex-wrap:wrap;padding:.75rem 0 2rem;align-items:center;">
+    <!-- ══ Acciones ═══════════════════════════════════════════════ -->
+    <div class="form-actions">
       <a href="{% url 'monitoreo:reportes_lista' %}" class="mon-btn mon-btn-secondary">
         <i class="fas fa-times"></i> Cancelar
       </a>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <div class="form-actions-right">
         {% if modo == 'editar' %}
         <a href="{% url 'monitoreo:reporte_pdf' reporte.pk %}"
            class="mon-btn mon-btn-secondary" target="_blank">
           <i class="fas fa-file-pdf" style="color:#bb0000;"></i> Ver PDF
         </a>
         {% endif %}
-        <button type="submit" class="mon-btn mon-btn-primary" onclick="showOv()">
+        <button type="submit" class="mon-btn mon-btn-primary" onclick="showOv()"
+                style="width:100%;">
           <i class="fas fa-save"></i>
           {% if modo == 'editar' %}Guardar cambios{% else %}Crear reporte{% endif %}
         </button>
       </div>
     </div>
+
   </form>
 </div>
 
-<!-- Spinner overlay -->
+<!-- Spinner -->
 <div id="ov">
   <div class="ov-box">
     <div class="ov-ring"></div>
-    <div style="font-size:.9rem;font-weight:600;color:#32363a;">Guardando reporte…</div>
-    <div style="font-size:.76rem;color:#6a6d70;margin-top:.3rem;">El PDF se genera en segundo plano.</div>
+    <div style="font-size:.88rem;font-weight:600;color:#32363a;">Guardando reporte…</div>
+    <div style="font-size:.74rem;color:#6a6d70;margin-top:.3rem;">El PDF se genera en segundo plano.</div>
   </div>
 </div>
 
-{# ── JSON prefill para modo editar ── #}
 {% if modo == 'editar' and filas_dict %}
 <script id="fd" type="application/json">
 { {% for eid, fila in filas_dict.items %}"{{ eid }}":{"estado":"{{ fila.estado }}","clasif":"{{ fila.clasificacion }}","desc":"{{ fila.descripcion_novedad|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %} }
@@ -321,37 +554,32 @@
 {% endif %}
 
 <script>
-/* ── Etiquetas ── */
 const LBL = {
-  operativo:       {t:'OK',          c:'lbl-ok'},
-  sin_novedad:     {t:'Sin novedad', c:'lbl-ok'},
-  fuera_servicio:  {t:'Fuera serv.', c:'lbl-fs'},
-  en_mantenimiento:{t:'Mant.',       c:'lbl-mt'},
-  falla_parcial:   {t:'Falla',       c:'lbl-fp'},
+  operativo:        {t:'OK',         c:'lbl-ok'},
+  sin_novedad:      {t:'Sin novedad',c:'lbl-ok'},
+  fuera_servicio:   {t:'Fuera',      c:'lbl-fs'},
+  en_mantenimiento: {t:'Mant.',      c:'lbl-mt'},
+  falla_parcial:    {t:'Falla',      c:'lbl-fp'},
 };
 
 function setLbl(eid) {
   const v = document.getElementById('st-'+eid).value;
   const l = document.getElementById('lb-'+eid);
   const i = LBL[v]||{t:'Novedad',c:'lbl-fs'};
-  l.textContent=i.t; l.className='ec-lbl '+i.c;
+  l.textContent = i.t; l.className = 'ec-lbl '+i.c;
 }
 
-/* ── Toggle tarjeta ── */
 function toggle(eid, card) {
-  if (card.classList.contains('ec') && !card.classList.contains('nov')) {
-    // OK → novedad
+  if (!card.classList.contains('nov')) {
     card.classList.add('nov');
     const sel = document.getElementById('esel-'+eid);
     onEstado(eid, sel ? sel.value : 'fuera_servicio');
   } else {
-    // novedad → OK
     card.classList.remove('nov');
     document.getElementById('st-'+eid).value = 'operativo';
     document.getElementById('cl-'+eid).value = '';
     document.getElementById('dn-'+eid).value = '';
-    const ta = document.getElementById('ta-'+eid);
-    if (ta) ta.value = '';
+    const ta = document.getElementById('ta-'+eid); if(ta) ta.value = '';
     setLbl(eid);
   }
   updGrp(card.dataset.grp);
@@ -363,9 +591,8 @@ function onEstado(eid, v) {
   setLbl(eid);
 }
 
-/* ── Contadores de grupo ── */
 function updGrp(g) {
-  const grp  = document.querySelector('.grp[data-grp="'+g+'"]');
+  const grp = document.querySelector('.grp[data-grp="'+g+'"]');
   if (!grp) return;
   const total = grp.querySelectorAll('.ec').length;
   const nov   = grp.querySelectorAll('.ec.nov').length;
@@ -377,11 +604,10 @@ function updGrp(g) {
 function updGlobal() {
   const total = document.querySelectorAll('.ec').length;
   const nov   = document.querySelectorAll('.ec.nov').length;
-  document.getElementById('resumen-global').textContent =
-    total + ' elevadores · ' + (total-nov) + ' buen estado · ' + nov + ' con novedad';
+  const el    = document.getElementById('resumen-global');
+  if (el) el.textContent = total+' elevadores · '+(total-nov)+' ok · '+nov+' novedad';
 }
 
-/* ── Restablecer todos ── */
 function resetAll() {
   document.querySelectorAll('.ec.nov').forEach(card => {
     const eid = card.dataset.eid;
@@ -389,35 +615,32 @@ function resetAll() {
     document.getElementById('st-'+eid).value = 'operativo';
     document.getElementById('cl-'+eid).value = '';
     document.getElementById('dn-'+eid).value = '';
-    const ta = document.getElementById('ta-'+eid); if(ta) ta.value='';
+    const ta = document.getElementById('ta-'+eid); if(ta) ta.value = '';
     setLbl(eid);
   });
   document.querySelectorAll('.grp').forEach((_,i) => updGrp(i+1));
   updGlobal();
 }
 
-/* ── Init: prefill edición + contadores ── */
 document.addEventListener('DOMContentLoaded', function() {
-  // Contadores iniciales
   document.querySelectorAll('.grp').forEach((_,i) => updGrp(i+1));
   updGlobal();
 
-  // Prefill edición
   const el = document.getElementById('fd');
   if (!el) return;
-  let d={};
-  try{d=JSON.parse(el.textContent);}catch(e){return;}
-  Object.entries(d).forEach(([eid,info])=>{
-    if (!info.estado||info.estado==='operativo'||info.estado==='sin_novedad') return;
-    const card=document.getElementById('ec-'+eid);
-    if(!card) return;
+  let d = {};
+  try { d = JSON.parse(el.textContent); } catch(e) { return; }
+  Object.entries(d).forEach(([eid, info]) => {
+    if (!info.estado || info.estado === 'operativo' || info.estado === 'sin_novedad') return;
+    const card = document.getElementById('ec-'+eid);
+    if (!card) return;
     card.classList.add('nov');
-    document.getElementById('st-'+eid).value=info.estado;
-    document.getElementById('cl-'+eid).value=info.clasif||'';
-    document.getElementById('dn-'+eid).value=info.desc||'';
-    const sel=document.getElementById('esel-'+eid); if(sel) sel.value=info.estado;
-    const csel=document.getElementById('csel-'+eid); if(csel) csel.value=info.clasif||'';
-    const ta=document.getElementById('ta-'+eid); if(ta) ta.value=info.desc||'';
+    document.getElementById('st-'+eid).value = info.estado;
+    document.getElementById('cl-'+eid).value = info.clasif || '';
+    document.getElementById('dn-'+eid).value = info.desc   || '';
+    const sel  = document.getElementById('esel-'+eid);  if(sel)  sel.value  = info.estado;
+    const csel = document.getElementById('csel-'+eid);  if(csel) csel.value = info.clasif || '';
+    const ta   = document.getElementById('ta-'+eid);    if(ta)   ta.value   = info.desc   || '';
     setLbl(eid);
   });
   document.querySelectorAll('.grp').forEach((_,i) => updGrp(i+1));
@@ -428,14 +651,14 @@ document.addEventListener('DOMContentLoaded', function() {
 let dt = new DataTransfer();
 function addPhotos(files) {
   const grid = document.getElementById('fp-new');
-  Array.from(files).forEach(file=>{
+  Array.from(files).forEach(file => {
     dt.items.add(file);
-    const idx = dt.files.length-1;
-    const r=new FileReader();
-    r.onload=e=>{
-      const d=document.createElement('div');
-      d.className='fp-item';
-      d.innerHTML=`<img src="${e.target.result}" alt="">
+    const idx = dt.files.length - 1;
+    const r = new FileReader();
+    r.onload = e => {
+      const d = document.createElement('div');
+      d.className = 'fp-item';
+      d.innerHTML = `<img src="${e.target.result}" alt="">
         <div class="fp-cap"><input type="text" placeholder="Descripción…"
           style="border:none;background:transparent;width:100%;font-size:.71rem;font-family:inherit;"></div>
         <button type="button" class="fp-del" onclick="delNew(${idx},this)">
@@ -444,30 +667,31 @@ function addPhotos(files) {
     };
     r.readAsDataURL(file);
   });
-  document.getElementById('inp-f').files=dt.files;
+  document.getElementById('inp-f').files = dt.files;
 }
-function delNew(idx,btn) {
-  const n=new DataTransfer();
-  Array.from(dt.files).forEach((f,i)=>{if(i!==idx)n.items.add(f);});
-  dt=n; document.getElementById('inp-f').files=dt.files;
+function delNew(idx, btn) {
+  const n = new DataTransfer();
+  Array.from(dt.files).forEach((f,i) => { if(i !== idx) n.items.add(f); });
+  dt = n; document.getElementById('inp-f').files = dt.files;
   btn.closest('.fp-item').remove();
 }
 function clearAll() {
-  document.getElementById('fp-new').innerHTML='';
-  dt=new DataTransfer(); document.getElementById('inp-f').files=dt.files;
-  document.querySelectorAll('[id^="fex-"]').forEach(el=>{
-    delExisting(el.id.replace('fex-',''));});
+  document.getElementById('fp-new').innerHTML = '';
+  dt = new DataTransfer(); document.getElementById('inp-f').files = dt.files;
+  document.querySelectorAll('[id^="fex-"]').forEach(el => {
+    delExisting(el.id.replace('fex-',''));
+  });
 }
-function delExisting(pk){
-  const el=document.getElementById('fex-'+pk);
-  if(el){el.style.opacity='.3';el.style.pointerEvents='none';}
-  const inp=document.getElementById('fd-'+pk);
-  if(inp){inp.value=pk;inp.disabled=false;}
+function delExisting(pk) {
+  const el  = document.getElementById('fex-'+pk);
+  if (el) { el.style.opacity='.3'; el.style.pointerEvents='none'; }
+  const inp = document.getElementById('fd-'+pk);
+  if (inp) { inp.value = pk; inp.disabled = false; }
 }
-function onDrop(e){
-  e.preventDefault();e.currentTarget.classList.remove('over');
+function onDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('over');
   addPhotos(e.dataTransfer.files);
 }
-function showOv(){ document.getElementById('ov').classList.add('show'); }
+function showOv() { document.getElementById('ov').classList.add('show'); }
 </script>
 {% endblock %}
