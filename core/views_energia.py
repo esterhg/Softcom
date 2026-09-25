@@ -378,3 +378,176 @@ def medidores_dashboard_config(request):
         'selected_ids': selected_ids,
         'title': 'Configuración Dashboard Puntos de Medición',
     })
+
+
+# ============================================================
+# DASHBOARD ENERGÉTICO — ENDPOINT AJAX
+# ============================================================
+
+@staff_member_required
+def dashboard_energia_api(request):
+    """
+    Endpoint JSON que devuelve todos los KPIs, gráficos y tabla del
+    Dashboard Energético. El template lo consulta periódicamente para
+    actualizar los datos sin recargar la página completa.
+
+    Parámetros GET: medidor_id, fecha_desde, fecha_hasta  (igual que la vista principal)
+    """
+    now = timezone.now()
+
+    # --- Filtros ---
+    medidor_id   = request.GET.get('medidor_id')
+    fecha_desde_str = request.GET.get('fecha_desde')
+    fecha_hasta_str = request.GET.get('fecha_hasta')
+
+    # Periodo actual
+    if fecha_desde_str:
+        try:
+            fecha_desde_mes = timezone.make_aware(datetime.strptime(fecha_desde_str, '%Y-%m-%d'))
+        except (ValueError, TypeError):
+            fecha_desde_mes = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        fecha_desde_mes = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if fecha_hasta_str:
+        try:
+            fecha_hasta_mes = timezone.make_aware(
+                datetime.strptime(fecha_hasta_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            )
+        except (ValueError, TypeError):
+            fecha_hasta_mes = now
+    else:
+        fecha_hasta_mes = now
+
+    # Periodo anterior
+    delta_dias = (fecha_hasta_mes - fecha_desde_mes).days
+    fecha_hasta_anterior = fecha_desde_mes - timedelta(seconds=1)
+    fecha_desde_anterior = fecha_hasta_anterior - timedelta(days=delta_dias)
+
+    # --- Medidores ---
+    medidores_qs = Medidor.objects.select_related('unidad', 'tipo_medidor').all()
+    if medidor_id:
+        try:
+            medidores_qs = medidores_qs.filter(id=int(medidor_id))
+        except (ValueError, TypeError):
+            pass
+    medidores = list(medidores_qs)
+
+    # --- KPIs ---
+    consumos_actual, consumo_total_mes = _calcular_consumo_medidores_periodo(
+        medidores, fecha_desde_mes, fecha_hasta_mes
+    )
+    _, consumo_total_anterior = _calcular_consumo_medidores_periodo(
+        medidores, fecha_desde_anterior, fecha_hasta_anterior
+    )
+
+    if consumo_total_anterior > 0:
+        variacion_pct = round(
+            ((consumo_total_mes - consumo_total_anterior) / consumo_total_anterior) * 100, 1
+        )
+    else:
+        variacion_pct = 0.0 if consumo_total_mes == 0 else 100.0
+
+    # --- Tendencia 12 meses ---
+    tendencia_data   = []
+    tendencia_labels = []
+    for i in range(11, -1, -1):
+        mes_ref    = now - relativedelta(months=i)
+        inicio_mes = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        fin_mes    = now if i == 0 else (inicio_mes + relativedelta(months=1)) - timedelta(seconds=1)
+        _, total_mes = _calcular_consumo_medidores_periodo(medidores, inicio_mes, fin_mes)
+        tendencia_data.append(round(total_mes, 2))
+        tendencia_labels.append(inicio_mes.strftime('%b %Y'))
+
+    # --- Consumo diario del periodo ---
+    consumo_diario = []
+    dias_labels    = []
+    dia_inicio = fecha_desde_mes
+    puntuales_ids    = [m.id for m in medidores if (m.tipo or '').strip().upper() == 'PUNTUAL']
+    acumulativos_list = [m for m in medidores if (m.tipo or '').strip().upper() != 'PUNTUAL']
+
+    while dia_inicio.date() <= fecha_hasta_mes.date():
+        dia_fin   = dia_inicio.replace(hour=23, minute=59, second=59)
+        total_dia = 0
+
+        if puntuales_ids:
+            agg = Consumo.objects.filter(
+                medidor_id__in=puntuales_ids,
+                fecha__gte=dia_inicio,
+                fecha__lte=dia_fin,
+            ).aggregate(total=Sum('consumo'))
+            total_dia += agg['total'] or 0
+
+        for m in acumulativos_list:
+            total_dia += calcular_consumo_periodo(m, dia_inicio, dia_fin)
+
+        consumo_diario.append(round(total_dia, 2))
+        dias_labels.append(dia_inicio.strftime('%d/%m'))
+        dia_inicio += timedelta(days=1)
+
+    # --- Distribución por medidor (top 8 + Otros) ---
+    distribucion = sorted(
+        [{'nombre': m.nombre, 'consumo': round(consumos_actual.get(m.id, 0), 2)} for m in medidores],
+        key=lambda x: x['consumo'],
+        reverse=True,
+    )
+    if len(distribucion) > 8:
+        dist_labels = [d['nombre'] for d in distribucion[:8]] + ['Otros']
+        dist_values = [d['consumo'] for d in distribucion[:8]] + [
+            round(sum(d['consumo'] for d in distribucion[8:]), 2)
+        ]
+    else:
+        dist_labels = [d['nombre'] for d in distribucion]
+        dist_values = [d['consumo'] for d in distribucion]
+
+    # --- Tabla de medidores con tendencia ---
+    tabla = []
+    for m in medidores:
+        consumo_act = consumos_actual.get(m.id, 0)
+        consumo_ant = calcular_consumo_periodo(m, fecha_desde_anterior, fecha_hasta_anterior)
+        if consumo_ant > 0:
+            tendencia = 'up' if consumo_act > consumo_ant else 'down'
+        elif consumo_act > 0:
+            tendencia = 'up'
+        else:
+            tendencia = 'neutral'
+
+        tabla.append({
+            'nombre':    m.nombre,
+            'consumo':   round(consumo_act, 2),
+            'unidad':    m.unidad.simbolo if m.unidad else '',
+            'tipo':      (m.tipo or '').strip().upper() or 'ACUMULATIVO',
+            'tendencia': tendencia,
+        })
+    tabla.sort(key=lambda x: x['consumo'], reverse=True)
+
+    # --- Última lectura registrada en la BD ---
+    ultimo_registro = (
+        Consumo.objects.filter(medidor__in=medidores)
+        .order_by('-fecha')
+        .values('fecha')
+        .first()
+    )
+    ultima_actualizacion = (
+        ultimo_registro['fecha'].strftime('%d/%m/%Y %H:%M')
+        if ultimo_registro else '—'
+    )
+
+    return JsonResponse({
+        # KPIs
+        'consumo_total_mes':    round(consumo_total_mes, 2),
+        'variacion_pct':        variacion_pct,
+        'total_medidores':      len(medidores),
+        'ultima_actualizacion': ultima_actualizacion,
+        # Gráficos
+        'tendencia_labels': tendencia_labels,
+        'tendencia_data':   tendencia_data,
+        'diario_labels':    dias_labels,
+        'diario_data':      consumo_diario,
+        'dist_labels':      dist_labels,
+        'dist_data':        dist_values,
+        # Tabla
+        'tabla_medidores': tabla,
+        # Meta
+        'timestamp': now.isoformat(),
+    })

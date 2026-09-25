@@ -1,498 +1,761 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Energetico</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>Dashboard Energético — SoftCom CCG</title>
+
+    <!-- Artifakt Element -->
+    <style>
+        @font-face {
+            font-family: 'Artifakt Element';
+            src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Artifakt Element';
+            src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* ── Design tokens ──────────────────────────────── */
+        :root {
+            --fiori-primary:        #0070f2;
+            --fiori-bg:             #eff2f5;
+            --fiori-card-bg:        #ffffff;
+            --fiori-text:           #32363a;
+            --fiori-text-secondary: #6a6d70;
+            --fiori-border:         #d9d9d9;
+            --fiori-success:        #107e3e;
+            --fiori-warning:        #e9730c;
+            --fiori-error:          #bb0000;
+            --fiori-header-bg:      #354a5f;
+            --font-main:            'Artifakt Element', 'Outfit', sans-serif;
         }
+
+        /* ── Reset ─────────────────────────────────────── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Source Sans 3', sans-serif;
-            background: #f5f6f7;
-            color: #32363a;
+            font-family: var(--font-main);
+            background: var(--fiori-bg);
+            color: var(--fiori-text);
             min-height: 100vh;
+            font-size: 14px;
         }
-        .header {
-            background: #354a5f;
+
+        /* ── Header ────────────────────────────────────── */
+        .de-header {
+            background: var(--fiori-header-bg);
             color: #fff;
-            padding: 16px 24px;
+            padding: 14px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 6px rgba(0,0,0,.18);
         }
-        .header h1 {
-            font-size: 20px;
-            font-weight: 600;
+        .de-header__left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .de-header__title {
+            font-size: 18px;
+            font-weight: 700;
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        .header h1 i {
-            color: #d4e157;
+        .de-header__title i { color: #d4e157; }
+
+        .de-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255,255,255,.75);
+            text-decoration: none;
+            font-size: 13px;
+            transition: color .15s;
         }
-        .filters {
+        .de-back:hover { color: #fff; }
+
+        /* refresh indicator */
+        .de-refresh-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: rgba(255,255,255,.65);
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.15);
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+        .de-refresh-badge .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; }
+            50%      { opacity: .3; }
+        }
+        .de-refresh-badge.loading .dot { background: #ffc107; animation: none; }
+        .de-refresh-badge.error   .dot { background: var(--fiori-error); animation: none; }
+
+        /* ── Filter bar ────────────────────────────────── */
+        .de-filters {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
-        .filters select,
-        .filters input[type="date"] {
-            font-family: 'Source Sans 3', sans-serif;
+        .de-filters select,
+        .de-filters input[type="date"] {
+            font-family: var(--font-main);
             font-size: 13px;
             padding: 6px 10px;
-            border: 1px solid rgba(255,255,255,0.3);
-            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,.25);
+            background: rgba(255,255,255,.1);
             color: #fff;
-            border-radius: 0;
+            border-radius: 4px;
             outline: none;
+            cursor: pointer;
         }
-        .filters select option {
-            background: #354a5f;
-            color: #fff;
-        }
-        .filters input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-        }
-        .filters .btn-filter {
-            font-family: 'Source Sans 3', sans-serif;
+        .de-filters select option { background: var(--fiori-header-bg); color: #fff; }
+        .de-filters input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        .de-filters .btn-apply {
+            font-family: var(--font-main);
             font-size: 13px;
-            padding: 6px 14px;
-            background: #0a6ed1;
+            font-weight: 600;
+            padding: 6px 16px;
+            background: var(--fiori-primary);
             color: #fff;
             border: none;
-            border-radius: 0;
+            border-radius: 4px;
             cursor: pointer;
-            font-weight: 600;
+            transition: background .15s;
         }
-        .filters .btn-filter:hover {
-            background: #0854a0;
-        }
-        .container {
-            max-width: 1400px;
+        .de-filters .btn-apply:hover { background: #0058c1; }
+
+        /* ── Layout ────────────────────────────────────── */
+        .de-container {
+            max-width: 1440px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 20px 20px 32px;
         }
-        .kpi-row {
+
+        /* ── KPI row ───────────────────────────────────── */
+        .de-kpi-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
-        .kpi-card {
-            background: #fff;
-            border-radius: 0;
-            padding: 20px 24px;
-            border-left: 4px solid #0a6ed1;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        .de-kpi {
+            background: var(--fiori-card-bg);
+            border: 1px solid var(--fiori-border);
+            border-radius: .5rem;
+            padding: 18px 22px;
+            border-left: 4px solid var(--fiori-primary);
+            box-shadow: 0 .125rem .25rem rgba(0,0,0,.08);
+            transition: transform .2s, box-shadow .2s;
         }
-        .kpi-card .kpi-label {
-            font-size: 12px;
-            font-weight: 600;
+        .de-kpi:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 .375rem .75rem rgba(0,0,0,.12);
+        }
+        .de-kpi__label {
+            font-size: 11px;
+            font-weight: 700;
             text-transform: uppercase;
-            color: #6a6d70;
-            letter-spacing: 0.5px;
+            letter-spacing: .6px;
+            color: var(--fiori-text-secondary);
             margin-bottom: 6px;
         }
-        .kpi-card .kpi-value {
-            font-size: 28px;
+        .de-kpi__value {
+            font-size: 30px;
             font-weight: 700;
-            color: #354a5f;
+            color: var(--fiori-text);
+            line-height: 1.1;
         }
-        .kpi-card .kpi-sub {
+        .de-kpi__sub {
             font-size: 12px;
-            color: #6a6d70;
+            color: var(--fiori-text-secondary);
             margin-top: 4px;
         }
-        .kpi-card.positive .kpi-value { color: #107e3e; }
-        .kpi-card.negative .kpi-value { color: #bb0000; }
-        .charts-grid {
+        .de-kpi.success .de-kpi__value { color: var(--fiori-success); }
+        .de-kpi.danger  .de-kpi__value { color: var(--fiori-error); }
+        .de-kpi.warning .de-kpi__value { color: var(--fiori-warning); }
+
+        /* ── Charts grid ───────────────────────────────── */
+        .de-charts-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
             margin-bottom: 24px;
         }
-        .chart-card {
-            background: #fff;
-            border-radius: 0;
+        .de-card {
+            background: var(--fiori-card-bg);
+            border: 1px solid var(--fiori-border);
+            border-radius: .5rem;
             padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            box-shadow: 0 .125rem .25rem rgba(0,0,0,.08);
         }
-        .chart-card.full-width {
-            grid-column: 1 / -1;
-        }
-        .chart-card h3 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #354a5f;
+        .de-card.full { grid-column: 1 / -1; }
+        .de-card__title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--fiori-text);
             margin-bottom: 16px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .chart-card h3 i {
-            color: #0a6ed1;
-        }
-        .chart-container {
+        .de-card__title i { color: var(--fiori-primary); }
+        .de-chart-wrap {
             position: relative;
             width: 100%;
-            height: 280px;
+            height: 270px;
         }
-        .table-section {
-            background: #fff;
-            border-radius: 0;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            margin-bottom: 24px;
-        }
-        .table-section h3 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #354a5f;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .table-section h3 i {
-            color: #0a6ed1;
-        }
-        .data-table {
+
+        /* ── Table ─────────────────────────────────────── */
+        .de-table-wrap { overflow-x: auto; }
+        .de-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
-        .data-table th {
+        .de-table th {
             text-align: left;
-            padding: 10px 12px;
-            background: #f5f6f7;
-            color: #6a6d70;
-            font-weight: 600;
+            padding: 10px 14px;
+            background: #f0f4f8;
+            color: var(--fiori-text-secondary);
             font-size: 11px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #e5e5e5;
+            letter-spacing: .5px;
+            border-bottom: 2px solid var(--fiori-border);
+            white-space: nowrap;
         }
-        .data-table td {
-            padding: 10px 12px;
+        .de-table td {
+            padding: 10px 14px;
             border-bottom: 1px solid #f0f0f0;
-            color: #32363a;
+            color: var(--fiori-text);
+            vertical-align: middle;
         }
-        .data-table tr:hover td {
-            background: #f5f6f7;
-        }
-        .trend-up { color: #bb0000; }
-        .trend-down { color: #107e3e; }
-        .trend-neutral { color: #6a6d70; }
-        .badge-tipo {
+        .de-table tr:hover td { background: #f7f9fb; }
+
+        /* badges */
+        .badge {
             display: inline-block;
             padding: 2px 8px;
             font-size: 11px;
             font-weight: 600;
-            background: #e8f4fd;
-            color: #0a6ed1;
-            border-radius: 0;
+            border-radius: 4px;
         }
-        .badge-tipo.acumulativo {
-            background: #fff3e0;
-            color: #e65100;
+        .badge-puntual     { background: #eff6ff; color: #1d4ed8; }
+        .badge-acumulativo { background: #fff7ed; color: #c2410c; }
+
+        /* tendencia */
+        .trend { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+        .trend-up      { color: var(--fiori-error); }
+        .trend-down    { color: var(--fiori-success); }
+        .trend-neutral { color: var(--fiori-text-secondary); }
+
+        /* progress bar para consumo relativo */
+        .bar-wrap { display: flex; align-items: center; gap: 8px; }
+        .bar-track {
+            flex: 1;
+            height: 6px;
+            background: #e8edf1;
+            border-radius: 3px;
+            overflow: hidden;
         }
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #6a6d70;
-        }
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 12px;
-            color: #d0d0d0;
-        }
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
-            font-size: 13px;
-        }
-        .back-link:hover {
-            color: #fff;
+        .bar-fill {
+            height: 100%;
+            background: var(--fiori-primary);
+            border-radius: 3px;
+            transition: width .4s ease;
         }
 
-        @media (max-width: 768px) {
-            .header {
-                padding: 12px 16px;
-            }
-            .header h1 {
-                font-size: 16px;
-            }
-            .container {
-                padding: 12px;
-            }
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            .kpi-row {
-                grid-template-columns: 1fr;
-            }
-            .filters {
-                width: 100%;
-            }
-            .filters select,
-            .filters input[type="date"] {
-                flex: 1;
-                min-width: 0;
-            }
-            .data-table {
-                font-size: 12px;
-            }
-            .data-table th,
-            .data-table td {
-                padding: 8px 6px;
-            }
+        /* empty state */
+        .de-empty {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--fiori-text-secondary);
+        }
+        .de-empty i { font-size: 44px; margin-bottom: 12px; color: var(--fiori-border); display: block; }
+
+        /* skeleton loader */
+        .skeleton {
+            background: linear-gradient(90deg, #e8edf1 25%, #f4f6f8 50%, #e8edf1 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            border-radius: 4px;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ── Responsive ────────────────────────────────── */
+        @media (max-width: 900px) {
+            .de-charts-grid { grid-template-columns: 1fr; }
+            .de-card.full   { grid-column: auto; }
+        }
+        @media (max-width: 600px) {
+            .de-header { padding: 10px 14px; }
+            .de-container { padding: 12px; }
+            .de-kpi-row { grid-template-columns: 1fr 1fr; }
+            .de-kpi__value { font-size: 22px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div style="display:flex;align-items:center;gap:16px;">
-            <a href="/admin/" class="back-link"><i class="fas fa-arrow-left"></i> Admin</a>
-            <h1><i class="fas fa-bolt"></i> Dashboard Energetico</h1>
-        </div>
-        <form class="filters" method="get">
-            <select name="medidor_id">
-                <option value="">Todos los medidores</option>
-                {% for m in todos_medidores %}
-                <option value="{{ m.id }}" {% if medidor_id_selected == m.id|stringformat:"d" %}selected{% endif %}>{{ m.nombre }}</option>
-                {% endfor %}
-            </select>
-            <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
-            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
-            <button type="submit" class="btn-filter"><i class="fas fa-filter"></i> Filtrar</button>
-        </form>
+
+<!-- ═══ HEADER ══════════════════════════════════════════════════════ -->
+<header class="de-header">
+    <div class="de-header__left">
+        <a href="/admin/" class="de-back"><i class="fas fa-arrow-left"></i> Admin</a>
+        <h1 class="de-header__title"><i class="fas fa-bolt"></i> Dashboard Energético</h1>
+        <span class="de-refresh-badge" id="refreshBadge">
+            <span class="dot"></span>
+            <span id="refreshLabel">En vivo · cada 60 s</span>
+        </span>
     </div>
 
-    <div class="container">
-        <!-- KPI Cards -->
-        <div class="kpi-row">
-            <div class="kpi-card">
-                <div class="kpi-label">Consumo Total Mes</div>
-                <div class="kpi-value">{{ consumo_total_mes|floatformat:1 }}</div>
-                <div class="kpi-sub">Periodo seleccionado</div>
+    <form class="de-filters" id="filterForm" method="get">
+        <select name="medidor_id" id="selMedidor">
+            <option value="">Todos los medidores</option>
+            {% for m in todos_medidores %}
+            <option value="{{ m.id }}"
+                {% if medidor_id_selected == m.id|stringformat:"d" %}selected{% endif %}>
+                {{ m.nombre }}
+            </option>
+            {% endfor %}
+        </select>
+        <input type="date" name="fecha_desde" id="inputDesde" value="{{ fecha_desde }}">
+        <input type="date" name="fecha_hasta" id="inputHasta" value="{{ fecha_hasta }}">
+        <button type="submit" class="btn-apply"><i class="fas fa-filter"></i> Filtrar</button>
+    </form>
+</header>
+
+<!-- ═══ CONTENIDO ═══════════════════════════════════════════════════ -->
+<div class="de-container">
+
+    <!-- KPI Cards -->
+    <div class="de-kpi-row" id="kpiRow">
+        <!-- Consumo Total -->
+        <div class="de-kpi" id="kpiTotal">
+            <div class="de-kpi__label">Consumo Total del Periodo</div>
+            <div class="de-kpi__value" id="kpiTotalVal">{{ consumo_total_mes|floatformat:1 }}</div>
+            <div class="de-kpi__sub" id="kpiTotalSub">Periodo seleccionado</div>
+        </div>
+
+        <!-- Variación -->
+        <div class="de-kpi" id="kpiVar">
+            <div class="de-kpi__label">Variación vs Periodo Anterior</div>
+            <div class="de-kpi__value" id="kpiVarVal">
+                {% if variacion_pct > 0 %}<i class="fas fa-arrow-up"></i>
+                {% elif variacion_pct < 0 %}<i class="fas fa-arrow-down"></i>
+                {% else %}<i class="fas fa-minus"></i>{% endif %}
+                {{ variacion_pct }}%
             </div>
-            <div class="kpi-card {% if variacion_pct > 0 %}negative{% elif variacion_pct < 0 %}positive{% endif %}">
-                <div class="kpi-label">Variacion vs Mes Anterior</div>
-                <div class="kpi-value">
-                    {% if variacion_pct > 0 %}<i class="fas fa-arrow-up"></i>{% elif variacion_pct < 0 %}<i class="fas fa-arrow-down"></i>{% else %}<i class="fas fa-minus"></i>{% endif %}
-                    {{ variacion_pct }}%
-                </div>
-                <div class="kpi-sub">{% if variacion_pct > 0 %}Aumento{% elif variacion_pct < 0 %}Reduccion{% else %}Sin cambio{% endif %} respecto al periodo anterior</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Total Medidores Activos</div>
-                <div class="kpi-value">{{ total_medidores }}</div>
-                <div class="kpi-sub">Medidores configurados</div>
+            <div class="de-kpi__sub" id="kpiVarSub">
+                {% if variacion_pct > 0 %}Aumento respecto al periodo anterior
+                {% elif variacion_pct < 0 %}Reducción respecto al periodo anterior
+                {% else %}Sin cambio{% endif %}
             </div>
         </div>
 
-        <!-- Charts -->
-        <div class="charts-grid">
-            <div class="chart-card full-width">
-                <h3><i class="fas fa-chart-line"></i> Tendencia Mensual (12 meses)</h3>
-                <div class="chart-container">
-                    <canvas id="chartTendencia"></canvas>
-                </div>
+        <!-- Medidores activos -->
+        <div class="de-kpi" id="kpiMed">
+            <div class="de-kpi__label">Medidores Activos</div>
+            <div class="de-kpi__value" id="kpiMedVal">{{ total_medidores }}</div>
+            <div class="de-kpi__sub">Medidores con datos</div>
+        </div>
+
+        <!-- Última actualización -->
+        <div class="de-kpi" id="kpiUpd">
+            <div class="de-kpi__label">Última Lectura Registrada</div>
+            <div class="de-kpi__value" id="kpiUpdVal" style="font-size:18px;">—</div>
+            <div class="de-kpi__sub">Fecha del último dato importado</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="de-charts-grid">
+
+        <!-- Tendencia 12 meses — full width -->
+        <div class="de-card full">
+            <div class="de-card__title">
+                <i class="fas fa-chart-line"></i> Tendencia Mensual (últimos 12 meses)
             </div>
-            <div class="chart-card">
-                <h3><i class="fas fa-chart-bar"></i> Consumo Diario del Mes</h3>
-                <div class="chart-container">
-                    <canvas id="chartDiario"></canvas>
-                </div>
-            </div>
-            <div class="chart-card">
-                <h3><i class="fas fa-chart-pie"></i> Distribucion por Medidor</h3>
-                <div class="chart-container">
-                    <canvas id="chartDistribucion"></canvas>
-                </div>
+            <div class="de-chart-wrap">
+                <canvas id="chartTendencia"></canvas>
             </div>
         </div>
 
-        <!-- Table -->
-        <div class="table-section">
-            <h3><i class="fas fa-list"></i> Detalle por Medidor</h3>
-            {% if tabla_medidores %}
-            <div style="overflow-x:auto;">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Medidor</th>
-                            <th>Consumo</th>
-                            <th>Unidad</th>
-                            <th>Tipo</th>
-                            <th>Tendencia</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in tabla_medidores %}
-                        <tr>
-                            <td><strong>{{ item.nombre }}</strong></td>
-                            <td>{{ item.consumo|floatformat:2 }}</td>
-                            <td>{{ item.unidad }}</td>
-                            <td>
-                                <span class="badge-tipo {% if item.tipo == 'ACUMULATIVO' or item.tipo == 'ACUMULADO' %}acumulativo{% endif %}">
-                                    {{ item.tipo }}
+        <!-- Consumo diario -->
+        <div class="de-card">
+            <div class="de-card__title">
+                <i class="fas fa-chart-bar"></i> Consumo Diario del Periodo
+            </div>
+            <div class="de-chart-wrap">
+                <canvas id="chartDiario"></canvas>
+            </div>
+        </div>
+
+        <!-- Distribución -->
+        <div class="de-card">
+            <div class="de-card__title">
+                <i class="fas fa-chart-pie"></i> Distribución por Medidor
+            </div>
+            <div class="de-chart-wrap">
+                <canvas id="chartDist"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Tabla de medidores -->
+    <div class="de-card">
+        <div class="de-card__title">
+            <i class="fas fa-table"></i> Detalle por Medidor
+        </div>
+        <div class="de-table-wrap">
+            <table class="de-table" id="tablaMedidores">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Medidor</th>
+                        <th>Consumo</th>
+                        <th>Unidad</th>
+                        <th>Tipo</th>
+                        <th>Participación</th>
+                        <th>Tendencia</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaBody">
+                    {% if tabla_medidores %}
+                    {% for item in tabla_medidores %}
+                    <tr>
+                        <td style="color:var(--fiori-text-secondary)">{{ forloop.counter }}</td>
+                        <td><strong>{{ item.nombre }}</strong></td>
+                        <td>{{ item.consumo|floatformat:2 }}</td>
+                        <td>{{ item.unidad }}</td>
+                        <td>
+                            <span class="badge {% if item.tipo == 'PUNTUAL' %}badge-puntual{% else %}badge-acumulativo{% endif %}">
+                                {{ item.tipo }}
+                            </span>
+                        </td>
+                        <td style="min-width:120px">
+                            <div class="bar-wrap">
+                                <div class="bar-track">
+                                    <div class="bar-fill"
+                                         style="width:{% if consumo_total_mes > 0 %}{% widthratio item.consumo consumo_total_mes 100 %}{% else %}0{% endif %}%">
+                                    </div>
+                                </div>
+                                <span style="font-size:11px;color:var(--fiori-text-secondary);white-space:nowrap">
+                                    {% if consumo_total_mes > 0 %}{% widthratio item.consumo consumo_total_mes 100 %}{% else %}0{% endif %}%
                                 </span>
-                            </td>
-                            <td>
-                                {% if item.tendencia == 'up' %}
-                                <span class="trend-up"><i class="fas fa-arrow-up"></i> Subiendo</span>
-                                {% elif item.tendencia == 'down' %}
-                                <span class="trend-down"><i class="fas fa-arrow-down"></i> Bajando</span>
-                                {% else %}
-                                <span class="trend-neutral"><i class="fas fa-minus"></i> Estable</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <i class="fas fa-database"></i>
-                <p>No hay datos de consumo para el periodo seleccionado.</p>
-            </div>
-            {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if item.tendencia == 'up' %}
+                            <span class="trend trend-up"><i class="fas fa-arrow-up"></i> Subiendo</span>
+                            {% elif item.tendencia == 'down' %}
+                            <span class="trend trend-down"><i class="fas fa-arrow-down"></i> Bajando</span>
+                            {% else %}
+                            <span class="trend trend-neutral"><i class="fas fa-minus"></i> Estable</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr><td colspan="7">
+                        <div class="de-empty">
+                            <i class="fas fa-database"></i>
+                            No hay datos de consumo para el periodo seleccionado.
+                        </div>
+                    </td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <script>
-        const chartColors = {
-            primary: '#0a6ed1',
-            primaryLight: 'rgba(10, 110, 209, 0.1)',
-            secondary: '#354a5f',
-            success: '#107e3e',
-            warning: '#e9730c',
-            danger: '#bb0000',
-            palette: [
-                '#0a6ed1', '#107e3e', '#e9730c', '#bb0000', '#945fcf',
-                '#1b90ff', '#13a4b4', '#525df4', '#bf399e', '#6c8893'
-            ]
-        };
+</div><!-- /container -->
 
-        // Tendencia Mensual
-        const ctxTendencia = document.getElementById('chartTendencia').getContext('2d');
-        new Chart(ctxTendencia, {
-            type: 'line',
-            data: {
-                labels: {{ tendencia_labels_json|safe }},
-                datasets: [{
-                    label: 'Consumo',
-                    data: {{ tendencia_data_json|safe }},
-                    borderColor: chartColors.primary,
-                    backgroundColor: chartColors.primaryLight,
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.3,
-                    pointBackgroundColor: chartColors.primary,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Source Sans 3', size: 11 } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#f0f0f0' },
-                        ticks: { font: { family: 'Source Sans 3', size: 11 } }
+<script>
+/* ────────────────────────────────────────────────────────────────
+   Paleta Fiori
+   ──────────────────────────────────────────────────────────────── */
+const C = {
+    primary:      '#0070f2',
+    primaryLight: 'rgba(0,112,242,0.10)',
+    success:      '#107e3e',
+    warning:      '#e9730c',
+    danger:       '#bb0000',
+    muted:        '#6a6d70',
+    palette: [
+        '#0070f2','#107e3e','#e9730c','#bb0000','#945fcf',
+        '#1b90ff','#13a4b4','#525df4','#bf399e','#6c8893'
+    ]
+};
+
+const FONT = "'Artifakt Element', 'Outfit', sans-serif";
+
+Chart.defaults.font.family = FONT;
+Chart.defaults.font.size   = 12;
+Chart.defaults.color       = '#6a6d70';
+
+/* ────────────────────────────────────────────────────────────────
+   Datos iniciales (SSR — evitan flash en primera carga)
+   ──────────────────────────────────────────────────────────────── */
+const SSR = {
+    tendenciaLabels : {{ tendencia_labels_json|safe }},
+    tendenciaData   : {{ tendencia_data_json|safe }},
+    diarioLabels    : {{ diario_labels_json|safe }},
+    diarioData      : {{ diario_data_json|safe }},
+    distLabels      : {{ dist_labels_json|safe }},
+    distData        : {{ dist_data_json|safe }},
+};
+
+/* ────────────────────────────────────────────────────────────────
+   Instancias Chart.js
+   ──────────────────────────────────────────────────────────────── */
+const chartTendencia = new Chart(
+    document.getElementById('chartTendencia').getContext('2d'),
+    {
+        type: 'line',
+        data: {
+            labels: SSR.tendenciaLabels,
+            datasets: [{
+                label: 'Consumo',
+                data: SSR.tendenciaData,
+                borderColor: C.primary,
+                backgroundColor: C.primaryLight,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointBackgroundColor: C.primary,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, grid: { color: '#f0f0f0' } }
+            }
+        }
+    }
+);
+
+const chartDiario = new Chart(
+    document.getElementById('chartDiario').getContext('2d'),
+    {
+        type: 'bar',
+        data: {
+            labels: SSR.diarioLabels,
+            datasets: [{
+                label: 'Consumo',
+                data: SSR.diarioData,
+                backgroundColor: C.primary,
+                borderRadius: 3,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, grid: { color: '#f0f0f0' } }
+            }
+        }
+    }
+);
+
+const chartDist = new Chart(
+    document.getElementById('chartDist').getContext('2d'),
+    {
+        type: 'doughnut',
+        data: {
+            labels: SSR.distLabels,
+            datasets: [{
+                data: SSR.distData,
+                backgroundColor: C.palette,
+                borderWidth: 2,
+                borderColor: '#fff',
+                hoverOffset: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 14,
+                        usePointStyle: true,
+                        pointStyle: 'rectRounded',
                     }
                 }
             }
-        });
+        }
+    }
+);
 
-        // Consumo Diario
-        const ctxDiario = document.getElementById('chartDiario').getContext('2d');
-        new Chart(ctxDiario, {
-            type: 'bar',
-            data: {
-                labels: {{ diario_labels_json|safe }},
-                datasets: [{
-                    label: 'Consumo Diario',
-                    data: {{ diario_data_json|safe }},
-                    backgroundColor: chartColors.primary,
-                    borderColor: chartColors.primary,
-                    borderWidth: 0,
-                    borderRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Source Sans 3', size: 11 } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#f0f0f0' },
-                        ticks: { font: { family: 'Source Sans 3', size: 11 } }
-                    }
-                }
-            }
-        });
+/* ────────────────────────────────────────────────────────────────
+   Helpers para actualizar UI
+   ──────────────────────────────────────────────────────────────── */
+function updateChart(chart, labels, data) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.update('active');
+}
 
-        // Distribucion por Medidor
-        const ctxDist = document.getElementById('chartDistribucion').getContext('2d');
-        new Chart(ctxDist, {
-            type: 'doughnut',
-            data: {
-                labels: {{ dist_labels_json|safe }},
-                datasets: [{
-                    data: {{ dist_data_json|safe }},
-                    backgroundColor: chartColors.palette,
-                    borderWidth: 1,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            font: { family: 'Source Sans 3', size: 11 },
-                            padding: 12,
-                            usePointStyle: true,
-                            pointStyle: 'rect'
-                        }
-                    }
-                }
-            }
-        });
-    </script>
+function buildTableHTML(tabla, totalConsumo) {
+    if (!tabla || tabla.length === 0) {
+        return `<tr><td colspan="7">
+            <div class="de-empty">
+                <i class="fas fa-database"></i>
+                No hay datos de consumo para el periodo seleccionado.
+            </div></td></tr>`;
+    }
+    return tabla.map((item, idx) => {
+        const pct = totalConsumo > 0 ? Math.round((item.consumo / totalConsumo) * 100) : 0;
+        const badgeCls = item.tipo === 'PUNTUAL' ? 'badge-puntual' : 'badge-acumulativo';
+        let trendHTML = '';
+        if (item.tendencia === 'up') {
+            trendHTML = `<span class="trend trend-up"><i class="fas fa-arrow-up"></i> Subiendo</span>`;
+        } else if (item.tendencia === 'down') {
+            trendHTML = `<span class="trend trend-down"><i class="fas fa-arrow-down"></i> Bajando</span>`;
+        } else {
+            trendHTML = `<span class="trend trend-neutral"><i class="fas fa-minus"></i> Estable</span>`;
+        }
+        return `
+        <tr>
+            <td style="color:var(--fiori-text-secondary)">${idx + 1}</td>
+            <td><strong>${item.nombre}</strong></td>
+            <td>${item.consumo.toLocaleString('es-HN', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+            <td>${item.unidad}</td>
+            <td><span class="badge ${badgeCls}">${item.tipo}</span></td>
+            <td style="min-width:120px">
+                <div class="bar-wrap">
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:${pct}%"></div>
+                    </div>
+                    <span style="font-size:11px;color:var(--fiori-text-secondary);white-space:nowrap">${pct}%</span>
+                </div>
+            </td>
+            <td>${trendHTML}</td>
+        </tr>`;
+    }).join('');
+}
+
+function setKpiBadge(kpiEl, cls) {
+    kpiEl.classList.remove('success', 'danger', 'warning');
+    if (cls) kpiEl.classList.add(cls);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   Fetch al endpoint AJAX y aplicar resultados
+   ──────────────────────────────────────────────────────────────── */
+const badge = document.getElementById('refreshBadge');
+const refreshLabel = document.getElementById('refreshLabel');
+let lastFetch = null;
+
+function buildApiUrl() {
+    const p = new URLSearchParams(window.location.search);
+    return '/dashboard-energia/api/?' + p.toString();
+}
+
+async function fetchDashboard() {
+    badge.className = 'de-refresh-badge loading';
+    refreshLabel.textContent = 'Actualizando…';
+
+    try {
+        const res  = await fetch(buildApiUrl(), { credentials: 'same-origin' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d = await res.json();
+
+        /* KPIs */
+        document.getElementById('kpiTotalVal').textContent =
+            d.consumo_total_mes.toLocaleString('es-HN', {minimumFractionDigits:1, maximumFractionDigits:1});
+        document.getElementById('kpiTotalSub').textContent = 'Periodo seleccionado';
+
+        const varPct = d.variacion_pct;
+        const varIcon = varPct > 0
+            ? '<i class="fas fa-arrow-up"></i>'
+            : varPct < 0
+                ? '<i class="fas fa-arrow-down"></i>'
+                : '<i class="fas fa-minus"></i>';
+        document.getElementById('kpiVarVal').innerHTML = `${varIcon} ${varPct}%`;
+        document.getElementById('kpiVarSub').textContent =
+            varPct > 0 ? 'Aumento respecto al periodo anterior'
+            : varPct < 0 ? 'Reducción respecto al periodo anterior'
+            : 'Sin cambio';
+        setKpiBadge(document.getElementById('kpiVar'), varPct > 0 ? 'danger' : varPct < 0 ? 'success' : '');
+
+        document.getElementById('kpiMedVal').textContent = d.total_medidores;
+        document.getElementById('kpiUpdVal').textContent = d.ultima_actualizacion;
+
+        /* Gráficos */
+        updateChart(chartTendencia, d.tendencia_labels, d.tendencia_data);
+        updateChart(chartDiario,    d.diario_labels,    d.diario_data);
+
+        chartDist.data.labels = d.dist_labels;
+        chartDist.data.datasets[0].data = d.dist_data;
+        chartDist.update('active');
+
+        /* Tabla */
+        document.getElementById('tablaBody').innerHTML =
+            buildTableHTML(d.tabla_medidores, d.consumo_total_mes);
+
+        /* Badge */
+        lastFetch = new Date();
+        badge.className = 'de-refresh-badge';
+        const hh = String(lastFetch.getHours()).padStart(2,'0');
+        const mm = String(lastFetch.getMinutes()).padStart(2,'0');
+        const ss = String(lastFetch.getSeconds()).padStart(2,'0');
+        refreshLabel.textContent = `Actualizado ${hh}:${mm}:${ss} · cada 60 s`;
+
+    } catch (err) {
+        console.error('Dashboard refresh error:', err);
+        badge.className = 'de-refresh-badge error';
+        refreshLabel.textContent = 'Error al actualizar';
+    }
+}
+
+/* Primera llamada al cargar (actualiza sobre los datos SSR) */
+fetchDashboard();
+
+/* Auto-refresh cada 60 segundos */
+setInterval(fetchDashboard, 60_000);
+
+/* Al cambiar los filtros también se actualiza inmediatamente via submit del form */
+</script>
 </body>
 </html>

@@ -244,11 +244,16 @@ class ConsumoResource(resources.ModelResource):
 
     class Meta:
         model = Consumo
+        # Usar fecha+medidor como clave de lookup: si el par ya existe → actualizar;
+        # si no → crear. Reemplaza la búsqueda por pk que era el comportamiento anterior.
+        import_id_fields = ('fecha', 'medidor')
         fields = ('id', 'fecha', 'consumo', 'medidor')
         export_order = ('id', 'fecha', 'medidor', 'consumo')
         skip_unchanged = True
         report_skipped = True
-        use_bulk = True
+        # use_bulk e import_id_fields son incompatibles en django-import-export;
+        # desactivamos bulk para que el upsert funcione fila por fila correctamente.
+        use_bulk = False
         batch_size = 1000
 
     def before_import(self, dataset, *args, **kwargs):

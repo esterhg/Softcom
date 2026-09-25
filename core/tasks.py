@@ -32,9 +32,11 @@ def import_consumo_task(self, file_path, user_id=None):
 
     results = {
         'total_rows': 0,
-        'success_count': 0,
+        'new_count': 0,      # Filas insertadas por primera vez
+        'update_count': 0,   # Filas actualizadas (fecha+medidor ya existía)
+        'skip_count': 0,     # Sin cambios (skip_unchanged=True)
         'error_count': 0,
-        'errors': [] # Lista de strings descriptivos
+        'errors': [],
     }
 
     try:
@@ -81,19 +83,19 @@ def import_consumo_task(self, file_path, user_id=None):
         with transaction.atomic():
             for i, row in enumerate(dataset.dict, start=1):
                 try:
-                    # Importar fila usando la lógica del Resource
-                    # row_number es requerido en versiones recientes
                     row_result = resource.import_row(row, instance_loader, row_number=i, dry_run=False)
-                    
+
                     if row_result.import_type == 'error':
                         error_msg = f"Fila {i}: {str(row_result.errors[0].error)}"
                         results['errors'].append(error_msg)
                         results['error_count'] += 1
+                    elif row_result.import_type == 'new':
+                        results['new_count'] += 1
+                    elif row_result.import_type == 'update':
+                        results['update_count'] += 1
                     elif row_result.import_type == 'skip':
-                        # Se saltó (probablemente duplicado o sin cambios)
-                        results['success_count'] += 1
-                    else:
-                        results['success_count'] += 1
+                        # skip_unchanged=True: el registro existe y el consumo no cambió
+                        results['skip_count'] += 1
 
                 except Exception as e:
                     results['errors'].append(f"Fila {i}: Error inesperado: {str(e)}")
@@ -102,34 +104,36 @@ def import_consumo_task(self, file_path, user_id=None):
                 # 5. Notificar progreso cada 10 filas o al final
                 if i % 10 == 0 or i == total:
                     self.update_state(
-                        state='PROGRESS', 
+                        state='PROGRESS',
                         meta={
-                            'current': i, 
-                            'total': total, 
-                            'success': results['success_count'],
+                            'current': i,
+                            'total': total,
+                            'new': results['new_count'],
+                            'updated': results['update_count'],
+                            'skipped': results['skip_count'],
                             'errors': results['error_count'],
-                            'last_errors': results['errors'][-5:] # Enviar solo los últimos 5 para no saturar
+                            'last_errors': results['errors'][-5:],
                         }
                     )
 
         # 6. Finalizar Registro
+        success_total = results['new_count'] + results['update_count']
         registro.estado = 'COMPLETADO'
         registro.total_filas = total
-        registro.filas_nuevas = results['success_count']
+        registro.filas_nuevas = success_total
         registro.filas_error = results['error_count']
         registro.detalles_error = "\n".join(results['errors'][:10])
         registro.save()
 
-        # 7. Limpieza y Retorno
-        # Eliminar archivo temporal si se desea
-        # default_storage.delete(file_path)
-
+        # 7. Retorno
         return {
             'status': 'done',
             'total': total,
-            'success': results['success_count'],
+            'new': results['new_count'],
+            'updated': results['update_count'],
+            'skipped': results['skip_count'],
             'errors_count': results['error_count'],
-            'errors_list': results['errors'][:50] # Limitar reporte final
+            'errors_list': results['errors'][:50],
         }
 
     except Exception as e:

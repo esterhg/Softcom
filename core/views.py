@@ -240,94 +240,98 @@ def import_excel(request):
             #         return redirect('admin:core_consumo_changelist')
             # --- FIN MODIFICACIÓN ---
 
-            consumo_records_to_create_candidates = []
-            skipped_by_python_duplicate_check = 0
+            consumo_records_upsert = []
             errors_processing_staging = []
-            skipped_medidor_not_found = [] # Lista para notificar medidores no encontrados
+            skipped_medidor_not_found = []
 
-            # Consumo.fecha es DateTimeField, Consumo.medidor es ForeignKey
-            # Crear un set de tuplas (datetime, medidor_id) para chequeo de duplicados
-            # Fetching existing Consumo records to check for duplicates before inserting
-            existing_consumo_tuples = set(
-                (c.fecha, c.medidor_id) for c in Consumo.objects.filter(
-                    medidor__nombre__in=medidor_names_from_staging # Efficient filter using names found in staging
-                ).only('fecha', 'medidor_id')
-            )
+            for stag_rec in staged_records:
+                medidor_obj = existing_medidores_dict.get(stag_rec.medidor)
 
-            with transaction.atomic(): # Transacción para la carga a la tabla Consumo
-                for stag_rec in staged_records: # stag_rec.fecha es datetime
-                    # --- Linking Staging Record to Medidor Object ---
-                    # Using the full medidor name from the staging record to find the Medidor object
-                    medidor_obj = existing_medidores_dict.get(stag_rec.medidor) # stag_rec.medidor is the full name
-                    # --- End Linking ---
+                if not medidor_obj or not medidor_obj.id:
+                    error_msg = (
+                        f"Medidor '{stag_rec.medidor}' "
+                        f"(fecha: {stag_rec.fecha.strftime('%Y-%m-%d %H:%M') if stag_rec.fecha else 'N/A'}) "
+                        f"no encontrado en la base de datos. Registro omitido."
+                    )
+                    skipped_medidor_not_found.append(error_msg)
+                    logger.warning(error_msg)
+                    continue
 
-                    # --- MODIFICACIÓN: Omitir si el medidor no se encuentra ---
-                    if not medidor_obj or not medidor_obj.id:
-                        error_msg = f"Medidor '{stag_rec.medidor}' (fecha: {stag_rec.fecha.strftime('%Y-%m-%d %H:%M') if stag_rec.fecha else 'N/A'}) no encontrado en la base de datos. Registro omitido."
-                        skipped_medidor_not_found.append(error_msg) # Añadir a la lista de omitidos por medidor no encontrado
-                        logger.warning(error_msg)
-                        continue # Omitir este registro
-                    # --- FIN MODIFICACIÓN ---
+                consumo_records_upsert.append(Consumo(
+                    fecha=stag_rec.fecha,
+                    consumo=stag_rec.consumo,
+                    medidor=medidor_obj,
+                ))
 
-                    # stag_rec.fecha ya es un objeto datetime (si InterfaceConsumo.fecha es DateTimeField)
-                    # Si InterfaceConsumo.fecha es DateField, stag_rec.fecha es date.
-                    # En ese caso, Consumo.fecha (DateTimeField) tomaría la hora 00:00:00.
-                    # Asumiendo que stag_rec.fecha es datetime:
-                    current_consumo_tuple = (stag_rec.fecha, medidor_obj.id)
-
-                    if current_consumo_tuple not in existing_consumo_tuples:
-                        consumo_records_to_create_candidates.append(Consumo(
-                            fecha=stag_rec.fecha, # stag_rec.fecha is the datetime
-                            consumo=stag_rec.consumo,
-                            medidor=medidor_obj # Linking to the correct Medidor object (with full name)
-                        ))
-                    else:
-                        skipped_by_python_duplicate_check += 1
-
-                final_imported_count_candidates = len(consumo_records_to_create_candidates)
-                if consumo_records_to_create_candidates:
+            upsert_count = len(consumo_records_upsert)
+            with transaction.atomic():
+                if consumo_records_upsert:
                     try:
-                        # Consumo.Meta.unique_together = [['fecha', 'medidor']]
-                        # ignore_conflicts=True hace que la BD maneje los duplicados silenciosamente
-                        # This bulk_create inserts Consumo records linked to the Medidor objects.
-                        Consumo.objects.bulk_create(consumo_records_to_create_candidates, ignore_conflicts=True)
-                    except IntegrityError as e: # No debería ocurrir con ignore_conflicts=True y unique_together
-                        logger.error(f"IntegrityError durante bulk_create final en Consumo (inesperado con ignore_conflicts): {e}", exc_info=True)
-                        messages.error(request, f"Error de base de datos al guardar consumos finales: {str(e)}")
+                        # --- UPSERT: si fecha+medidor ya existe → actualiza consumo;
+                        #             si no existe → crea el registro nuevo.
+                        # Requiere Django 4.1+ y PostgreSQL (o SQLite 3.24+).
+                        Consumo.objects.bulk_create(
+                            consumo_records_upsert,
+                            update_conflicts=True,
+                            unique_fields=['fecha', 'medidor'],
+                            update_fields=['consumo'],
+                        )
+                        logger.info(
+                            f"Upsert completado: {upsert_count} registros procesados "
+                            f"(creados o actualizados en Consumo)."
+                        )
+                    except IntegrityError as e:
+                        logger.error(f"IntegrityError durante upsert en Consumo: {e}", exc_info=True)
+                        messages.error(request, f"Error de base de datos al guardar consumos: {str(e)}")
                         return redirect('admin:core_consumo_changelist')
 
             # --- Mensajes consolidados ---
             total_rows_in_file = len(df)
-            initial_staged_intent_count = len(interface_records_to_create) # Los que pasaron validación de fila
+            initial_staged_intent_count = len(interface_records_to_create)
 
             if initial_staged_intent_count > 0:
-                 messages.success(request, f'{initial_staged_intent_count} registros del archivo pasaron la validación inicial y se intentaron cargar a staging. {actual_staged_count} registros están ahora en staging.')
+                messages.success(
+                    request,
+                    f'{initial_staged_intent_count} registros del archivo pasaron validación. '
+                    f'{actual_staged_count} cargados en staging.'
+                )
             if skipped_rows_validation_errors:
-                 error_summary_validation = "; ".join(skipped_rows_validation_errors[:3]) + ("..." if len(skipped_rows_validation_errors) > 3 else "")
-                 messages.warning(request, f'{len(skipped_rows_validation_errors)} de {total_rows_in_file} filas del archivo fueron omitidas por errores de validación antes del staging. Ejemplos: {error_summary_validation}')
+                error_summary_validation = "; ".join(skipped_rows_validation_errors[:3]) + (
+                    "..." if len(skipped_rows_validation_errors) > 3 else ""
+                )
+                messages.warning(
+                    request,
+                    f'{len(skipped_rows_validation_errors)} de {total_rows_in_file} filas omitidas por errores de '
+                    f'validación. Ejemplos: {error_summary_validation}'
+                )
 
-            if final_imported_count_candidates > 0:
-                # Este es el número de registros que pasaron el chequeo de duplicados de Python y se enviaron a la BD.
-                # El número real insertado podría ser menor si ignore_conflicts actuó sobre duplicados no detectados por Python.
-                messages.success(request, f'{final_imported_count_candidates} registros de staging fueron preparados para importación a la tabla principal (Consumo).')
-            elif actual_staged_count > 0 and not errors_processing_staging and not skipped_medidor_not_found and skipped_by_python_duplicate_check == actual_staged_count:
-                 messages.info(request, 'No se prepararon nuevos registros para la tabla principal: todos los registros válidos de staging ya existían (según chequeo).')
-            elif actual_staged_count > 0:
-                 messages.info(request, 'No se prepararon nuevos registros para la tabla principal (verifique duplicados, errores de procesamiento desde staging y medidores no encontrados).')
+            if upsert_count > 0:
+                messages.success(
+                    request,
+                    f'{upsert_count} registros procesados con éxito (nuevos creados o existentes actualizados).'
+                )
+            elif actual_staged_count > 0 and not skipped_medidor_not_found:
+                messages.info(request, 'No se procesaron registros (todos los medidores no fueron encontrados).')
 
-
-            if skipped_by_python_duplicate_check > 0:
-                messages.info(request, f'{skipped_by_python_duplicate_check} registros de staging fueron identificados como duplicados (según chequeo Python) y no se intentaron cargar a la tabla principal.')
-
-            # --- MODIFICACIÓN: Mensaje para medidores no encontrados ---
             if skipped_medidor_not_found:
-                error_summary_medidor = "; ".join(skipped_medidor_not_found[:3]) + ("..." if len(skipped_medidor_not_found) > 3 else "")
-                messages.warning(request, f"{len(skipped_medidor_not_found)} registros fueron omitidos porque el medidor asociado no existe en la base de datos. Ejemplos: {error_summary_medidor}")
-            # --- FIN MODIFICACIÓN ---
+                error_summary_medidor = "; ".join(skipped_medidor_not_found[:3]) + (
+                    "..." if len(skipped_medidor_not_found) > 3 else ""
+                )
+                messages.warning(
+                    request,
+                    f"{len(skipped_medidor_not_found)} registros omitidos: medidor no existe en la BD. "
+                    f"Ejemplos: {error_summary_medidor}"
+                )
 
             if errors_processing_staging:
-                error_summary_staging = "; ".join(errors_processing_staging[:3]) + ("..." if len(errors_processing_staging) > 3 else "")
-                messages.warning(request, f"{len(errors_processing_staging)} errores ocurrieron al procesar registros desde staging hacia Consumo. Ejemplos: {error_summary_staging}")
+                error_summary_staging = "; ".join(errors_processing_staging[:3]) + (
+                    "..." if len(errors_processing_staging) > 3 else ""
+                )
+                messages.warning(
+                    request,
+                    f"{len(errors_processing_staging)} errores procesando desde staging. "
+                    f"Ejemplos: {error_summary_staging}"
+                )
 
             # Opcional: Limpiar InterfaceConsumo después del procesamiento.
             # Comenta esto si quieres revisar InterfaceConsumo después de la importación.
