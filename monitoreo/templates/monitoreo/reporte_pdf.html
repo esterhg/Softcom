@@ -40,7 +40,7 @@
       border-right: 1.5px solid #999;
     }
     .pdf-header-middle .org-name {
-      background: #1a1a1a;
+      background: #334054;
       color: #fff;
       font-size: 10pt;
       font-weight: 700;
@@ -98,7 +98,7 @@
 
     /* ── Sección título ── */
     .section-header {
-      background: #2d2d2d;
+      background: #334054;
       color: #fff;
       font-size: 10pt;
       font-weight: 700;
@@ -132,7 +132,7 @@
       margin-bottom: 14px;
     }
     .resumen-table th {
-      background: #2d2d2d;
+      background: #334054;
       color: #fff;
       font-size: 8.5pt;
       font-weight: 700;
@@ -159,7 +159,7 @@
       margin-bottom: 14px;
     }
     .novedades-table th {
-      background: #2d2d2d;
+      background: #334054;
       color: #fff;
       font-size: 8.5pt;
       font-weight: 700;
@@ -186,7 +186,7 @@
     /* ── Fotos – página de anexos ── */
     .fotos-page { page-break-before: always; }
     .fotos-header {
-      background: #2d2d2d;
+      background: #334054;
       color: #fff;
       font-size: 10pt;
       font-weight: 700;
@@ -283,31 +283,17 @@
 <table class="info-table" style="margin-top:0;">
   <tr>
     <td class="lbl">Supervisor OCC:</td>
-    <td class="val">{{ reporte.supervisor_display }}</td>
-    <td class="lbl">Técnico responsable:</td>
-    <td class="val">{{ reporte.tecnico_display }}</td>
+    <td class="val" colspan="3">{{ reporte.supervisor_display }}</td>
   </tr>
   <tr>
     <td class="lbl">Total elevadores:</td>
     <td class="val">{{ total_elevadores }}</td>
     <td class="lbl">Buen estado:</td>
-    <td class="val">
-      {% with bs=0 %}
-      {% for f in reporte.filas.all %}{% if f.estado == 'operativo' or f.estado == 'sin_novedad' %}{{ forloop.counter }}{% endif %}{% endfor %}
-      {% comment %}Usamos JS-like counting via template{% endcomment %}
-      {{ reporte.filas.all|length }}
-      {% endwith %}
-    </td>
+    <td class="val">{{ buen_estado_count }}</td>
   </tr>
   <tr>
     <td class="lbl">Con novedad:</td>
-    <td class="val" colspan="3">
-      {% with cnt=0 %}
-      {% for f in reporte.filas.all %}{% if f.estado != 'operativo' and f.estado != 'sin_novedad' %}{% if forloop.first %}{% endif %}{% endif %}{% endfor %}
-      {# Calculado en la vista #}
-      {{ novedades_count }}
-      {% endwith %}
-    </td>
+    <td class="val" colspan="3">{{ novedades_count }}</td>
   </tr>
 </table>
 

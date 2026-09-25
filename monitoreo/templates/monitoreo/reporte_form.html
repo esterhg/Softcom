@@ -146,12 +146,6 @@
                  value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}" required>
         </div>
         <div class="mon-form-group">
-          <label>Técnico responsable</label>
-          <input type="text" name="tecnico_manual" class="mon-form-control"
-                 value="{{ reporte.tecnico_nombre_manual|default:'' }}"
-                 placeholder="Nombre del técnico">
-        </div>
-        <div class="mon-form-group">
           <label>Estado</label>
           <select name="estado" class="mon-form-control">
             <option value="borrador"  {% if not reporte or reporte.estado == 'borrador' %}selected{% endif %}>Borrador</option>

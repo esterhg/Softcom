@@ -94,7 +94,6 @@
     <div class="mon-info-grid">
       <div class="mon-info-field"><label>Supervisor OCC</label><span>{{ reporte.supervisor_display }}</span></div>
       <div class="mon-info-field"><label>Fecha y hora</label><span>{{ reporte.fecha_hora|date:"d/m/Y H:i" }}</span></div>
-      <div class="mon-info-field"><label>Técnico responsable</label><span>{{ reporte.tecnico_display }}</span></div>
       <div class="mon-info-field"><label>Creado por</label>
         <span>{{ reporte.creado_por.get_full_name|default:reporte.creado_por.username|default:"—" }}</span></div>
       <div class="mon-info-field"><label>Total elevadores</label><span>{{ reporte.filas.count }}</span></div>
