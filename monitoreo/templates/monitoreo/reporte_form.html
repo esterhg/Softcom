@@ -146,14 +146,15 @@
 /* ── Grid elevadores ── */
 .elev-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: .5rem;
   padding: .65rem .75rem;
 }
-@media (min-width: 480px)  { .elev-grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); } }
-@media (min-width: 768px)  { .elev-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); } }
-@media (min-width: 1200px) { .elev-grid { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); } }
-
+@media (min-width: 400px)  { .elev-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 600px)  { .elev-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 900px)  { .elev-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 1100px) { .elev-grid { grid-template-columns: repeat(6, 1fr); } }
+@media (min-width: 1400px) { .elev-grid { grid-template-columns: repeat(7, 1fr); } }
 /* ── Tarjeta elevador ── */
 .ec {
   border: 2px solid #86efac;
@@ -332,19 +333,9 @@
 {% block content %}
 <div class="mon-wrap">
 
-  <!-- Breadcrumb -->
-  <div class="mon-breadcrumb">
-    <a href="/"><i class="fas fa-home"></i> Inicio</a> ›
-    <a href="{% url 'monitoreo:reportes_lista' %}">Monitoreo</a> ›
-    <span>{% if modo == 'editar' %}Editar #{{ reporte.pk }}{% else %}Nuevo Reporte{% endif %}</span>
-  </div>
-
   <!-- Page Header -->
   <div class="mon-page-header">
     <div>
-      <div style="font-size:.72rem;color:#6a6d70;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem;">
-        Operaciones › Mantenimiento
-      </div>
       <h1>
         <i class="fas fa-elevator" style="color:#0070f2;margin-right:.4rem;"></i>Monitoreo de Elevadores
       </h1>
