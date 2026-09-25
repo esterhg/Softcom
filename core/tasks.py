@@ -150,23 +150,33 @@ def import_consumo_task(self, file_path, user_id=None):
 @shared_task(bind=True, max_retries=3)
 def task_sync_to_dynamics(self, app_label, model_name, instance_id):
     """
-    Tarea de Celery para sincronizar un registro con Dynamics 365.
+    Tarea de Celery para sincronizar un registro con Dynamics 365 / Power Automate.
+    Si POWER_AUTOMATE_SYNC_URL no está configurada, la tarea termina silenciosamente
+    sin reintentar (la sincronización es opcional).
     """
+    import os
     from django.apps import apps
     from .dynamics_sync import sync_instance_to_dynamics
-    
+
+    # Si no hay URL configurada no tiene sentido reintentar — salir limpiamente.
+    if not os.getenv("POWER_AUTOMATE_SYNC_URL"):
+        logger.warning(
+            f"task_sync_to_dynamics omitida para {model_name} ID {instance_id}: "
+            "POWER_AUTOMATE_SYNC_URL no configurada en el entorno."
+        )
+        return {'status': 'skipped', 'reason': 'POWER_AUTOMATE_SYNC_URL not set'}
+
     try:
-        model = apps.get_model(app_label, model_name)
+        model    = apps.get_model(app_label, model_name)
         instance = model.objects.get(pk=instance_id)
-        
+
         logger.info(f"Iniciando sincronización asíncrona para {model_name} ID: {instance_id}")
         success = sync_instance_to_dynamics(instance)
-        
+
         if not success:
-            # Reintentar si falló la conexión o hubo un error temporal
+            # Fallo de red u otro error temporal → reintentar con backoff exponencial
             raise Exception("Sincronización fallida (Ver logs de core.dynamics_sync)")
-            
+
     except Exception as exc:
         logger.error(f"Error en task_sync_to_dynamics: {str(exc)}")
-        # Reintento exponencial
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
