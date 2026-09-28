@@ -8,72 +8,42 @@
 <script>
 /**
  * Sidebar Treeview — SoftCom CCG
- * Reemplaza el plugin data-widget="treeview" de AdminLTE que no inicializa.
- * Colapsa/expande los grupos del sidebar al hacer click.
+ * AdminLTE ya maneja el treeview nativo ahora que jQuery está disponible.
+ * Este script solo marca el item activo al cargar — sin click handlers propios.
  */
 (function () {
-    function initSidebarTreeview() {
+    function markActiveSidebarItem() {
         var sidebar = document.querySelector('ul[data-widget="treeview"]');
         if (!sidebar) return;
 
-        // Detectar item activo y abrir su grupo
         var currentPath = window.location.pathname;
 
         sidebar.querySelectorAll('li.has-treeview').forEach(function (li) {
-            var toggle = li.querySelector(':scope > a.nav-link');
             var treeview = li.querySelector(':scope > ul.nav-treeview');
-            if (!toggle || !treeview) return;
+            if (!treeview) return;
 
-            // ¿Algún hijo coincide con la URL actual?
             var hasActive = Array.from(treeview.querySelectorAll('a.nav-link')).some(function (a) {
                 return a.getAttribute('href') && currentPath.startsWith(a.getAttribute('href')) && a.getAttribute('href') !== '/';
             });
 
             if (hasActive) {
-                li.classList.add('menu-open');
-                treeview.style.display = 'block';
-                // Marcar el link activo
                 treeview.querySelectorAll('a.nav-link').forEach(function (a) {
                     if (a.getAttribute('href') && currentPath.startsWith(a.getAttribute('href')) && a.getAttribute('href') !== '/') {
                         a.classList.add('active');
                     }
                 });
-            } else {
-                treeview.style.display = 'none';
+                li.classList.add('menu-open');
+                treeview.style.display = 'block';
             }
-
-            // Click handler
-            toggle.addEventListener('click', function (e) {
-                e.preventDefault();
-                var isOpen = li.classList.contains('menu-open');
-
-                // Cerrar todos los demás
-                sidebar.querySelectorAll('li.has-treeview.menu-open').forEach(function (other) {
-                    if (other !== li) {
-                        other.classList.remove('menu-open');
-                        var otherTree = other.querySelector(':scope > ul.nav-treeview');
-                        if (otherTree) otherTree.style.display = 'none';
-                    }
-                });
-
-                // Toggle este
-                if (isOpen) {
-                    li.classList.remove('menu-open');
-                    treeview.style.display = 'none';
-                } else {
-                    li.classList.add('menu-open');
-                    treeview.style.display = 'block';
-                }
-            });
         });
 
         console.log('[SoftCom] Sidebar treeview initialized.');
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initSidebarTreeview);
+        document.addEventListener('DOMContentLoaded', markActiveSidebarItem);
     } else {
-        initSidebarTreeview();
+        markActiveSidebarItem();
     }
 })();
 </script>
