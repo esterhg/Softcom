@@ -1,15 +1,63 @@
 from django.contrib import admin
+from django.db.models import ProtectedError
 from django.utils.html import format_html
 from .models import Elevador, ReporteElevador, FilaReporteElevador, FotoAnexoReporte
 
 
 @admin.register(Elevador)
 class ElevadorAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'codigo', 'ubicacion', 'activo', 'orden')
+    list_display = ('nombre', 'codigo', 'ubicacion', 'activo', 'orden', 'reportes_asociados')
     list_editable = ('activo', 'orden')
     search_fields = ('nombre', 'codigo', 'ubicacion')
     list_filter = ('activo',)
     ordering = ('orden', 'nombre')
+
+    def reportes_asociados(self, obj):
+        count = FilaReporteElevador.objects.filter(elevador=obj).count()
+        if count:
+            return format_html(
+                '<span style="color:#bb0000;font-weight:600;">{} reporte{}</span>',
+                count, 's' if count != 1 else '',
+            )
+        return format_html('<span style="color:#107e3e;">0 reportes</span>')
+    reportes_asociados.short_description = 'Reportes'
+
+    def delete_model(self, request, obj):
+        try:
+            obj.delete()
+        except ProtectedError:
+            count = FilaReporteElevador.objects.filter(elevador=obj).count()
+            self.message_user(
+                request,
+                f'No se puede eliminar "{obj}" porque está referenciado en {count} '
+                f'reporte{"s" if count != 1 else ""}. '
+                f'Elimine primero esos reportes o reasigne las filas.',
+                level='error',
+            )
+
+    def delete_queryset(self, request, queryset):
+        protected = []
+        deleted = 0
+        for obj in queryset:
+            try:
+                obj.delete()
+                deleted += 1
+            except ProtectedError:
+                count = FilaReporteElevador.objects.filter(elevador=obj).count()
+                protected.append(f'"{obj}" ({count} reporte{"s" if count != 1 else ""})')
+
+        if deleted:
+            self.message_user(
+                request,
+                f'{deleted} elevador{"es eliminados" if deleted != 1 else " eliminado"} correctamente.',
+            )
+        if protected:
+            self.message_user(
+                request,
+                'No se pudieron eliminar los siguientes elevadores porque tienen reportes asociados: '
+                + ', '.join(protected) + '. Elimine primero esos reportes.',
+                level='error',
+            )
 
 
 class FilaInline(admin.TabularInline):
