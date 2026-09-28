@@ -90,9 +90,41 @@
     const groups = {{ nav_groups_data|safe }};
     if (!groups || !groups.length) return;
 
+    var activeWrapper = null;
+    var closeTimer = null;
+
+    function openMenu(wrapper, btn) {
+        clearTimeout(closeTimer);
+        if (activeWrapper && activeWrapper !== wrapper) {
+            activeWrapper.classList.remove('open');
+            var prevBtn = activeWrapper._triggerBtn;
+            if (prevBtn) prevBtn.classList.remove('menu-open');
+        }
+        // Position the wrapper using fixed coords so overflow:hidden on navbar doesn't clip it
+        var rect = btn.parentElement.getBoundingClientRect();
+        wrapper.style.top = rect.bottom + 'px';
+        wrapper.style.left = Math.max(0, Math.min(rect.left, window.innerWidth - 440)) + 'px';
+        wrapper.classList.add('open');
+        btn.classList.add('menu-open');
+        activeWrapper = wrapper;
+    }
+
+    function scheduleClose(wrapper, btn) {
+        closeTimer = setTimeout(function() {
+            if (activeWrapper === wrapper) {
+                wrapper.classList.remove('open');
+                btn.classList.remove('menu-open');
+                activeWrapper = null;
+            }
+        }, 120);
+    }
+
     function initMegaMenu() {
         const nav = document.querySelector('ul.navbar-nav:not(.ms-auto)');
-        if (!nav) return;
+        if (!nav) {
+            console.warn('[SoftCom] mega-menu: navbar-nav not found');
+            return;
+        }
 
         const inicioLi = nav.querySelector('li:first-child');
         const ayudaLi = nav.querySelector('li:last-child');
@@ -137,6 +169,7 @@
 
             const wrapper = document.createElement('div');
             wrapper.className = 'mega-menu-wrapper';
+            wrapper._triggerBtn = btn;
 
             const menu = document.createElement('div');
             menu.className = 'mega-menu';
@@ -168,14 +201,53 @@
             });
 
             wrapper.appendChild(menu);
-            li.appendChild(wrapper);
+            // Attach wrapper to body so it's never clipped by navbar overflow
+            document.body.appendChild(wrapper);
 
-            if (ayudaLi && ayudaLi !== inicioLi) {
-                nav.insertBefore(li, ayudaLi);
-            } else {
-                nav.appendChild(li);
+            // Hover logic on the trigger <li>
+            li.addEventListener('mouseenter', function() {
+                openMenu(wrapper, btn);
+            });
+            li.addEventListener('mouseleave', function() {
+                scheduleClose(wrapper, btn);
+            });
+            // Keep open while hovering the panel itself
+            wrapper.addEventListener('mouseenter', function() {
+                clearTimeout(closeTimer);
+            });
+            wrapper.addEventListener('mouseleave', function() {
+                scheduleClose(wrapper, btn);
+            });
+            // Click on button also toggles (mobile / keyboard nav)
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (wrapper.classList.contains('open')) {
+                    wrapper.classList.remove('open');
+                    btn.classList.remove('menu-open');
+                    activeWrapper = null;
+                } else {
+                    openMenu(wrapper, btn);
+                }
+            });
+
+            nav.insertBefore(li, ayudaLi && ayudaLi !== inicioLi ? ayudaLi : null);
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+            if (activeWrapper && !e.target.closest('.nav-category-item') && !e.target.closest('.mega-menu-wrapper')) {
+                activeWrapper.classList.remove('open');
+                activeWrapper = null;
             }
         });
+
+        // Reposition on scroll/resize
+        window.addEventListener('scroll', function() {
+            if (activeWrapper && activeWrapper._triggerBtn) {
+                var r = activeWrapper._triggerBtn.parentElement.getBoundingClientRect();
+                activeWrapper.style.top = r.bottom + 'px';
+            }
+        }, { passive: true });
 
         // Add "Configurar" link
         const configLi = document.createElement('li');
@@ -409,7 +481,8 @@
         opacity: 0.6 !important;
         transition: transform 0.2s ease !important;
     }
-    .nav-category-item:hover .cat-arrow {
+    .nav-category-item:hover .cat-arrow,
+    .nav-category-btn.menu-open .cat-arrow {
         transform: rotate(180deg) !important;
     }
     .nav-category-btn .cat-color-bar {
@@ -422,27 +495,28 @@
         opacity: 0 !important;
         transition: all 0.2s ease !important;
     }
-    .nav-category-item:hover .cat-color-bar {
+    .nav-category-item:hover .cat-color-bar,
+    .nav-category-btn.menu-open .cat-color-bar {
         opacity: 1 !important;
     }
 
     /* ========== MEGA MENU PANEL ========== */
     .nav-category-item {
-        position: relative !important;
+        position: static !important;
     }
     .mega-menu-wrapper {
-        position: absolute !important;
-        top: 100% !important;
-        left: 0 !important;
-        padding-top: 8px !important;
+        position: fixed !important;
+        padding-top: 0 !important;
         opacity: 0 !important;
         visibility: hidden !important;
         transition: opacity 0.15s ease, visibility 0.15s ease !important;
-        z-index: 9999 !important;
+        z-index: 99999 !important;
+        pointer-events: none !important;
     }
-    .nav-category-item:hover .mega-menu-wrapper {
+    .mega-menu-wrapper.open {
         opacity: 1 !important;
         visibility: visible !important;
+        pointer-events: auto !important;
     }
     .mega-menu {
         background: #ffffff !important;
