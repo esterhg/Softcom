@@ -9,43 +9,31 @@
 {% block extrastyle %}
 {{ block.super }}
 <style>
-    /* Ocultar la barra de herramientas original de Django si se muestra en otro lugar */
+    /* Barra de acciones sticky — permanece en su posición natural, no se mueve por JS */
     .submit-row {
         position: sticky;
-        top: 0;
-        z-index: 1000;
+        top: 57px; /* altura del navbar de Jazzmin/AdminLTE */
+        z-index: 100; /* menor que el navbar (z-index ~1030) pero sobre el contenido */
         width: 100%;
-        max-width: 100%;
         box-sizing: border-box;
-
-        padding: 10px 20px;
-        margin: 0 0 20px 0;
+        padding: 8px 20px;
+        margin: 0 0 16px 0;
         background: #ffffff;
         border-bottom: 1px solid #e1dfdd;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-
         display: flex !important;
         align-items: center;
         flex-wrap: wrap;
         justify-content: flex-start;
-        text-align: left !important;
         float: none !important;
-        /* Prevenir float de Jazzmin */
     }
 
-    /* Ajuste para contenedor principal si es necesario */
-    /* Asegura que el sticky funcione correctamente dentro de los contenedores de Django/Jazzmin */
-    #content-main {
-        overflow: visible;
-    }
-
-    /* Prevenir conflictos con columnas de Jazzmin */
-    .col-12 .submit-row {
-        margin-left: -15px;
-        /* Compensar padding de columnas bootstrap si es necesario */
-        margin-right: -15px;
-        width: calc(100% + 30px);
-        max-width: calc(100% + 30px);
+    .submit-row:last-child {
+        margin-top: 20px;
+        position: relative;
+        box-shadow: none;
+        border-top: 1px solid #e1dfdd;
+        border-bottom: none;
     }
 
     /* Estilo para los botones tipo Dynamics */
@@ -58,14 +46,12 @@
         margin-right: 4px;
         font-size: 14px;
         font-weight: 600;
-        /* Un poco más grueso */
         display: inline-flex;
         align-items: center;
         text-decoration: none !important;
         border-radius: 2px;
         transition: all 0.1s ease;
         height: 40px;
-        /* Altura fija estándar */
         white-space: nowrap;
     }
 
@@ -73,37 +59,15 @@
         margin-right: 8px;
         font-size: 16px;
         color: #0078d4;
-        /* Color azul Dynamics por defecto */
     }
 
-    /* Colores específicos para acciones */
-    .btn-save i {
-        color: #107c10;
-    }
+    .btn-save i    { color: #107c10; }
+    .btn-delete i  { color: #d13438; }
+    .btn-close i   { color: #323130; }
 
-    /* Guardar: Verde */
-    .btn-delete i {
-        color: #d13438;
-    }
+    .btn-dynamics:hover  { background-color: #f3f2f1; color: #201f1e; }
+    .btn-dynamics:active { background-color: #edebe9; }
 
-    /* Eliminar: Rojo */
-    .btn-close i {
-        color: #323130;
-    }
-
-    /* Cerrar: Gris oscuro */
-
-    /* Hover effects estilo Office */
-    .btn-dynamics:hover {
-        background-color: #f3f2f1;
-        color: #201f1e;
-    }
-
-    .btn-dynamics:active {
-        background-color: #edebe9;
-    }
-
-    /* Separador estilo Dynamics */
     .btn-dynamics.separator {
         border-left: 1px solid #e1dfdd;
         margin-left: 8px;
@@ -114,66 +78,18 @@
         font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
     }
 
-    .submit-row:last-child {
-        /* Barra inferior opcional */
-        margin-top: 20px;
-        position: relative;
-        /* No sticky la de abajo */
-        box-shadow: none;
-        border-top: 1px solid #e1dfdd;
-        border-bottom: none;
-    }
-
     @media (max-width: 767px) {
-        .submit-row {
-            padding: 10px;
-            top: 50px;
-            /* Compensar header móvil si es necesario */
-        }
-
-        .btn-dynamics span {
-            display: none;
-            /* Ocultar texto en móviles, solo iconos */
-        }
-
-        .btn-dynamics i {
-            margin-right: 0;
-            font-size: 20px;
-        }
+        .submit-row { padding: 8px; top: 50px; }
+        .btn-dynamics span { display: none; }
+        .btn-dynamics i { margin-right: 0; font-size: 20px; }
     }
 </style>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        // Intentar encontrar la barra de herramientas y el formulario
-        var submitRows = document.querySelectorAll('.submit-row');
-        var form = document.querySelector('#content-main form') || document.querySelector('form');
-
-        if (submitRows.length > 0 && form) {
-            // Usamos la primera barra encontrada (o la última si Jazzmin duplica)
-            // Preferimos mover la que acabamos de renderizar
-            var toolbar = submitRows[0];
-
-            // Mover al principio del formulario
-            form.insertBefore(toolbar, form.firstChild);
-
-            // Forzar visualización
-            toolbar.style.display = 'flex';
-            toolbar.style.visibility = 'visible';
-            toolbar.style.opacity = '1';
-        } else {
-            console.warn("Dynamics Toolbar: No se encontró .submit-row o el formulario.");
-        }
-    });
-</script>
 {% endblock %}
 
-{# Eliminamos el bloque superior porque lo movemos por JS, o dejamos vacío para evitar duplicados si Jazzmin lo
-renderiza #}
 {% block submit_buttons_top %}
-{# Dejamos que se renderice y luego lo movemos #}
 {% submit_row %}
 {% endblock %}
 
 {% block submit_buttons_bottom %}
-{# Opcional: duplicar barra abajo o quitarla #}
+{# Sin barra duplicada al final #}
 {% endblock %}
