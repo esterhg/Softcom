@@ -12,6 +12,9 @@ class ElevadorAdmin(admin.ModelAdmin):
     list_filter = ('activo',)
     ordering = ('orden', 'nombre')
 
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_staff
+
     def reportes_asociados(self, obj):
         count = FilaReporteElevador.objects.filter(elevador=obj).count()
         if count:
