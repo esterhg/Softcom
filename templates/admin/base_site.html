@@ -347,6 +347,19 @@
 {% endblock %}
 
 {% block extrahead %}
+{# Anti-FOWT: aplica data-theme ANTES del primer paint para evitar flash blanco al navegar en modo oscuro #}
+<script>
+(function(){
+  try {
+    var k='softcom_theme_preference',
+        v=localStorage.getItem(k),
+        m=['light','dark','system'].indexOf(v)!==-1?v:'system',
+        d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if(d) document.documentElement.setAttribute('data-theme','dark');
+    else  document.documentElement.removeAttribute('data-theme');
+  } catch(e) {}
+})();
+</script>
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'notificaciones/css/notificaciones.css' %}">
 <style>
