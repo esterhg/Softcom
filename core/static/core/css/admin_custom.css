@@ -22,19 +22,47 @@
 /* --- Global Reset & Background --- */
 html, body, .wrapper {
     min-height: 100%;
-    height: auto;
+    height: auto !important;
+    /* AdminLTE pone overflow:hidden en .wrapper — lo eliminamos para permitir scroll */
+    overflow: visible !important;
     margin: 0;
     font-family: 'Autodesk Fusion', Arial, sans-serif !important;
     background-image: url('/static/core/img/admin_bg.png') !important;
-    background-size: auto !important; /* No extender la imagen para evitar que se vea borrosa */
+    background-size: auto !important;
     background-position: top left !important;
     background-attachment: fixed !important;
-    background-repeat: repeat !important; /* Repetir si es necesario para cubrir el fondo */
+    background-repeat: repeat !important;
     color: var(--sap-text) !important;
 }
 
+/* body necesita overflow-y:auto para scroll de página */
 body {
     background-color: transparent !important;
+    overflow-y: auto !important;
+}
+
+/* AdminLTE pone overflow:hidden en .wrapper con alta especificidad — override explícito */
+body.skin-blue .wrapper,
+body .wrapper,
+.wrapper {
+    overflow: visible !important;
+    overflow-x: hidden !important; /* sí bloqueamos scroll horizontal para evitar shift */
+    height: auto !important;
+}
+
+/* AdminLTE calcula min-height del content-wrapper con JS — reseteamos para que fluya normalmente */
+.content-wrapper {
+    overflow-y: visible !important;
+    overflow-x: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+}
+
+/* El card principal del change form NO debe recortar su contenido */
+#content-main .card,
+#content-main .card-body {
+    overflow: visible !important;
+    height: auto !important;
 }
 
 /* --- ShellBar (Header) --- */
