@@ -360,6 +360,10 @@
   } catch(e) {}
 })();
 </script>
+{# jQuery DEBE cargarse antes que Bootstrap/AdminLTE/Select2 — Jazzmin los pone en extrajs (final del body)
+   pero bootstrap.min.js los necesita disponibles. Al cargarlo aquí en el <head> se garantiza el orden. #}
+<script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
+<script src="{% static 'admin/js/jquery.init.js' %}"></script>
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'notificaciones/css/notificaciones.css' %}">
 <style>
