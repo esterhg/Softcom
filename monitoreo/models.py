@@ -117,7 +117,7 @@ class FilaReporteElevador(models.Model):
         verbose_name="Reporte",
     )
     elevador = models.ForeignKey(
-        Elevador, on_delete=models.PROTECT,
+        Elevador, on_delete=models.CASCADE,
         verbose_name="Elevador",
     )
     estado = models.CharField(
