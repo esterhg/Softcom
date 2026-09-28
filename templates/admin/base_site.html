@@ -660,6 +660,8 @@
 {{ block.super }}
 
 {% if user.is_superuser or user.groups.all %}
+{# Serialización segura de nombres de grupos — escapejs previene inyección en JS #}
+<script id="gs-user-groups-data" type="application/json">[{% for g in user.groups.all %}"{{ g.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}]</script>
 <!-- UNIFIED MODAL FOR GESTIÓN DE SALIDAS -->
 <div class="modal-overlay" id="gestion-salidas-modal">
     <div class="modal-window">
@@ -743,10 +745,14 @@
 </div>
 
 <script>
-    (function ($) {
+    (function () {
+        // Usamos json_script para escapar nombres de grupos de forma segura
+        var _gsGroupsEl = document.getElementById('gs-user-groups-data');
+        var userGroups = _gsGroupsEl ? JSON.parse(_gsGroupsEl.textContent) : [];
+        var isAlmacen = {% if user.is_superuser %}true{% else %}userGroups.includes("Almacenes"){% endif %};
+        var $ = window.django ? (window.django.jQuery || window.jQuery) : window.jQuery;
+        if (!$) { console.warn('[GS] jQuery no disponible, módulo de salidas desactivado.'); return; }
         $(document).ready(function () {
-            const userGroups = [{% for g in user.groups.all %}"{{ g.name }}", {% endfor %}];
-    const isAlmacen = {% if user.is_superuser %}true{% else %} userGroups.includes("Almacenes"){% endif %};
 
     const navbar = $('.navbar-nav.ml-auto');
     if (navbar.length) {
@@ -964,7 +970,8 @@
         } catch (e) { }
     }, 30000);
         });
-        }) (django.jQuery || jQuery);
+        });  /* end document.ready */
+    })();  /* end IIFE */
 
     // Inicializar gestor de notificaciones (para todos los usuarios autenticados)
     if (typeof initNotificaciones === 'function') {
