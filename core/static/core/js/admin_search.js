@@ -20,8 +20,9 @@
             const form = e.target;
             const qInput = form.querySelector('input[name="q"]');
             
-            // Solo actuar si es un input de búsqueda en el header/navbar
-            if (qInput && (form.closest('.navbar') || form.closest('.main-header') || form.closest('.nav-sidebar'))) {
+            // Solo actuar si es un input de búsqueda en el header/navbar principal
+            // NOTA: excluimos .nav-sidebar para no interferir con links del sidebar
+            if (qInput && (form.closest('.navbar') || form.closest('.main-header'))) {
                 e.preventDefault();
                 e.stopPropagation();
                 doSearch(qInput.value);
@@ -50,7 +51,8 @@
             const allSearchInputs = document.querySelectorAll('input[name="q"]');
             allSearchInputs.forEach(function(input) {
                 const form = input.closest('form');
-                if (!form || !(form.closest('.navbar') || form.closest('.main-header') || form.closest('.nav-sidebar'))) return;
+                // Solo afectar formularios del header/navbar, NO del sidebar
+                if (!form || !(form.closest('.navbar') || form.closest('.main-header'))) return;
 
                 // Cambiar el placeholder para indicar que es GLOBAL
                 input.placeholder = "Búsqueda Global...";
