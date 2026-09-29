@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import import_rutinas, import_pasos
+from .views import import_rutinas, import_pasos, import_arbol
 from .views.rutinas_dashboard import (
     rutinas_dashboard, rutina_detail_api, rutina_save_api, 
     rutina_delete_api, rutina_delete_secure_api, rutina_pasos_save_api, rutina_qr_pdf,
@@ -104,6 +104,12 @@ urlpatterns = [
     path('import-pasos/process/', import_pasos.import_pasos_process, name='pasorutina_import_process'),
     path('import-pasos/progress/', import_pasos.import_pasos_progress, name='pasorutina_import_progress'),
     path('import-pasos/template/', import_pasos.download_pasos_template, name='pasorutina_download_template'),
+
+    # Importación UNIFICADA (Árbol): Categorías + Rutinas + Actividades
+    path('import-arbol/', import_arbol.import_arbol_background, name='arbol_import_background'),
+    path('import-arbol/process/', import_arbol.import_arbol_process, name='arbol_import_process'),
+    path('import-arbol/progress/', import_arbol.import_arbol_progress, name='arbol_import_progress'),
+    path('import-arbol/template/', import_arbol.download_arbol_template, name='arbol_download_template'),
 
     # Importación de Tipos (Mantenimiento)
     path('import-tipos/', views.import_categorias.import_categorias_background, name='tipo_import_background'),

@@ -1560,3 +1560,447 @@ def generar_embeddings_ordenes(self, batch_size=100):
 
     return {'current': procesados, 'total': total, 'percent': 100,
             'status': f'✅ {procesados}/{total} OTs vectorizadas.'}
+
+
+# =============================================================================
+# IMPORTACIÓN UNIFICADA (ÁRBOL): Categorías -> Rutinas -> Actividades (Pasos)
+# =============================================================================
+
+def _parse_duracion_flexible(value):
+    """Convierte HH:MM, HH:MM:SS, time, decimal (horas) o timedelta a timedelta."""
+    import datetime as _dt
+    if value is None:
+        return None
+    if isinstance(value, _dt.timedelta):
+        return value
+    if isinstance(value, _dt.time):
+        return _dt.timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
+    val_str = str(value).strip()
+    if not val_str or val_str.lower() in ('none', 'nan', 'null'):
+        return None
+    if val_str.count(':') == 1:
+        try:
+            h, m = val_str.split(':')
+            return _dt.timedelta(hours=int(h), minutes=int(m))
+        except (ValueError, TypeError):
+            pass
+    if val_str.count(':') == 2:
+        try:
+            h, m, s = val_str.split(':')
+            return _dt.timedelta(hours=int(h), minutes=int(m), seconds=int(s))
+        except (ValueError, TypeError):
+            pass
+    try:
+        return _dt.timedelta(hours=float(val_str.replace(',', '.')))
+    except (ValueError, TypeError):
+        return None
+
+
+def _clean_str(value):
+    """Normaliza un valor de celda a string limpio o None."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s or s.lower() in ('none', 'nan', 'null'):
+        return None
+    return s
+
+
+# Mapeo de etiquetas amigables -> claves internas de tipo_respuesta
+TIPO_RESPUESTA_MAP = {
+    'instruccion': 'INSTRUCCION', 'instrucción': 'INSTRUCCION', 'solo lectura': 'INSTRUCCION',
+    'check': 'CHECK', 'si/no': 'CHECK', 'si/no/na': 'CHECK',
+    'numerico': 'NUMERICO', 'numérico': 'NUMERICO', 'valor numerico': 'NUMERICO', 'valor numérico': 'NUMERICO',
+    'texto': 'TEXTO', 'texto libre': 'TEXTO',
+    'medicion': 'MEDICION', 'medición': 'MEDICION', 'punto de medicion': 'MEDICION', 'sap': 'MEDICION',
+    'foto': 'FOTO', 'registro fotografico': 'FOTO', 'registro fotográfico': 'FOTO',
+    'header': 'HEADER', 'encabezado': 'HEADER', 'grupo': 'HEADER', 'encabezado / grupo': 'HEADER',
+}
+
+
+def _normalizar_tipo_respuesta(value):
+    s = _clean_str(value)
+    if not s:
+        return 'INSTRUCCION'
+    return TIPO_RESPUESTA_MAP.get(s.lower(), s.upper())
+
+
+@shared_task(bind=True, name='mantenimiento.tasks.import_arbol_task')
+def import_arbol_task(self, file_path, file_format, user_id=None, verification_mode=False, dry_run=False, import_name="Importación Árbol"):
+    """
+    Importación jerárquica UNIFICADA en un solo archivo.
+
+    Cada fila representa una ACTIVIDAD (paso) y arrastra el contexto de su
+    categoría y rutina. Las columnas de categoría/rutina pueden repetirse o
+    dejarse vacías (se hereda de la fila anterior con el mismo agrupador).
+
+    Columnas soportadas (ver plantilla):
+      - categoria_ruta      : Ruta completa separada por ">" (ej: "Eléctrica > Motores")
+      - categoria_codigo    : (Opcional) Código único de la categoría hoja
+      - rutina_codigo       : Código único de la rutina (identificador para upsert)
+      - rutina_nombre       : Nombre de la rutina (opcional, autogenerado si vacío)
+      - frecuencia          : Nombre de frecuencia existente (ej: "Mensual")
+      - tiempo_estimado     : HH:MM / HH:MM:SS / horas decimales
+      - cantidad_tecnicos   : Entero
+      - rutina_descripcion  : Texto
+      - paso_orden          : Orden del paso (entero)
+      - paso_descripcion    : Descripción de la actividad/paso
+      - paso_tipo           : INSTRUCCION / CHECK / NUMERICO / TEXTO / MEDICION / FOTO / HEADER
+      - paso_verificacion   : Qué verificar
+      - paso_unidad         : Unidad de medida
+      - paso_valor_objetivo : Valor ideal (numérico)
+      - paso_rango_min      : Rango mínimo (numérico)
+      - paso_rango_max      : Rango máximo (numérico)
+    """
+    from tablib import Dataset
+    from django.core.files.storage import default_storage
+    from django.core.cache import cache
+    from django.contrib.auth.models import User
+    from django.db import transaction
+    from .models import Tipo, Rutina, PasoRutina, Frecuencia
+    from activos.models import RegistroImportacion
+    import sys
+
+    user = User.objects.get(id=user_id) if user_id else None
+    registro = None
+    if not verification_mode and not dry_run:
+        registro = RegistroImportacion.objects.create(
+            nombre=import_name,
+            tipo='Árbol (Cat+Rutinas+Pasos)',
+            usuario=user,
+            estado='PROCESANDO'
+        )
+
+    cache_key = f"import_arbol_progress_{user_id}" if user_id else "import_arbol_progress_system"
+
+    # Leer archivo
+    try:
+        with default_storage.open(file_path, 'rb') as f:
+            file_content = f.read()
+            if file_format == 'csv':
+                dataset = Dataset().load(try_decode(file_content), format='csv')
+            elif file_format in ['xls', 'xlsx']:
+                dataset = Dataset().load(file_content, format=file_format)
+            else:
+                raise ValueError(f"Formato no soportado: {file_format}")
+    except Exception as e:
+        if registro:
+            registro.estado = 'ERROR'
+            registro.detalles_error = str(e)
+            registro.save()
+        error_res = {'status': 'error', 'message': f'Error al leer archivo: {str(e)}'}
+        cache.set(cache_key, error_res, 3600)
+        return error_res
+
+    total_rows = len(dataset)
+    if registro:
+        registro.total_filas = total_rows
+        registro.save()
+
+    progress_info = {
+        'current': 0, 'total': total_rows,
+        'status': 'Iniciando verificación...' if verification_mode else 'Iniciando importación...',
+        'percent': 0,
+        'cats_new': 0, 'rutinas_new': 0, 'rutinas_updated': 0, 'pasos_new': 0, 'pasos_updated': 0,
+        'errors': 0, 'verification_mode': verification_mode,
+    }
+    cache.set(cache_key, progress_info, 3600)
+    self.update_state(state='PROGRESS', meta=progress_info)
+    sys.stdout.flush()
+
+    rows = list(dataset.dict)
+
+    # ------------------------------------------------------------------
+    # MODO VERIFICACIÓN / DRY RUN (solo análisis, sin escribir)
+    # ------------------------------------------------------------------
+    if verification_mode or dry_run:
+        results = []
+        cats_a_crear = set()
+        cats_existentes = set()
+        rutinas_a_crear = set()
+        rutinas_a_actualizar = set()
+        pasos_count = 0
+        errores = []
+        frecuencias_faltantes = set()
+
+        # Cache de rutas de categorías existentes
+        tipos_qs = list(Tipo.objects.all())
+        tipos_por_id = {t.id: t for t in tipos_qs}
+
+        def ruta_de(t):
+            path = [t.nombre]
+            cur = t.padre_id
+            while cur and cur in tipos_por_id:
+                p = tipos_por_id[cur]
+                path.append(p.nombre)
+                cur = p.padre_id
+            return ' > '.join(reversed(path)).lower()
+
+        rutas_existentes = {ruta_de(t) for t in tipos_qs}
+        codigos_rutina_existentes = set(
+            Rutina.objects.exclude(codigo_rutina__isnull=True).values_list('codigo_rutina', flat=True)
+        )
+        frecuencias_existentes = {f.nombre.lower() for f in Frecuencia.objects.all()}
+
+        rutas_vistas_archivo = set()
+
+        for i, row in enumerate(rows, start=1):
+            cat_ruta = _clean_str(row.get('categoria_ruta'))
+            rutina_codigo = _clean_str(row.get('rutina_codigo'))
+            frecuencia = _clean_str(row.get('frecuencia'))
+            paso_desc = _clean_str(row.get('paso_descripcion'))
+
+            fila_msgs = []
+
+            # Categorías (por ruta)
+            if cat_ruta:
+                partes = [p.strip() for p in cat_ruta.replace('→', '>').split('>') if p.strip()]
+                acumulada = []
+                for parte in partes:
+                    acumulada.append(parte.lower())
+                    clave = ' > '.join(acumulada)
+                    if clave in rutas_existentes or clave in rutas_vistas_archivo:
+                        pass
+                    else:
+                        cats_a_crear.add(clave)
+                        rutas_vistas_archivo.add(clave)
+                if ' > '.join([p.lower() for p in partes]) in rutas_existentes:
+                    cats_existentes.add(cat_ruta.lower())
+                fila_msgs.append(f"Cat '{cat_ruta}'")
+            else:
+                errores.append(f"Fila {i}: sin 'categoria_ruta'")
+
+            # Frecuencia
+            if frecuencia and frecuencia.lower() not in frecuencias_existentes:
+                frecuencias_faltantes.add(frecuencia)
+
+            # Rutina
+            if rutina_codigo:
+                if rutina_codigo in codigos_rutina_existentes:
+                    rutinas_a_actualizar.add(rutina_codigo)
+                else:
+                    rutinas_a_crear.add(rutina_codigo)
+                fila_msgs.append(f"Rutina '{rutina_codigo}'")
+
+            # Paso
+            if paso_desc:
+                pasos_count += 1
+                fila_msgs.append(f"Paso '{paso_desc[:30]}'")
+
+            results.append(f"Fila {i}: " + " | ".join(fila_msgs) if fila_msgs else f"Fila {i}: (vacía)")
+
+            if i % 20 == 0 or i == total_rows:
+                progress_info.update({
+                    'current': i, 'percent': int((i / total_rows) * 100) if total_rows else 100,
+                    'status': f'Analizando {i}/{total_rows}...',
+                })
+                cache.set(cache_key, progress_info, 3600)
+                self.update_state(state='PROGRESS', meta=progress_info)
+
+        if frecuencias_faltantes:
+            errores.append("Frecuencias inexistentes (créalas primero): " + ", ".join(sorted(frecuencias_faltantes)))
+
+        final_res = {
+            'status': 'completed', 'status_code': 'completed',
+            'total': total_rows,
+            'cats_new': len(cats_a_crear),
+            'rutinas_new': len(rutinas_a_crear),
+            'rutinas_updated': len(rutinas_a_actualizar),
+            'pasos_new': pasos_count,
+            'errors': len(errores),
+            'error_list': errores,
+            'results': results,
+            'verification_mode': verification_mode,
+            'dry_run': dry_run,
+            'file_path': file_path,
+        }
+        cache.set(cache_key, final_res, 3600)
+        return final_res
+
+    # ------------------------------------------------------------------
+    # MODO IMPORTACIÓN REAL
+    # ------------------------------------------------------------------
+    cats_new = 0
+    rutinas_new = 0
+    rutinas_updated = 0
+    pasos_new = 0
+    pasos_updated = 0
+    errores = []
+
+    # Cache de frecuencias por nombre (case-insensitive)
+    frecuencias_map = {f.nombre.lower(): f for f in Frecuencia.objects.all()}
+
+    # Cache de categorías por ruta (case-insensitive)
+    tipos_qs = list(Tipo.objects.all())
+    tipos_por_id = {t.id: t for t in tipos_qs}
+
+    def _ruta_key(t):
+        path = [t.nombre]
+        cur = t.padre_id
+        while cur and cur in tipos_por_id:
+            p = tipos_por_id[cur]
+            path.append(p.nombre)
+            cur = p.padre_id
+        return ' > '.join(reversed(path)).lower()
+
+    tipo_por_ruta = {_ruta_key(t): t for t in tipos_qs}
+
+    def obtener_o_crear_tipo(cat_ruta, codigo_hoja=None):
+        """Resuelve/crea toda la cadena de categorías por su ruta y devuelve la hoja."""
+        nonlocal cats_new
+        partes = [p.strip() for p in cat_ruta.replace('→', '>').split('>') if p.strip()]
+        padre = None
+        acumulada = []
+        nodo = None
+        for idx, parte in enumerate(partes):
+            acumulada.append(parte.lower())
+            clave = ' > '.join(acumulada)
+            nodo = tipo_por_ruta.get(clave)
+            if not nodo:
+                nodo = Tipo.objects.create(nombre=parte, padre=padre)
+                cats_new += 1
+                tipo_por_ruta[clave] = nodo
+                tipos_por_id[nodo.id] = nodo
+            padre = nodo
+        # Asignar código a la hoja si viene y no lo tenía
+        if nodo and codigo_hoja and not nodo.codigo:
+            try:
+                nodo.codigo = codigo_hoja
+                nodo.save(update_fields=['codigo'])
+            except Exception:
+                pass
+        return nodo
+
+    for i, row in enumerate(rows, start=1):
+        try:
+            with transaction.atomic():
+                cat_ruta = _clean_str(row.get('categoria_ruta'))
+                if not cat_ruta:
+                    errores.append(f"Fila {i}: sin 'categoria_ruta', se omite")
+                    continue
+
+                cat_codigo = _clean_str(row.get('categoria_codigo'))
+                tipo_obj = obtener_o_crear_tipo(cat_ruta, cat_codigo)
+
+                # ---- RUTINA ----
+                rutina_codigo = _clean_str(row.get('rutina_codigo'))
+                rutina_obj = None
+                if rutina_codigo:
+                    rutina_obj = Rutina.objects.filter(codigo_rutina=rutina_codigo).first()
+                    frecuencia_nombre = _clean_str(row.get('frecuencia'))
+                    frecuencia_obj = frecuencias_map.get(frecuencia_nombre.lower()) if frecuencia_nombre else None
+
+                    defaults = {
+                        'tipo': tipo_obj,
+                    }
+                    nombre = _clean_str(row.get('rutina_nombre'))
+                    if nombre:
+                        defaults['nombre'] = nombre
+                    if frecuencia_obj:
+                        defaults['frecuencia'] = frecuencia_obj
+                    tiempo = _parse_duracion_flexible(row.get('tiempo_estimado'))
+                    if tiempo is not None:
+                        defaults['tiempo_estimado'] = tiempo
+                    cant = _clean_str(row.get('cantidad_tecnicos'))
+                    if cant:
+                        try:
+                            defaults['cantidad_tecnicos'] = int(float(cant))
+                        except (ValueError, TypeError):
+                            pass
+                    desc = _clean_str(row.get('rutina_descripcion'))
+                    if desc:
+                        defaults['descripcion'] = desc
+
+                    if rutina_obj:
+                        for k, v in defaults.items():
+                            setattr(rutina_obj, k, v)
+                        rutina_obj.save()
+                        rutinas_updated += 1
+                    else:
+                        rutina_obj = Rutina.objects.create(codigo_rutina=rutina_codigo, **defaults)
+                        rutinas_new += 1
+
+                # ---- PASO (ACTIVIDAD) ----
+                paso_desc = _clean_str(row.get('paso_descripcion'))
+                if paso_desc and rutina_obj:
+                    orden_raw = _clean_str(row.get('paso_orden'))
+                    try:
+                        orden = int(float(orden_raw)) if orden_raw else 0
+                    except (ValueError, TypeError):
+                        orden = 0
+
+                    def _num(key):
+                        v = _clean_str(row.get(key))
+                        if v is None:
+                            return None
+                        try:
+                            return float(v.replace(',', '.'))
+                        except (ValueError, TypeError):
+                            return None
+
+                    paso_defaults = {
+                        'descripcion': paso_desc,
+                        'tipo_respuesta': _normalizar_tipo_respuesta(row.get('paso_tipo')),
+                        'verificacion': _clean_str(row.get('paso_verificacion')),
+                        'unidad_medida': _clean_str(row.get('paso_unidad')),
+                        'valor_objetivo': _num('paso_valor_objetivo'),
+                        'rango_min': _num('paso_rango_min'),
+                        'rango_max': _num('paso_rango_max'),
+                    }
+
+                    paso_existente = PasoRutina.objects.filter(rutina=rutina_obj, orden=orden).first()
+                    if paso_existente:
+                        for k, v in paso_defaults.items():
+                            setattr(paso_existente, k, v)
+                        paso_existente.save()
+                        pasos_updated += 1
+                    else:
+                        PasoRutina.objects.create(rutina=rutina_obj, orden=orden, **paso_defaults)
+                        pasos_new += 1
+                elif paso_desc and not rutina_obj:
+                    errores.append(f"Fila {i}: hay paso pero no hay 'rutina_codigo' para vincularlo")
+
+        except Exception as e:
+            errores.append(f"Fila {i}: {str(e)}")
+
+        if i % 10 == 0 or i == total_rows:
+            progress_info.update({
+                'current': i, 'percent': int((i / total_rows) * 100) if total_rows else 100,
+                'status': f'Importando {i}/{total_rows}...',
+                'cats_new': cats_new, 'rutinas_new': rutinas_new, 'rutinas_updated': rutinas_updated,
+                'pasos_new': pasos_new, 'pasos_updated': pasos_updated, 'errors': len(errores),
+            })
+            cache.set(cache_key, progress_info, 3600)
+            self.update_state(state='PROGRESS', meta=progress_info)
+
+    if registro:
+        registro.filas_nuevas = rutinas_new + pasos_new + cats_new
+        registro.filas_actualizadas = rutinas_updated + pasos_updated
+        registro.filas_error = len(errores)
+        registro.estado = 'COMPLETADO'
+        if errores:
+            registro.detalles_error = "\n".join(errores[:50])
+        registro.save()
+
+    # Limpiar archivo temporal
+    try:
+        if default_storage.exists(file_path):
+            default_storage.delete(file_path)
+    except Exception:
+        pass
+
+    final_res = {
+        'status': 'completed', 'status_code': 'completed',
+        'total': total_rows,
+        'cats_new': cats_new,
+        'rutinas_new': rutinas_new,
+        'rutinas_updated': rutinas_updated,
+        'pasos_new': pasos_new,
+        'pasos_updated': pasos_updated,
+        'errors': len(errores),
+        'error_list': errores,
+        'verification_mode': False,
+        'dry_run': False,
+    }
+    cache.set(cache_key, final_res, 3600)
+    return final_res
