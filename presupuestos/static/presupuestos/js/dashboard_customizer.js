@@ -88,6 +88,11 @@ const DashboardCustomizer = (function () {
             tables.forEach(function (table) {
                 TableManager._applyColumnsToTable(table, columns);
             });
+            // Reaplicar filtros: los botones ▾ deben (re)aparecer en columnas recién
+            // mostradas y los filtros activos deben seguir vigentes.
+            if (typeof window.reapplyDashboardFilters === 'function') {
+                window.reapplyDashboardFilters();
+            }
         },
 
         /**
@@ -576,6 +581,12 @@ const DashboardCustomizer = (function () {
             emptyRows.forEach(function (row) {
                 tbody.appendChild(row);
             });
+
+            // Tras reordenar, reaplicar los filtros activos para que las filas que
+            // deban permanecer ocultas no reaparezcan por el reordenamiento.
+            if (typeof window.reapplyDashboardFilters === 'function') {
+                window.reapplyDashboardFilters();
+            }
         },
 
         /**

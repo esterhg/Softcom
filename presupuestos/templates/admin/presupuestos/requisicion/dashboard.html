@@ -2098,271 +2098,258 @@ document.addEventListener('click', function(e) {
 });
 </script>
 
-<!-- Department Filter -->
+<!-- ═══════════════ Sistema Unificado de Filtros de Tabla ═══════════════ -->
 <script>
-var activeDeptFilter = null;
+/**
+ * Motor de filtros unificado para las tablas del dashboard.
+ * Combina en un solo lugar: filtro por departamento (tarjetas) + filtros por
+ * valor de columna (dropdown en el header). Todos los criterios se evalúan
+ * juntos sobre cada fila, de modo que ningún filtro pise a otro.
+ */
+window.DashboardTableFilters = (function () {
+    'use strict';
 
-function filterByDepartment(cardEl) {
-    var dept = cardEl.getAttribute('data-dept-filter');
-    var table = document.querySelector('#tab-general .table-modern');
-    if (!table) return;
-
-    var rows = table.querySelectorAll('tbody tr[data-department]');
-    var cards = document.querySelectorAll('.dept-card[data-dept-filter]');
-
-    if (activeDeptFilter === dept) {
-        activeDeptFilter = null;
-        rows.forEach(function(row) { row.style.display = ''; });
-        cards.forEach(function(c) { c.style.outline = ''; c.style.outlineOffset = ''; });
-        return;
-    }
-
-    activeDeptFilter = dept;
-    rows.forEach(function(row) {
-        var rowDept = row.getAttribute('data-department');
-        row.style.display = (rowDept === dept) ? '' : 'none';
-    });
-
-    cards.forEach(function(c) {
-        if (c.getAttribute('data-dept-filter') === dept) {
-            c.style.outline = '2px solid var(--primary)';
-            c.style.outlineOffset = '2px';
-        } else {
-            c.style.outline = '';
-            c.style.outlineOffset = '';
-        }
-    });
-}
-
-// Función global para limpiar filtro de departamento desde DashboardCustomizer
-window.clearDepartmentFilter = function() {
-    activeDeptFilter = null;
-    var table = document.querySelector('#tab-general .table-modern');
-    if (table) {
-        var rows = table.querySelectorAll('tbody tr[data-department]');
-        rows.forEach(function(row) { row.style.display = ''; });
-    }
-    var cards = document.querySelectorAll('.dept-card[data-dept-filter]');
-    cards.forEach(function(c) { c.style.outline = ''; c.style.outlineOffset = ''; });
-};
-</script>
-
-<!-- Column Value Filter Dropdown -->
-<script>
-(function() {
     var FILTERABLE_COLUMNS = ['solicitante', 'proveedor', 'estado', 'prioridad', 'tipo'];
-    var activeColumnFilters = {}; // { columnId: selectedValue }
-    var openFilterPanel = null;
 
-    // Función global para limpiar todos los filtros de columna desde DashboardCustomizer
-    window.clearAllColumnFilters = function() {
-        activeColumnFilters = {};
-        var tables = document.querySelectorAll('.table-modern');
-        tables.forEach(function(table) {
-            var rows = table.querySelectorAll('tbody tr');
-            rows.forEach(function(row) {
-                if (!row.querySelector('td[colspan]')) {
-                    row.style.display = '';
-                }
-            });
-            updateFilterIndicators(table);
-        });
-    };
+    // Estado por tabla. Clave = elemento <table>.
+    var state = new WeakMap();
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Añadir icono de filtro a las columnas filtrables después de un breve delay
-        setTimeout(initColumnFilters, 500);
-    });
-
-    function initColumnFilters() {
-        var tables = document.querySelectorAll('.table-modern');
-        tables.forEach(function(table) {
-            var headers = table.querySelectorAll('thead th[data-column-id]');
-            headers.forEach(function(th) {
-                var colId = th.getAttribute('data-column-id');
-                if (FILTERABLE_COLUMNS.indexOf(colId) === -1) return;
-
-                // Agregar icono de filtro al header
-                var filterBtn = document.createElement('span');
-                filterBtn.className = 'col-filter-btn';
-                filterBtn.innerHTML = ' ▾';
-                filterBtn.style.cssText = 'cursor:pointer; font-size:0.7rem; color:#6366f1; margin-left:4px; opacity:0.7;';
-                filterBtn.title = 'Filtrar por ' + th.textContent.trim();
-                filterBtn.addEventListener('click', function(e) {
-                    e.stopPropagation(); // No disparar sort
-                    toggleFilterPanel(th, colId, table);
-                });
-                th.appendChild(filterBtn);
-
-                // Cambiar estilo del header para indicar filtrable
-                th.style.position = 'relative';
-            });
-        });
-    }
-
-    function toggleFilterPanel(thEl, colId, table) {
-        // Si ya hay un panel abierto para esta columna, cerrarlo
-        if (openFilterPanel && openFilterPanel.colId === colId) {
-            closeFilterPanel();
-            return;
+    function getState(table) {
+        var s = state.get(table);
+        if (!s) {
+            s = { dept: null, columns: {} }; // columns = { colId: valor }
+            state.set(table, s);
         }
-        closeFilterPanel();
-
-        // Recoger valores únicos de la columna desde las filas visibles
-        var values = getUniqueValues(table, colId);
-
-        // Crear panel
-        var panel = document.createElement('div');
-        panel.className = 'col-filter-panel';
-        panel.style.cssText = [
-            'position:absolute; top:100%; left:0; z-index:1000;',
-            'background:white; border:1px solid #e2e8f0; border-radius:6px;',
-            'box-shadow:0 10px 40px rgba(0,0,0,0.15); padding:8px;',
-            'min-width:200px; max-height:300px; margin-top:4px;'
-        ].join('');
-
-        // Input de búsqueda
-        var searchInput = document.createElement('input');
-        searchInput.type = 'text';
-        searchInput.placeholder = 'Buscar...';
-        searchInput.style.cssText = 'width:100%; padding:6px 10px; border:1px solid #e2e8f0; border-radius:4px; font-size:0.8rem; margin-bottom:6px; box-sizing:border-box;';
-        searchInput.addEventListener('input', function() {
-            filterListItems(listContainer, searchInput.value);
-        });
-        panel.appendChild(searchInput);
-
-        // Opción "Todos"
-        var allOption = document.createElement('div');
-        allOption.className = 'filter-option';
-        allOption.style.cssText = 'padding:6px 8px; cursor:pointer; font-size:0.8rem; color:#6366f1; font-weight:600; border-radius:4px;';
-        allOption.textContent = '✕ Quitar filtro';
-        allOption.addEventListener('click', function() {
-            clearColumnFilter(colId, table);
-            closeFilterPanel();
-        });
-        if (activeColumnFilters[colId]) {
-            panel.appendChild(allOption);
-        }
-
-        // Lista de valores
-        var listContainer = document.createElement('div');
-        listContainer.style.cssText = 'max-height:220px; overflow-y:auto;';
-
-        values.forEach(function(val) {
-            var item = document.createElement('div');
-            item.className = 'filter-option-item';
-            item.setAttribute('data-value', val.toLowerCase());
-            item.style.cssText = 'padding:6px 8px; cursor:pointer; font-size:0.82rem; color:#1e293b; border-radius:4px; transition:background 0.1s;';
-            item.textContent = val;
-
-            if (activeColumnFilters[colId] === val) {
-                item.style.background = '#eef2ff';
-                item.style.fontWeight = '600';
-                item.style.color = '#4f46e5';
-            }
-
-            item.addEventListener('mouseenter', function() { item.style.background = '#f8fafc'; });
-            item.addEventListener('mouseleave', function() {
-                item.style.background = (activeColumnFilters[colId] === val) ? '#eef2ff' : '';
-            });
-            item.addEventListener('click', function() {
-                applyColumnFilter(colId, val, table);
-                closeFilterPanel();
-            });
-            listContainer.appendChild(item);
-        });
-
-        panel.appendChild(listContainer);
-        thEl.appendChild(panel);
-
-        openFilterPanel = { el: panel, colId: colId };
-        searchInput.focus();
-
-        // Cerrar al hacer clic fuera
-        setTimeout(function() {
-            document.addEventListener('click', closeOnOutsideClick);
-        }, 10);
+        return s;
     }
 
-    function closeOnOutsideClick(e) {
-        if (openFilterPanel && !openFilterPanel.el.contains(e.target)) {
-            closeFilterPanel();
-        }
+    function cellText(row, colId) {
+        var cell = row.querySelector('td[data-column-id="' + colId + '"]');
+        return cell ? (cell.textContent || '').trim() : '';
     }
 
-    function closeFilterPanel() {
-        if (openFilterPanel) {
-            openFilterPanel.el.remove();
-            openFilterPanel = null;
-        }
-        document.removeEventListener('click', closeOnOutsideClick);
-    }
-
-    function getUniqueValues(table, colId) {
-        var cells = table.querySelectorAll('tbody td[data-column-id="' + colId + '"]');
-        var seen = {};
-        var values = [];
-        cells.forEach(function(td) {
-            var text = (td.textContent || '').trim();
-            if (text && text !== '-' && !seen[text]) {
-                seen[text] = true;
-                values.push(text);
-            }
-        });
-        values.sort(function(a, b) { return a.localeCompare(b, 'es'); });
-        return values;
-    }
-
-    function filterListItems(container, query) {
-        var items = container.querySelectorAll('.filter-option-item');
-        var q = query.toLowerCase();
-        items.forEach(function(item) {
-            var val = item.getAttribute('data-value');
-            item.style.display = val.indexOf(q) !== -1 ? '' : 'none';
-        });
-    }
-
-    function applyColumnFilter(colId, value, table) {
-        activeColumnFilters[colId] = value;
-        applyAllFilters(table);
-        updateFilterIndicators(table);
-    }
-
-    function clearColumnFilter(colId, table) {
-        delete activeColumnFilters[colId];
-        applyAllFilters(table);
-        updateFilterIndicators(table);
-    }
-
-    function applyAllFilters(table) {
+    /** Aplica TODOS los criterios activos (depto + columnas) sobre una tabla. */
+    function applyAll(table) {
+        var s = getState(table);
         var rows = table.querySelectorAll('tbody tr');
-        rows.forEach(function(row) {
-            if (row.querySelector('td[colspan]')) return; // Skip empty row
+        rows.forEach(function (row) {
+            if (row.querySelector('td[colspan]')) return; // fila "sin datos"
+
             var visible = true;
 
-            for (var colId in activeColumnFilters) {
-                var cell = row.querySelector('td[data-column-id="' + colId + '"]');
-                if (cell) {
-                    var cellText = (cell.textContent || '').trim();
-                    if (cellText !== activeColumnFilters[colId]) {
+            // Filtro por departamento
+            if (visible && s.dept !== null) {
+                var rowDept = row.getAttribute('data-department');
+                if (rowDept !== s.dept) visible = false;
+            }
+
+            // Filtros por valor de columna
+            if (visible) {
+                for (var colId in s.columns) {
+                    if (!s.columns.hasOwnProperty(colId)) continue;
+                    if (cellText(row, colId) !== s.columns[colId]) {
                         visible = false;
                         break;
                     }
                 }
             }
+
             row.style.display = visible ? '' : 'none';
+        });
+        updateFilterIndicators(table);
+    }
+
+    // ─── Filtro por departamento (solo tabla general) ───────────────────────────
+
+    function generalTable() {
+        return document.querySelector('#tab-general .table-modern');
+    }
+
+    window.filterByDepartment = function (cardEl) {
+        var table = generalTable();
+        if (!table) return;
+        var dept = cardEl.getAttribute('data-dept-filter');
+        var s = getState(table);
+        var cards = document.querySelectorAll('.dept-card[data-dept-filter]');
+
+        // Toggle: si ya estaba activo, se limpia.
+        s.dept = (s.dept === dept) ? null : dept;
+
+        cards.forEach(function (c) {
+            var active = (s.dept !== null && c.getAttribute('data-dept-filter') === s.dept);
+            c.style.outline = active ? '2px solid var(--primary)' : '';
+            c.style.outlineOffset = active ? '2px' : '';
+        });
+
+        applyAll(table);
+    };
+
+    window.clearDepartmentFilter = function () {
+        var table = generalTable();
+        if (table) {
+            getState(table).dept = null;
+            applyAll(table);
+        }
+        var cards = document.querySelectorAll('.dept-card[data-dept-filter]');
+        cards.forEach(function (c) { c.style.outline = ''; c.style.outlineOffset = ''; });
+    };
+
+    // ─── Filtros por valor de columna (dropdown en header) ───────────────────────
+
+    var openFilterPanel = null;
+
+    /** (Re)inicializa los botones ▾ en los headers filtrables de todas las tablas. */
+    function initColumnFilters() {
+        var tables = document.querySelectorAll('.table-modern');
+        tables.forEach(function (table) {
+            var headers = table.querySelectorAll('thead th[data-column-id]');
+            headers.forEach(function (th) {
+                var colId = th.getAttribute('data-column-id');
+                if (FILTERABLE_COLUMNS.indexOf(colId) === -1) return;
+                if (th.querySelector('.col-filter-btn')) return; // ya inicializado
+
+                var filterBtn = document.createElement('span');
+                filterBtn.className = 'col-filter-btn';
+                filterBtn.innerHTML = ' ▾';
+                filterBtn.style.cssText = 'cursor:pointer; font-size:0.7rem; color:#6366f1; margin-left:4px; opacity:0.7;';
+                filterBtn.title = 'Filtrar';
+                filterBtn.addEventListener('click', function (e) {
+                    e.stopPropagation(); // no disparar el ordenamiento
+                    toggleFilterPanel(th, colId, table);
+                });
+                th.appendChild(filterBtn);
+                th.style.position = 'relative';
+            });
+            updateFilterIndicators(table);
         });
     }
 
+    function toggleFilterPanel(thEl, colId, table) {
+        if (openFilterPanel && openFilterPanel.thEl === thEl) { closeFilterPanel(); return; }
+        closeFilterPanel();
+
+        var s = getState(table);
+        var values = getUniqueValues(table, colId);
+
+        var panel = document.createElement('div');
+        panel.className = 'col-filter-panel';
+        panel.style.cssText = [
+            'position:absolute; top:100%; left:0; z-index:1000;',
+            'background:white; border:1px solid #d9d9d9; border-radius:6px;',
+            'box-shadow:0 10px 40px rgba(0,0,0,0.15); padding:8px;',
+            'min-width:200px; max-height:300px; margin-top:4px; text-align:left; font-weight:400;'
+        ].join('');
+        panel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+        var searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Buscar...';
+        searchInput.style.cssText = 'width:100%; padding:6px 10px; border:1px solid #d9d9d9; border-radius:4px; font-size:0.8rem; margin-bottom:6px; box-sizing:border-box;';
+        searchInput.addEventListener('input', function () { filterListItems(listContainer, searchInput.value); });
+        panel.appendChild(searchInput);
+
+        if (s.columns[colId]) {
+            var clearOpt = document.createElement('div');
+            clearOpt.style.cssText = 'padding:6px 8px; cursor:pointer; font-size:0.8rem; color:#6366f1; font-weight:600; border-radius:4px;';
+            clearOpt.textContent = '✕ Quitar filtro';
+            clearOpt.addEventListener('click', function () { clearColumnFilter(colId, table); closeFilterPanel(); });
+            panel.appendChild(clearOpt);
+        }
+
+        var listContainer = document.createElement('div');
+        listContainer.style.cssText = 'max-height:220px; overflow-y:auto;';
+
+        if (values.length === 0) {
+            var empty = document.createElement('div');
+            empty.style.cssText = 'padding:8px; font-size:0.8rem; color:#6a6d70;';
+            empty.textContent = 'Sin valores disponibles';
+            listContainer.appendChild(empty);
+        }
+
+        values.forEach(function (val) {
+            var item = document.createElement('div');
+            item.className = 'filter-option-item';
+            item.setAttribute('data-value', val.toLowerCase());
+            item.style.cssText = 'padding:6px 8px; cursor:pointer; font-size:0.82rem; color:#32363a; border-radius:4px; transition:background 0.1s;';
+            item.textContent = val;
+
+            if (s.columns[colId] === val) {
+                item.style.background = '#eef2ff';
+                item.style.fontWeight = '600';
+                item.style.color = '#4f46e5';
+            }
+            item.addEventListener('mouseenter', function () { item.style.background = '#f8fafc'; });
+            item.addEventListener('mouseleave', function () {
+                item.style.background = (s.columns[colId] === val) ? '#eef2ff' : '';
+            });
+            item.addEventListener('click', function () { applyColumnFilter(colId, val, table); closeFilterPanel(); });
+            listContainer.appendChild(item);
+        });
+
+        panel.appendChild(listContainer);
+        thEl.appendChild(panel);
+        openFilterPanel = { el: panel, thEl: thEl };
+        searchInput.focus();
+
+        setTimeout(function () { document.addEventListener('click', closeOnOutsideClick); }, 10);
+    }
+
+    function closeOnOutsideClick(e) {
+        if (openFilterPanel && !openFilterPanel.el.contains(e.target)) closeFilterPanel();
+    }
+
+    function closeFilterPanel() {
+        if (openFilterPanel) { openFilterPanel.el.remove(); openFilterPanel = null; }
+        document.removeEventListener('click', closeOnOutsideClick);
+    }
+
+    /** Valores únicos de una columna. Lee todas las filas de datos (visibles u ocultas). */
+    function getUniqueValues(table, colId) {
+        var cells = table.querySelectorAll('tbody td[data-column-id="' + colId + '"]');
+        var seen = {};
+        var values = [];
+        cells.forEach(function (td) {
+            if (td.closest('tr') && td.closest('tr').querySelector('td[colspan]')) return;
+            var text = (td.textContent || '').trim();
+            if (text && text !== '-' && !seen[text]) { seen[text] = true; values.push(text); }
+        });
+        values.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+        return values;
+    }
+
+    function filterListItems(container, query) {
+        var q = query.toLowerCase();
+        container.querySelectorAll('.filter-option-item').forEach(function (item) {
+            item.style.display = item.getAttribute('data-value').indexOf(q) !== -1 ? '' : 'none';
+        });
+    }
+
+    function applyColumnFilter(colId, value, table) {
+        getState(table).columns[colId] = value;
+        applyAll(table);
+    }
+
+    function clearColumnFilter(colId, table) {
+        delete getState(table).columns[colId];
+        applyAll(table);
+    }
+
+    window.clearAllColumnFilters = function () {
+        document.querySelectorAll('.table-modern').forEach(function (table) {
+            getState(table).columns = {};
+            applyAll(table);
+        });
+    };
+
     function updateFilterIndicators(table) {
-        var headers = table.querySelectorAll('thead th[data-column-id]');
-        headers.forEach(function(th) {
+        var s = getState(table);
+        table.querySelectorAll('thead th[data-column-id]').forEach(function (th) {
             var colId = th.getAttribute('data-column-id');
             var btn = th.querySelector('.col-filter-btn');
             if (!btn) return;
-            if (activeColumnFilters[colId]) {
+            if (s.columns[colId]) {
                 btn.innerHTML = ' ▾✓';
-                btn.style.color = '#059669';
+                btn.style.color = '#107e3e';
                 btn.style.opacity = '1';
                 btn.style.fontWeight = '700';
             } else {
@@ -2373,6 +2360,21 @@ window.clearDepartmentFilter = function() {
             }
         });
     }
+
+    // Reaplica los filtros activos (útil tras ordenar/cambiar columnas).
+    window.reapplyDashboardFilters = function () {
+        document.querySelectorAll('.table-modern').forEach(function (table) {
+            initColumnFilters();
+            applyAll(table);
+        });
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Se ejecuta después de que el DashboardCustomizer haya montado las tablas.
+        setTimeout(initColumnFilters, 600);
+    });
+
+    return { reapply: window.reapplyDashboardFilters, init: initColumnFilters };
 })();
 </script>
 
