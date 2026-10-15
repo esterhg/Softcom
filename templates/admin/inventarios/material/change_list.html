@@ -2,11 +2,23 @@
 {% load i18n admin_urls %}
 
 {% block object-tools-items %}
-{{ block.super }}
 <li>
     <a href="import-background/" class="addlink"
         style="background: #10b981; color: white; border-color: #059669; font-weight: bold;">
         📦 Importación Masiva (Background)
     </a>
 </li>
+{{ block.super }}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Fallback para Jazzmin: si el bloque no insertó el botón en la barra de
+        // herramientas, lo inyectamos manualmente.
+        var tools = document.querySelector('.object-tools');
+        if (tools && !tools.innerText.includes('Importación Masiva')) {
+            var li = document.createElement('li');
+            li.innerHTML = '<a href="import-background/" class="addlink" style="background: #10b981; color: white; border-color: #059669; font-weight: bold;">📦 Importación Masiva (Background)</a>';
+            tools.insertBefore(li, tools.firstChild);
+        }
+    });
+</script>
 {% endblock %}
