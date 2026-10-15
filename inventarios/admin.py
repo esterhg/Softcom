@@ -541,8 +541,15 @@ class MaterialResource(resources.ModelResource):
                 return
         super().import_field(field, obj, row, is_m2m=is_m2m, **kwargs)
 
-    def after_save_instance(self, instance, using_transactions, dry_run):
-        super().after_save_instance(instance, using_transactions, dry_run)
+    def after_save_instance(self, instance, *args, **kwargs):
+        # Firma compatible con import_export 3.x y 4.x. En 4.x recibe
+        # (instance, row, **kwargs con file_name, using_transactions, dry_run);
+        # en 3.x recibe (instance, using_transactions, dry_run).
+        try:
+            super().after_save_instance(instance, *args, **kwargs)
+        except TypeError:
+            # Compatibilidad defensiva si la firma del padre difiere
+            pass
         if instance:
             self._cache_instance(instance)
 
