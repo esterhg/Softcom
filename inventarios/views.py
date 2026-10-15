@@ -1564,13 +1564,19 @@ def import_materiales_process(request):
     
     # Lógica de Dry Run: SOLO si no es verificación y no es confirmación final
     dry_run = (not verification_mode) and (not is_confirm)
-    
+
+    # Política para conflictos por nombre: 'update' (default) o 'skip'
+    name_conflict_policy = request.POST.get('name_conflict_policy', 'update').lower()
+    if name_conflict_policy not in ['update', 'skip']:
+        name_conflict_policy = 'update'
+
     task = import_materiales_task.delay(
         path, 
         file_ext, 
         user_id=request.user.id, 
         verification_mode=verification_mode,
-        dry_run=dry_run
+        dry_run=dry_run,
+        name_conflict_policy=name_conflict_policy
     )
     
     return JsonResponse({

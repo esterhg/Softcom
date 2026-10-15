@@ -19,16 +19,19 @@ def try_decode(content, encodings=['utf-8-sig', 'utf-8', 'windows-1252', 'iso-88
     return content.decode('utf-8', errors='ignore')
 
 @shared_task(bind=True)
-def import_materiales_task(self, file_path, file_format, user_id=None, verification_mode=False, dry_run=False):
+def import_materiales_task(self, file_path, file_format, user_id=None, verification_mode=False, dry_run=False, name_conflict_policy='update'):
     """
     Tarea Celery para importar o VERIFICAR MATERIALES con seguimiento de progreso real.
+
+    name_conflict_policy: 'update' (actualizar material existente con mismo nombre)
+    o 'skip' (ignorar las filas cuyo nombre ya existe).
     """
     from tablib import Dataset
     from .admin import MaterialResource
     from .models import Material
 
-    # Inicializar resource
-    resource = MaterialResource()
+    # Inicializar resource con la política de conflicto por nombre elegida
+    resource = MaterialResource(name_conflict_policy=name_conflict_policy)
     
     # Marcador de progreso en caché
     cache_key = f"import_materiales_progress_{user_id}" if user_id else "import_materiales_progress_system"
@@ -164,6 +167,24 @@ def import_materiales_task(self, file_path, file_format, user_id=None, verificat
                 'dry_run': dry_run,
                 'file_path': file_path
             }
+
+            # En el PREVIEW (dry_run) detectamos:
+            #  - conflictos por nombre (actualizar/ignorar)
+            #  - posibles duplicados por espacios (solo advertencia visible)
+            if dry_run:
+                try:
+                    deteccion = MaterialResource.detectar_conflictos_nombre(dataset)
+                    conflictos = deteccion.get('conflictos', [])
+                    posibles = deteccion.get('posibles_espacios', [])
+                    final_res['name_conflicts'] = conflictos
+                    final_res['name_conflict_count'] = len(conflictos)
+                    final_res['space_warnings'] = posibles
+                    final_res['space_warning_count'] = len(posibles)
+                except Exception:
+                    final_res['name_conflicts'] = []
+                    final_res['name_conflict_count'] = 0
+                    final_res['space_warnings'] = []
+                    final_res['space_warning_count'] = 0
         except Exception as e:
             error_msg = f"Error crítico en importación: {str(e)}"
             progress_info.update({'status': 'error', 'message': error_msg})

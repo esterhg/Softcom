@@ -110,6 +110,10 @@ class MaterialResource(resources.ModelResource):
         attribute='unidad_medida',
         widget=ForeignKeyWidget(UnidadMedida, 'nombre')
     )
+    # Campos virtuales (no son columnas del modelo). Permiten descargar el stock
+    # actual, editarlo y volver a importar para que el sistema haga el AJUSTE.
+    stock_actual = fields.Field(column_name='stock_actual')
+    ubicacion = fields.Field(column_name='ubicacion')
 
     class Meta:
         model = Material
@@ -118,15 +122,46 @@ class MaterialResource(resources.ModelResource):
             'id', 'sku', 'nombre', 'codigo_barras', 'marca', 'descripcion',
             'categoria', 'tipo_material', 'unidad_medida', 'precio_estimado',
             'stock_minimo', 'alto', 'ancho', 'peso', 'profundidad',
-            'no_afecta_stock', 'es_tecnico', 'imagen'
+            'no_afecta_stock', 'es_tecnico', 'stock_actual', 'ubicacion', 'imagen'
         )
         export_order = fields
         skip_unchanged = True
         report_skipped = True
 
-    def __init__(self, **kwargs):
+    def dehydrate_stock_actual(self, obj):
+        """Exporta el stock total actual del material (suma de todas sus existencias)."""
+        if not getattr(obj, 'pk', None):
+            return ''
+        if getattr(obj, 'no_afecta_stock', False):
+            return ''
+        from django.db.models import Sum
+        total = obj.existencias.aggregate(total=Sum('cantidad'))['total']
+        return total if total is not None else 0
+
+    def dehydrate_ubicacion(self, obj):
+        """
+        Exporta la bodega donde el material tiene mayor stock, para que al
+        re-importar el ajuste se aplique sobre esa misma ubicación.
+        """
+        if not getattr(obj, 'pk', None):
+            return ''
+        rec = obj.existencias.select_related('ubicacion').order_by('-cantidad').first()
+        if rec and rec.ubicacion:
+            return rec.ubicacion.nombre
+        return ''
+
+    def __init__(self, name_conflict_policy='update', **kwargs):
+        """
+        name_conflict_policy controla qué hacer cuando una fila NUEVA (sin SKU ni
+        código de barras coincidente) trae un 'nombre' que ya existe en la base:
+          - 'update' (por defecto): actualizar el material existente con ese nombre.
+          - 'skip': ignorar la fila para no tocar el material existente.
+        """
         super().__init__(**kwargs)
         self._instances_cache = {}
+        self.name_conflict_policy = name_conflict_policy
+        # SKUs de filas que se deben omitir por decisión del usuario (política 'skip')
+        self._skipped_name_conflicts = set()
 
     def _clean_sku_string(self, val):
         if val is None:
@@ -137,6 +172,35 @@ class MaterialResource(resources.ModelResource):
         if val_str.endswith('.0') and val_str[:-2].isdigit():
             val_str = val_str[:-2]
         return val_str
+
+    @staticmethod
+    def _norm_nombre(val):
+        """
+        Normalización SUAVE del nombre para comparar duplicados de forma segura:
+        - quita espacios en los extremos (strip)
+        - colapsa secuencias de espacios/tabs internos a un solo espacio
+        - case-insensitive (lower)
+        Ej: '  Cuchillo   Mesa ' -> 'cuchillo mesa'
+        """
+        if val is None:
+            return ''
+        import re
+        s = str(val).strip()
+        s = re.sub(r'\s+', ' ', s)
+        return s.lower()
+
+    @staticmethod
+    def _norm_nombre_agresivo(val):
+        """
+        Normalización AGRESIVA: elimina TODOS los espacios y pasa a minúsculas.
+        Solo se usa para DETECTAR posibles duplicados y advertir al usuario,
+        nunca para unificar automáticamente.
+        Ej: '( cuchillo)' -> '(cuchillo)'
+        """
+        if val is None:
+            return ''
+        import re
+        return re.sub(r'\s+', '', str(val)).lower()
 
     def _cache_instance(self, obj):
         if not hasattr(self, '_instances_cache'):
@@ -150,7 +214,7 @@ class MaterialResource(resources.ModelResource):
         if getattr(obj, 'codigo_barras', None):
             self._instances_cache[f"cb:{str(obj.codigo_barras).strip().lower()}"] = obj
         if getattr(obj, 'nombre', None):
-            self._instances_cache[f"nom:{str(obj.nombre).strip().lower()}"] = obj
+            self._instances_cache[f"nom:{self._norm_nombre(obj.nombre)}"] = obj
 
     def before_import(self, dataset, **kwargs):
         """
@@ -237,6 +301,10 @@ class MaterialResource(resources.ModelResource):
                 'es_tecnico': 'es_tecnico',
                 'es técnico': 'es_tecnico',
                 # Stock inicial / Ubicación
+                'stock_actual': 'stock_actual',
+                'stock actual': 'stock_actual',
+                'existencia actual': 'stock_actual',
+                'inventario': 'stock_actual',
                 'stock_inicial': 'stock_inicial',
                 'cantidad_inicial': 'stock_inicial',
                 'existencias': 'stock_inicial',
@@ -264,6 +332,77 @@ class MaterialResource(resources.ModelResource):
                 new_headers.append(header_map.get(clean_h, clean_h))
             dataset.headers = new_headers
         super().before_import(dataset, **kwargs)
+
+    @staticmethod
+    def detectar_conflictos_nombre(dataset):
+        """
+        Recorre el dataset (ya normalizado por before_import) y clasifica las filas
+        en dos grupos para el preview:
+
+        1) 'conflictos' (conflicto por nombre - normalización SUAVE):
+           la fila NO coincide por SKU ni código de barras, pero su nombre ya existe
+           (comparando con strip + espacios colapsados + minúsculas).
+           Estas entran al flujo "actualizar / ignorar".
+
+        2) 'posibles_espacios' (ADVERTENCIA - normalización AGRESIVA):
+           la fila NO es un conflicto suave, pero si se ignoran TODOS los espacios su
+           nombre coincide con uno existente (ej. '( cuchillo)' vs '(cuchillo)').
+           Solo se muestran como aviso; NO se unifican automáticamente.
+
+        Retorna: {'conflictos': [...], 'posibles_espacios': [...]}
+        """
+        helper = MaterialResource()
+
+        # Precargar materiales existentes una sola vez (id, sku, nombre)
+        existentes = list(Material.objects.values('id', 'sku', 'nombre'))
+        mapa_suave = {}       # nombre normalizado suave -> sku
+        mapa_agresivo = {}    # nombre normalizado agresivo -> (sku, nombre_original)
+        for m in existentes:
+            ns = helper._norm_nombre(m['nombre'])
+            na = helper._norm_nombre_agresivo(m['nombre'])
+            if ns and ns not in mapa_suave:
+                mapa_suave[ns] = m['sku']
+            if na and na not in mapa_agresivo:
+                mapa_agresivo[na] = (m['sku'], m['nombre'])
+
+        skus_existentes = {str(m['sku']).strip().lower() for m in existentes if m['sku']}
+
+        conflictos = []
+        posibles_espacios = []
+        for i, row in enumerate(dataset.dict, start=1):
+            sku = helper._clean_sku_string(row.get('sku'))
+            cb = helper._clean_sku_string(row.get('codigo_barras'))
+            nombre = str(row.get('nombre') or '').strip()
+
+            # Si coincide por SKU o código de barras existente, es actualización normal
+            if sku and sku.lower() in skus_existentes:
+                continue
+            if cb and Material.objects.filter(codigo_barras__iexact=cb).exists():
+                continue
+            if not nombre:
+                continue
+
+            ns = helper._norm_nombre(nombre)
+            na = helper._norm_nombre_agresivo(nombre)
+
+            if ns in mapa_suave:
+                # Conflicto por nombre "real" -> flujo actualizar/ignorar
+                conflictos.append({
+                    'fila': i,
+                    'nombre': nombre,
+                    'sku_existente': mapa_suave[ns],
+                })
+            elif na in mapa_agresivo:
+                # Solo coincide al ignorar todos los espacios -> advertencia visible
+                sku_ex, nombre_ex = mapa_agresivo[na]
+                posibles_espacios.append({
+                    'fila': i,
+                    'nombre': nombre,
+                    'nombre_existente': nombre_ex,
+                    'sku_existente': sku_ex,
+                })
+
+        return {'conflictos': conflictos, 'posibles_espacios': posibles_espacios}
 
     def get_instance(self, instance_loader, row):
         """
@@ -319,25 +458,79 @@ class MaterialResource(resources.ModelResource):
                 return obj
 
         # 4. Búsqueda por Nombre exacto/case-insensitive
+        # Este es el caso "conflicto por nombre": la fila NO coincidió por SKU ni
+        # por código de barras, pero su nombre ya existe. Aquí aplica la política
+        # elegida por el usuario (actualizar o ignorar).
         nombre = row.get('nombre')
         if nombre:
-            nombre_clean = str(nombre).strip()
-            if nombre_clean:
-                cache_key = f"nom:{nombre_clean.lower()}"
+            nombre_norm = self._norm_nombre(nombre)  # strip + colapsa espacios + lower
+            if nombre_norm:
+                cache_key = f"nom:{nombre_norm}"
                 if cache_key in self._instances_cache:
-                    return self._instances_cache[cache_key]
-                obj = self.get_queryset().filter(nombre__iexact=nombre_clean).first()
+                    obj = self._instances_cache[cache_key]
+                else:
+                    obj = self._buscar_por_nombre_normalizado(nombre_norm, str(nombre).strip())
                 if obj:
                     self._cache_instance(obj)
+                    # Marcar la fila como conflicto por nombre para que skip_row
+                    # pueda decidir según la política.
+                    row['_name_conflict'] = True
+                    if self.name_conflict_policy == 'skip':
+                        row['_skip_name_conflict'] = True
                     return obj
 
         return None
+
+    def _buscar_por_nombre_normalizado(self, nombre_norm, nombre_strip):
+        """
+        Busca un material comparando el nombre con normalización SUAVE (colapsando
+        espacios internos). Primero intenta el match exacto en SQL (rápido); si no
+        encuentra, compara en Python los candidatos que comparten la primera
+        palabra para cubrir dobles espacios internos.
+        """
+        # 1) Intento rápido: coincidencia exacta case-insensitive en SQL
+        obj = self.get_queryset().filter(nombre__iexact=nombre_strip).first()
+        if obj:
+            return obj
+        # 2) Fallback: comparar normalizado en Python sobre un subconjunto acotado
+        primera_palabra = nombre_norm.split(' ', 1)[0]
+        if not primera_palabra:
+            return None
+        candidatos = self.get_queryset().filter(nombre__istartswith=primera_palabra)[:200]
+        for c in candidatos:
+            if self._norm_nombre(c.nombre) == nombre_norm:
+                return c
+        return None
+
+    def skip_row(self, instance, original, row=None, import_validation_errors=None, **kwargs):
+        """
+        Omite la fila cuando es un conflicto por nombre y la política es 'skip'.
+        Soporta distintas firmas de import_export pasando row de forma flexible.
+        """
+        row_data = row
+        if row_data is None:
+            # En versiones donde skip_row no recibe row, no podemos evaluar el flag
+            row_data = {}
+        try:
+            if row_data.get('_skip_name_conflict'):
+                return True
+        except AttributeError:
+            pass
+        try:
+            return super().skip_row(instance, original, row=row, import_validation_errors=import_validation_errors, **kwargs)
+        except TypeError:
+            # Compatibilidad con firmas antiguas de import_export
+            return super().skip_row(instance, original)
 
     def import_field(self, field, obj, row, is_m2m=False, **kwargs):
         """
         Sparse update: Si el objeto ya existe en la BD (obj.pk) y el valor en la fila
         es nulo o vacío, NO sobrescribir el valor existente para proteger los datos.
         """
+        # Los campos virtuales (stock_actual, ubicacion) no tienen attribute en el
+        # modelo; se procesan en after_import_row, no se asignan al objeto.
+        if not field.attribute:
+            return
         if obj.pk:
             if field.attribute == 'sku':
                 val_sku = self._clean_sku_string(row.get('sku'))
@@ -465,7 +658,9 @@ class MaterialResource(resources.ModelResource):
             nombre = row.get('nombre')
             existing = None
             if nombre:
-                existing = Material.objects.filter(nombre__iexact=str(nombre).strip()).first()
+                existing = self._buscar_por_nombre_normalizado(
+                    self._norm_nombre(nombre), str(nombre).strip()
+                )
             if not existing and row.get('codigo_barras'):
                 existing = Material.objects.filter(codigo_barras__iexact=str(row.get('codigo_barras')).strip()).first()
 
@@ -484,52 +679,116 @@ class MaterialResource(resources.ModelResource):
                             row['sku'] = new_sku
                             break
 
+    def _resolver_ubicacion(self, ubicacion_nombre):
+        """
+        Resuelve la ubicación destino para los movimientos de stock.
+        Si viene un nombre lo busca; si no, usa la bodega por defecto
+        (es_almacen=True o tipo BODEGA).
+        """
+        from activos.models import Ubicacion
+        if ubicacion_nombre:
+            ub = Ubicacion.objects.filter(nombre__iexact=str(ubicacion_nombre).strip()).first()
+            if ub:
+                return ub
+        # Fallback: primera bodega/almacén disponible
+        return (
+            Ubicacion.objects.filter(es_almacen=True).order_by('orden', 'id').first()
+            or Ubicacion.objects.filter(tipo='BODEGA').order_by('orden', 'id').first()
+        )
+
     def after_import_row(self, row, instance, **kwargs):
         """
-        Procesa stock inicial y compatibilidades de repuestos.
+        Procesa stock y compatibilidades de repuestos.
+
+        Dos modos de stock soportados:
+        - 'stock_actual' (viene del export): se trata como el valor ABSOLUTO
+          deseado. Se crea un AJUSTE solo por la diferencia contra el stock
+          actual, por lo que re-importar el mismo archivo NO duplica ni altera
+          el inventario (operación idempotente).
+        - 'stock_inicial' / 'cantidad_inicial' / 'existencias': carga inicial
+          que SUMA al inventario (comportamiento clásico de alta masiva).
         """
-        # 1. Procesar Stock Inicial si viene en el archivo
-        stock_inicial = row.get('stock_inicial') or row.get('cantidad_inicial') or row.get('existencias')
+        from decimal import Decimal
+
+        if instance and getattr(instance, 'no_afecta_stock', False):
+            # Materiales de servicio/gasto no manejan inventario
+            stock_absoluto = stock_inicial = None
+        else:
+            stock_absoluto = row.get('stock_actual')
+            stock_inicial = row.get('stock_inicial') or row.get('cantidad_inicial') or row.get('existencias')
+
         ubicacion_nombre = row.get('ubicacion') or row.get('bodega') or row.get('almacen')
-        
-        if stock_inicial and ubicacion_nombre:
-            from activos.models import Ubicacion
-            from decimal import Decimal
-            
+        lote_codigo = row.get('lote_codigo') or row.get('lote')
+
+        def _to_decimal(v):
+            if v is None:
+                return None
+            s = str(v).strip()
+            if s == '' or s.lower() in ['none', 'nan', 'null']:
+                return None
+            s = s.replace(',', '')
             try:
-                # Buscar ubicación por nombre
-                ubicacion = Ubicacion.objects.filter(nombre__iexact=str(ubicacion_nombre).strip()).first()
-                if ubicacion:
-                    cantidad = Decimal(str(stock_inicial))
-                    if cantidad > 0:
-                        # Procesar Lote si viene
-                        lote_obj = None
-                        lote_codigo = row.get('lote_codigo') or row.get('lote')
-                        if lote_codigo:
-                            vencimiento = row.get('lote_vencimiento') or row.get('fecha_vencimiento') or row.get('vencimiento')
-                            lote_obj, _ = Lote.objects.get_or_create(
-                                material=instance,
-                                codigo=str(lote_codigo).strip(),
-                                defaults={'fecha_vencimiento': vencimiento}
-                            )
+                return Decimal(s)
+            except Exception:
+                return None
 
-                        # El registro de movimiento ahora se encarga de crear el StockRecord automáticamente
-                        # mediante la señal post_save que ejecuta recalcular_stock()
+        def _resolver_lote():
+            if not lote_codigo:
+                return None
+            vencimiento = row.get('lote_vencimiento') or row.get('fecha_vencimiento') or row.get('vencimiento')
+            lote_obj, _ = Lote.objects.get_or_create(
+                material=instance,
+                codigo=str(lote_codigo).strip(),
+                defaults={'fecha_vencimiento': vencimiento}
+            )
+            return lote_obj
 
-                        
-                        # Registrar movimiento de entrada si estamos en importación real (no dry run)
-                        if not kwargs.get('dry_run'):
-                            MovimientoInventario.objects.create(
-                                material=instance,
-                                lote=lote_obj,
-                                tipo='ENTRADA',
-                                cantidad=cantidad,
-                                ubicacion_destino=ubicacion,
-                                estado='APROBADO',
-                                comentarios='Carga inicial desde importación masiva'
-                            )
-            except Exception as e:
-                pass # Errores silenciosos en stock para no romper la importación principal
+        # ---- Modo 1: stock_actual (valor absoluto -> AJUSTE por diferencia) ----
+        if instance and stock_absoluto is not None:
+            cantidad_deseada = _to_decimal(stock_absoluto)
+            if cantidad_deseada is not None and cantidad_deseada >= 0:
+                try:
+                    ubicacion = self._resolver_ubicacion(ubicacion_nombre)
+                    if ubicacion and not kwargs.get('dry_run'):
+                        lote_obj = _resolver_lote()
+                        from django.db.models import Sum
+                        existente = instance.existencias.filter(
+                            ubicacion=ubicacion, lote=lote_obj
+                        ).aggregate(total=Sum('cantidad'))['total'] or Decimal('0')
+                        diferencia = cantidad_deseada - existente
+                        if diferencia != Decimal('0'):
+                            if diferencia > 0:
+                                MovimientoInventario.objects.create(
+                                    material=instance, lote=lote_obj,
+                                    tipo='AJUSTE', cantidad=diferencia,
+                                    ubicacion_destino=ubicacion, estado='APROBADO',
+                                    comentarios='Ajuste de stock por importación (valor absoluto)'
+                                )
+                            else:
+                                MovimientoInventario.objects.create(
+                                    material=instance, lote=lote_obj,
+                                    tipo='AJUSTE', cantidad=abs(diferencia),
+                                    ubicacion_origen=ubicacion, estado='APROBADO',
+                                    comentarios='Ajuste de stock por importación (valor absoluto)'
+                                )
+                except Exception:
+                    pass  # No romper la importación principal por errores de stock
+
+        # ---- Modo 2: stock_inicial (SUMA, alta masiva clásica) ----
+        elif instance and stock_inicial:
+            try:
+                ubicacion = self._resolver_ubicacion(ubicacion_nombre)
+                cantidad = _to_decimal(stock_inicial)
+                if ubicacion and cantidad and cantidad > 0 and not kwargs.get('dry_run'):
+                    lote_obj = _resolver_lote()
+                    MovimientoInventario.objects.create(
+                        material=instance, lote=lote_obj,
+                        tipo='ENTRADA', cantidad=cantidad,
+                        ubicacion_destino=ubicacion, estado='APROBADO',
+                        comentarios='Carga inicial desde importación masiva'
+                    )
+            except Exception:
+                pass  # Errores silenciosos en stock para no romper la importación principal
 
         # 2. Procesar Compatibilidad (Repuestos para modelos específicos)
         modelos_compatibles = row.get('modelos_compatibles') or row.get('repuesto_para') or row.get('equipos')
@@ -600,15 +859,75 @@ class MaterialUsoEnOTInline(admin.TabularInline):
         )
 
 
+class TieneImagenFilter(admin.SimpleListFilter):
+    """Filtra materiales según tengan o no imagen cargada."""
+    title = 'Imagen'
+    parameter_name = 'tiene_imagen'
+
+    def lookups(self, request, model_admin):
+        return (('si', 'Con imagen'), ('no', 'Sin imagen'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'si':
+            return queryset.exclude(imagen='').exclude(imagen__isnull=True)
+        if self.value() == 'no':
+            from django.db.models import Q
+            return queryset.filter(Q(imagen='') | Q(imagen__isnull=True))
+        return queryset
+
+
+class NivelStockFilter(admin.SimpleListFilter):
+    """
+    Filtra por nivel de stock calculado a partir de las existencias:
+    - sin_stock: stock total = 0
+    - bajo_minimo: 0 < stock total < stock_minimo
+    - disponible: stock total > 0
+    Ignora los materiales marcados como 'no_afecta_stock'.
+    """
+    title = 'Nivel de stock'
+    parameter_name = 'nivel_stock'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('sin_stock', 'Sin stock'),
+            ('bajo_minimo', 'Bajo el mínimo'),
+            ('disponible', 'Con stock disponible'),
+        )
+
+    def queryset(self, request, queryset):
+        from django.db.models import Sum, F, Value, DecimalField
+        from django.db.models.functions import Coalesce
+        val = self.value()
+        if not val:
+            return queryset
+        qs = queryset.filter(no_afecta_stock=False).annotate(
+            _stock_total=Coalesce(
+                Sum('existencias__cantidad'),
+                Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
+            )
+        )
+        if val == 'sin_stock':
+            return qs.filter(_stock_total__lte=0)
+        if val == 'disponible':
+            return qs.filter(_stock_total__gt=0)
+        if val == 'bajo_minimo':
+            return qs.filter(_stock_total__gt=0, _stock_total__lt=F('stock_minimo'))
+        return queryset
+
+
 @admin.register(Material)
 class MaterialAdmin(ImportExportModelAdmin):
     change_list_template = 'admin/inventarios/material/change_list.html'
     change_form_template = 'admin/inventarios/material/change_form.html'
     resource_class = MaterialResource
-    list_display = ('sku', 'nombre', 'codigo_barras', 'categoria', 'tipo_material', 'unidad_medida', 'peso', 'get_stock_total', 'tiene_imagen', 'es_tecnico', 'no_afecta_stock')
-    search_fields = ('nombre', 'sku', 'codigo_barras')
-    list_filter = ('categoria', 'tipo_material', 'unidad_medida', 'es_tecnico', 'no_afecta_stock')
-    list_select_related = ('categoria', 'marca')
+    list_display = ('sku', 'nombre', 'codigo_barras', 'marca', 'categoria', 'tipo_material', 'unidad_medida', 'peso', 'get_stock_total', 'tiene_imagen', 'es_tecnico', 'no_afecta_stock')
+    search_fields = ('nombre', 'sku', 'codigo_barras', 'marca__nombre', 'categoria__nombre')
+    list_filter = (
+        'categoria', 'marca', 'tipo_material', 'unidad_medida',
+        'es_tecnico', 'no_afecta_stock', 'departamentos',
+        TieneImagenFilter, NivelStockFilter,
+    )
+    list_select_related = ('categoria', 'marca', 'unidad_medida')
     filter_horizontal = ('departamentos',)
     inlines = [StockRecordInline, MaterialUsoEnOTInline]
     readonly_fields = ('imagen_preview',)
@@ -675,8 +994,39 @@ class MaterialAdmin(ImportExportModelAdmin):
         return custom_urls + urls
 
     def download_template_view(self, request):
-        """Genera un archivo Excel vacío con las cabeceras del recurso de Materiales"""
+        """
+        Genera un archivo Excel con las cabeceras del recurso de Materiales y una
+        fila de ejemplo que explica el round-trip de stock.
+        """
         dataset = MaterialResource().export(queryset=Material.objects.none())
+        # Fila de ejemplo alineada al export_order del recurso. Las columnas
+        # 'stock_actual' y 'ubicacion' permiten descargar, editar y re-importar.
+        ejemplo = {
+            'id': '',
+            'sku': 'MAT-EJEMPLO-001',
+            'nombre': 'Material de ejemplo (borre esta fila)',
+            'codigo_barras': '7501234567890',
+            'marca': 'Marca Ejemplo',
+            'descripcion': 'Descripción opcional',
+            'categoria': 'General',
+            'tipo_material': 'INSUMO',
+            'unidad_medida': 'Unidad',
+            'precio_estimado': '0.00',
+            'stock_minimo': '0',
+            'alto': '',
+            'ancho': '',
+            'peso': '',
+            'profundidad': '',
+            'no_afecta_stock': 'FALSE',
+            'es_tecnico': 'FALSE',
+            'stock_actual': '0',
+            'ubicacion': 'Bodega Central',
+            'imagen': '',
+        }
+        try:
+            dataset.append([ejemplo.get(h, '') for h in dataset.headers])
+        except Exception:
+            pass
         response = HttpResponse(dataset.xlsx, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename="formato_importacion_materiales.xlsx"'
         return response
