@@ -5,6 +5,21 @@
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
+    /* Forzar que los popups de SweetAlert sean legibles aunque el tema (Jazzmin)
+       esté en modo oscuro. Fondo blanco y texto oscuro fijos. */
+    .swal2-popup {
+        background: #ffffff !important;
+        color: #1e293b !important;
+    }
+    .swal2-popup .swal2-title {
+        color: #1e293b !important;
+    }
+    /* El texto base del contenido en oscuro sobre el fondo blanco del popup.
+       Los colores de advertencia (verde/ámbar/rojo) van inline y se respetan. */
+    .swal2-html-container {
+        color: #1e293b !important;
+    }
+
     .import-container {
         max-width: 800px;
         margin: 40px auto;
