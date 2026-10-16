@@ -703,9 +703,12 @@ class MaterialResource(resources.ModelResource):
             or Ubicacion.objects.filter(tipo='BODEGA').order_by('orden', 'id').first()
         )
 
-    def after_import_row(self, row, instance, **kwargs):
+    def after_import_row(self, row, row_result, **kwargs):
         """
         Procesa stock y compatibilidades de repuestos.
+
+        IMPORTANTE: en import_export 4.x la firma es (row, row_result, **kwargs).
+        El objeto Material persistido está en row_result.instance.
 
         Dos modos de stock soportados:
         - 'stock_actual' (viene del export): se trata como el valor ABSOLUTO
@@ -716,6 +719,14 @@ class MaterialResource(resources.ModelResource):
           que SUMA al inventario (comportamiento clásico de alta masiva).
         """
         from decimal import Decimal
+
+        # Obtener el Material real de forma compatible con 3.x y 4.x:
+        # - 4.x: segundo arg es row_result (tiene .instance / .original)
+        # - 3.x: segundo arg ERA la instancia directamente
+        instance = getattr(row_result, 'instance', None) or getattr(row_result, 'original', None)
+        if instance is None and hasattr(row_result, '_meta'):
+            # row_result es en realidad la instancia (compatibilidad 3.x)
+            instance = row_result
 
         if instance and getattr(instance, 'no_afecta_stock', False):
             # Materiales de servicio/gasto no manejan inventario
@@ -750,13 +761,23 @@ class MaterialResource(resources.ModelResource):
             )
             return lote_obj
 
+        import logging
+        logger = logging.getLogger('inventarios.import')
+        es_dry_run = bool(kwargs.get('dry_run', False))
+
         # ---- Modo 1: stock_actual (valor absoluto -> AJUSTE por diferencia) ----
-        if instance and stock_absoluto is not None:
+        if instance and stock_absoluto is not None and not es_dry_run:
             cantidad_deseada = _to_decimal(stock_absoluto)
             if cantidad_deseada is not None and cantidad_deseada >= 0:
                 try:
                     ubicacion = self._resolver_ubicacion(ubicacion_nombre)
-                    if ubicacion and not kwargs.get('dry_run'):
+                    if not ubicacion:
+                        logger.warning(
+                            "Stock no actualizado para '%s': no se encontró bodega/almacén "
+                            "(ubicacion='%s'). Marque una Ubicacion con es_almacen=True.",
+                            getattr(instance, 'sku', '?'), ubicacion_nombre
+                        )
+                    else:
                         lote_obj = _resolver_lote()
                         from django.db.models import Sum
                         existente = instance.existencias.filter(
@@ -778,15 +799,21 @@ class MaterialResource(resources.ModelResource):
                                     ubicacion_origen=ubicacion, estado='APROBADO',
                                     comentarios='Ajuste de stock por importación (valor absoluto)'
                                 )
-                except Exception:
-                    pass  # No romper la importación principal por errores de stock
+                except Exception as e:
+                    logger.exception("Error actualizando stock_actual de '%s': %s",
+                                     getattr(instance, 'sku', '?'), e)
 
         # ---- Modo 2: stock_inicial (SUMA, alta masiva clásica) ----
-        elif instance and stock_inicial:
+        elif instance and stock_inicial and not es_dry_run:
             try:
                 ubicacion = self._resolver_ubicacion(ubicacion_nombre)
                 cantidad = _to_decimal(stock_inicial)
-                if ubicacion and cantidad and cantidad > 0 and not kwargs.get('dry_run'):
+                if not ubicacion:
+                    logger.warning(
+                        "Stock inicial no aplicado para '%s': no se encontró bodega/almacén.",
+                        getattr(instance, 'sku', '?')
+                    )
+                elif cantidad and cantidad > 0:
                     lote_obj = _resolver_lote()
                     MovimientoInventario.objects.create(
                         material=instance, lote=lote_obj,
@@ -794,12 +821,13 @@ class MaterialResource(resources.ModelResource):
                         ubicacion_destino=ubicacion, estado='APROBADO',
                         comentarios='Carga inicial desde importación masiva'
                     )
-            except Exception:
-                pass  # Errores silenciosos en stock para no romper la importación principal
+            except Exception as e:
+                logger.exception("Error aplicando stock_inicial de '%s': %s",
+                                 getattr(instance, 'sku', '?'), e)
 
         # 2. Procesar Compatibilidad (Repuestos para modelos específicos)
         modelos_compatibles = row.get('modelos_compatibles') or row.get('repuesto_para') or row.get('equipos')
-        if modelos_compatibles:
+        if modelos_compatibles and instance and not es_dry_run:
             from activos.models import Modelo
             from .models import CompatibilidadMaterial
             
