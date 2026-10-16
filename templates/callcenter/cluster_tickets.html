@@ -138,8 +138,12 @@
         </div>
         <div style="flex-grow: 1;"></div>
         <div style="display: flex; gap: 0.5rem;">
+            <button id="btn-sync-cluster-sig" onclick="syncClusterSIG(this)" class="btn-fiori" title="Sincronizar los tickets de este cluster con SIG"
+                    data-cluster-id="{{ cluster.id|unlocalize }}">
+                <i class="ph ph-arrows-clockwise"></i> <span>Sincronizar con SIG</span>
+            </button>
             <a href="{% url 'callcenter:wizard_cluster' %}?cluster_id={{ cluster.id }}" class="btn-fiori" title="Sincronizar con Wizard">
-                <i class="ph ph-arrows-counter-clockwise"></i> <span>Sincronizar</span>
+                <i class="ph ph-arrows-counter-clockwise"></i> <span>Wizard</span>
             </a>
             <button onclick="openCreateTicketModal()" class="btn-fiori primary">
                 <i class="ph ph-plus-circle"></i> <span>Nuevo Ticket</span>
@@ -1112,6 +1116,57 @@
             }
         }
         
+        // Sincronizar este cluster con SIG
+        const SYNC_CLUSTER_URL_TPL = '{% url "callcenter:sync_cluster_sig" cluster_id=0 %}';
+
+        async function syncClusterSIG(btn) {
+            const clusterId = btn.getAttribute('data-cluster-id');
+            const url = SYNC_CLUSTER_URL_TPL.replace(/0\/sync-sig\/$/, clusterId + '/sync-sig/');
+
+            const confirm = await Swal.fire({
+                title: '¿Sincronizar con SIG?',
+                text: 'Se sincronizarán todos los tickets de este cluster con SIG en segundo plano.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, sincronizar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#0070f2'
+            });
+            if (!confirm.isConfirmed) return;
+
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> <span>Sincronizando...</span>';
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sincronización iniciada',
+                        text: data.message || 'La sincronización se está ejecutando en segundo plano.',
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire('Error', data.message || 'No se pudo iniciar la sincronización.', 'error');
+                }
+            } catch (e) {
+                Swal.fire('Error', 'Error de conexión. Intenta de nuevo.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
         // User Assignment logic
         let assignableUsers = null;
 
