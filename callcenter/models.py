@@ -306,6 +306,18 @@ class GrupoTicket(models.Model):
         verbose_name="Número de Grupo / Cluster"
     )
     fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    fecha_inicio = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Rango: Fecha Inicio",
+        help_text="Fecha de solicitud inicial de los tickets incluidos en el cluster"
+    )
+    fecha_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Rango: Fecha Fin",
+        help_text="Fecha de solicitud final de los tickets incluidos en el cluster"
+    )
     departamento = models.ForeignKey(
         'core.Departamento', 
         on_delete=models.SET_NULL, 

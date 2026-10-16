@@ -277,6 +277,20 @@
             text-decoration: underline;
         }
 
+        /* Badge de Área Solicitante */
+        .area-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
         .add-row-section {
             padding: 1rem 1.5rem;
             background-color: #f5f6f7;
@@ -1234,12 +1248,22 @@
                     <i class="ph ph-list-numbers" style="color: var(--primary);"></i> Detalle de Ítems
                 </h2>
 
-                <div style="position: relative; flex: 1; max-width: 400px;" title="Filtra los ítems que ya han sido agregados a esta solicitud">
-                    <i class="ph ph-magnifying-glass"
-                        style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                    <input type="text" id="table-search" placeholder="Filtrar ítems..."
-                        style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 0.9rem; outline: none; transition: border-color 0.2s;"
-                        onkeyup="filterTable()">
+                <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; justify-content: flex-end; flex-wrap: wrap;">
+                    <div style="position: relative; min-width: 190px;" title="Filtra los ítems por el área solicitante de la requisición">
+                        <i class="ph ph-buildings"
+                            style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"></i>
+                        <select id="area-filter" onchange="filterTable()"
+                            style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 0.9rem; outline: none; background: #fff; cursor: pointer;">
+                            <option value="">Todas las áreas</option>
+                        </select>
+                    </div>
+                    <div style="position: relative; flex: 1; max-width: 400px; min-width: 220px;" title="Filtra los ítems que ya han sido agregados a esta solicitud">
+                        <i class="ph ph-magnifying-glass"
+                            style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                        <input type="text" id="table-search" placeholder="Filtrar ítems..."
+                            style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 0.9rem; outline: none; transition: border-color 0.2s;"
+                            onkeyup="filterTable()">
+                    </div>
                 </div>
             </div>
 
@@ -1249,6 +1273,7 @@
                     <tr>
                         <th style="width: 140px;">N° Requisición</th>
                         <th>Asunto/Desc. Item</th>
+                        <th style="width: 160px;">Área Solicitante</th>
                         <th>Descripción del Pago</th>
                         <th style="width: 120px;">Condición</th>
                         <th style="width: 120px;">Estatus</th>
@@ -1263,7 +1288,7 @@
                     <tr class="provider-header" 
                         onclick="toggleProviderGroup({{ forloop.counter }}, this)"
                         oncontextmenu="showContextMenu(event, '{{ data.id }}', '{{ proveedor|escapejs }}')">
-                        <td colspan="5" style="padding: 0.75rem 1rem;">
+                        <td colspan="6" style="padding: 0.75rem 1rem;">
                             <span class="toggle-icon">▼</span>
                             <i class="ph ph-buildings" style="margin-right: 0.5rem; color: var(--primary);"></i>
                             {{ proveedor }}
@@ -1282,6 +1307,7 @@
                     </tr>
                     {% for item in data.lista_items %}
                     <tr data-item-id="{{ item.pk }}" 
+                        data-area-solicitante="{{ item.requisicion.area_solicitante|default:'Sin Área' }}"
                         oncontextmenu="showRequisitionContextMenu(event, '{{ item.requisicion.pk }}', '{{ item.pk }}', '{{ item.requisicion.cr8ca_totalenarticulos|default_if_none:0 }}', '{{ item.monto_solicitado|default_if_none:0 }}')"
                         class="item-row-group-{{ forloop.parentloop.counter }} {% if item.estatus == 'POSPUESTO' or item.estatus == 'RECHAZADO' %}row-item-warning{% endif %}">
                         <td>
@@ -1292,6 +1318,16 @@
                         </td>
                         <td style="font-size: 0.85rem;">
                             {{ item.requisicion.cr8ca_asunto|truncatechars:50 }}
+                        </td>
+                        <td style="font-size: 0.8rem;">
+                            {% if item.requisicion.area_solicitante %}
+                                <span class="area-badge">
+                                    <i class="ph ph-buildings" style="font-size: 0.85rem;"></i>
+                                    {{ item.requisicion.area_solicitante }}
+                                </span>
+                            {% else %}
+                                <span style="color: var(--text-muted); opacity: 0.6;">Sin Área</span>
+                            {% endif %}
                         </td>
                         <td>
                             <input type="text" class="editable-input" value="{{ item.descripcion }}"
@@ -1370,7 +1406,7 @@
                     {% endfor %}
                     {% empty %}
                     <tr id="no-items-row">
-                        <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <td colspan="10" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             No hay ítems asociados. Agregue uno abajo.
                         </td>
                     </tr>
@@ -3233,6 +3269,9 @@
         function filterTable() {
             const input = document.getElementById('table-search');
             const filter = input.value.toLowerCase().trim();
+            const areaSelect = document.getElementById('area-filter');
+            const areaFilter = areaSelect ? areaSelect.value : '';
+            const anyFilterActive = filter !== "" || areaFilter !== "";
             const table = document.getElementById('items-table');
             const tbody = table.querySelector('tbody');
             const rows = tbody.querySelectorAll('tr');
@@ -3243,7 +3282,7 @@
             rows.forEach(row => {
                 if (row.classList.contains('provider-header')) {
                     // Si el grupo anterior no tuvo items visibles y estábamos filtrando, se ocultará después
-                    if (currentHeader && !groupHasVisibleItems && filter !== "") {
+                    if (currentHeader && !groupHasVisibleItems && anyFilterActive) {
                         currentHeader.style.display = 'none';
                     }
 
@@ -3257,8 +3296,12 @@
                     const content = row.innerText.toLowerCase();
                     // Buscar también en los valores de los inputs editables
                     const inputValues = Array.from(row.querySelectorAll('input')).map(i => i.value.toLowerCase()).join(' ');
+                    const rowArea = row.getAttribute('data-area-solicitante') || '';
 
-                    if (content.includes(filter) || inputValues.includes(filter)) {
+                    const matchesText = content.includes(filter) || inputValues.includes(filter);
+                    const matchesArea = areaFilter === '' || rowArea === areaFilter;
+
+                    if (matchesText && matchesArea) {
                         row.style.display = '';
                         groupHasVisibleItems = true;
                     } else {
@@ -3268,10 +3311,39 @@
             });
 
             // Ajuste para el último header procesado
-            if (currentHeader && !groupHasVisibleItems && filter !== "") {
+            if (currentHeader && !groupHasVisibleItems && anyFilterActive) {
                 currentHeader.style.display = 'none';
             }
         }
+
+        // Poblar el selector de "Área Solicitante" con los valores únicos de la tabla
+        function populateAreaFilter() {
+            const select = document.getElementById('area-filter');
+            if (!select) return;
+            const table = document.getElementById('items-table');
+            if (!table) return;
+            const rows = table.querySelectorAll('tbody tr[data-area-solicitante]');
+            const areas = new Set();
+            rows.forEach(row => {
+                const area = (row.getAttribute('data-area-solicitante') || '').trim();
+                if (area) areas.add(area);
+            });
+            const sorted = Array.from(areas).sort((a, b) => a.localeCompare(b, 'es'));
+            const previous = select.value;
+            // Conservar la primera opción "Todas las áreas" y reconstruir el resto
+            select.querySelectorAll('option:not([value=""])').forEach(o => o.remove());
+            sorted.forEach(area => {
+                const opt = document.createElement('option');
+                opt.value = area;
+                opt.textContent = area;
+                select.appendChild(opt);
+            });
+            if (previous && sorted.includes(previous)) {
+                select.value = previous;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', populateAreaFilter);
 
         // Lógica de búsqueda personalizada (Text Box)
         jQuery(document).ready(function () {

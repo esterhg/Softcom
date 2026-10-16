@@ -176,6 +176,52 @@ def trigger_sync_dashboard(request):
 
 
 @staff_member_required
+def sync_cluster_sig(request, cluster_id):
+    """
+    Vista AJAX: sincroniza con SIG los tickets de un cluster específico.
+    Toma los folios de los tickets del cluster y lanza la sincronización
+    por folios en segundo plano (Celery).
+    """
+    from django.http import JsonResponse
+    from .tasks import sync_tickets_by_folio_list_task
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Solo POST permitido.'}, status=405)
+
+    # Limpiar ID de posibles comas de formateo regional
+    cluster_id = int(str(cluster_id).replace(',', ''))
+    cluster = get_object_or_404(GrupoTicket, id=cluster_id)
+
+    # Recolectar folios de los tickets del cluster (folio preferido, fallback id_solicitud)
+    folios = []
+    for folio, id_solicitud in cluster.tickets.values_list('folio', 'id_solicitud'):
+        valor = (folio or '').strip() if folio else ''
+        if not valor and id_solicitud:
+            valor = str(id_solicitud)
+        if valor:
+            folios.append(valor)
+
+    folios = list(dict.fromkeys(folios))  # quitar duplicados preservando orden
+
+    if not folios:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Este cluster no tiene tickets con folio para sincronizar.'
+        }, status=400)
+
+    try:
+        sync_tickets_by_folio_list_task.delay(folios)
+        return JsonResponse({
+            'status': 'ok',
+            'message': f'Sincronización de {len(folios)} tickets iniciada en segundo plano.',
+            'total': len(folios),
+        })
+    except Exception as e:
+        logger.error(f"Error al sincronizar cluster {cluster_id} con SIG: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@staff_member_required
 def trigger_sync_by_folios(request):
     """
     Inicia la sincronizaciÃ³n de tickets especÃ­ficos por folio.
@@ -3888,6 +3934,8 @@ def create_cluster_manual_ajax(request):
     correlativo = request.POST.get('correlativo', '').strip()
     descripcion = request.POST.get('descripcion', '').strip()
     depto_id = request.POST.get('departamento_id')
+    fecha_inicio_str = request.POST.get('fecha_inicio', '').strip()
+    fecha_fin_str = request.POST.get('fecha_fin', '').strip()
     
     if not correlativo:
         return JsonResponse({'success': False, 'error': 'El nombre del cluster es obligatorio.'})
@@ -3896,11 +3944,29 @@ def create_cluster_manual_ajax(request):
     
     from django.contrib.auth.models import User
     from core.models import Departamento
+    from datetime import datetime
+    from django.utils import timezone
+    from django.db.models import Q
+    from .models import SolicitudTicket, FallaTicket
     
     try:
         depto = Departamento.objects.get(id=depto_id)
     except Departamento.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Departamento no encontrado.'})
+    
+    # Parsear rango de fechas (opcional)
+    fecha_inicio = None
+    fecha_fin = None
+    try:
+        if fecha_inicio_str:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        if fecha_fin_str:
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Formato de fecha inválido (use AAAA-MM-DD).'})
+    
+    if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
+        return JsonResponse({'success': False, 'error': 'La fecha de inicio no puede ser posterior a la fecha de fin.'})
     
     # Asegurar unicidad del correlativo
     base_correlativo = correlativo
@@ -3913,13 +3979,34 @@ def create_cluster_manual_ajax(request):
         correlativo=correlativo,
         descripcion=descripcion or f"Cluster manual - {correlativo}",
         departamento=depto,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
         usuario_creador=request.user if request.user.is_authenticated else None,
     )
+    
+    # Si se especificó un rango de fechas, agregar automáticamente los tickets
+    # del departamento cuya fecha_solicitud cae dentro del rango.
+    tickets_agregados = 0
+    if fecha_inicio and fecha_fin:
+        dt_inicio = timezone.make_aware(datetime.combine(fecha_inicio, datetime.min.time()))
+        dt_fin = timezone.make_aware(datetime.combine(fecha_fin, datetime.max.time()))
+        fallas_ids = FallaTicket.objects.filter(
+            departamento_responsable=depto
+        ).values_list('id', flat=True)
+        tickets_qs = SolicitudTicket.objects.filter(
+            Q(falla_reportada_id__in=fallas_ids,
+              fecha_solicitud__range=(dt_inicio, dt_fin))
+        ).distinct()
+        tickets_to_add = list(tickets_qs)
+        if tickets_to_add:
+            cluster.tickets.add(*tickets_to_add)
+            tickets_agregados = len(tickets_to_add)
     
     return JsonResponse({
         'success': True,
         'cluster_id': cluster.id,
         'correlativo': cluster.correlativo,
+        'tickets_agregados': tickets_agregados,
         'redirect_url': reverse('callcenter:cluster_tickets', args=[cluster.id])
     })
 

@@ -73,6 +73,7 @@ urlpatterns = [
     path('app/ticket/new-cierre/<int:pk>/', views.mobile_ticket_cierre_view, name='mobile_ticket_cierre'),
     path('cluster/create-manual-ajax/', views.create_cluster_manual_ajax, name='create_cluster_manual_ajax'),
     path('sync-sig/', views.trigger_sync_dashboard, name='trigger_sync_dashboard'),
+    path('cluster/<str:cluster_id>/sync-sig/', views.sync_cluster_sig, name='sync_cluster_sig'),
     
     # Dashboard Público (auto-refresh, sin login)
     path('tickets_dashboard/', views.tickets_dashboard_public_view, name='tickets_dashboard_public'),

@@ -433,9 +433,9 @@
             </div>
         </div>
         <div class="shell-right">
-            <div class="badge {% if ticket.cierre_enviado %}badge-success{% else %}badge-warning{% endif %}">
-                <i class="ph {% if ticket.cierre_enviado %}ph-check-circle{% else %}ph-clock{% endif %}"></i>
-                {% if ticket.cierre_enviado %}Cerrado & Notificado{% else %}En Proceso de Cierre{% endif %}
+            <div id="estado-cierre-badge" class="badge {% if ticket.cierre_enviado %}badge-success{% else %}badge-warning{% endif %}">
+                <i class="ph {% if ticket.cierre_enviado %}ph-check-circle{% else %}ph-clock{% endif %}" id="estado-cierre-icon"></i>
+                <span id="estado-cierre-text">{% if ticket.cierre_enviado %}Cerrado & Notificado{% else %}En Proceso de Cierre{% endif %}</span>
             </div>
         </div>
     </div>
@@ -683,15 +683,36 @@
 </style>
 
 <script>
-    // Tab switching
+    // Tab switching + persistencia de la pestaña activa (sessionStorage)
+    const TAB_STORAGE_KEY = 'cierre_visual_active_tab_{{ ticket.id|unlocalize }}';
+
+    function activateTab(tabId, persist = true) {
+        const tabEl = document.querySelector(`.tab-item[data-tab="${tabId}"]`);
+        const cardEl = document.getElementById(tabId);
+        if (!tabEl || !cardEl) return;
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.visual-card').forEach(c => c.classList.remove('active'));
+        tabEl.classList.add('active');
+        cardEl.classList.add('active');
+        if (persist) {
+            try { sessionStorage.setItem(TAB_STORAGE_KEY, tabId); } catch (e) {}
+        }
+    }
+
     document.querySelectorAll('.tab-item').forEach(tab => {
         tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.visual-card').forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById(tab.dataset.tab).classList.add('active');
+            activateTab(tab.dataset.tab);
         });
     });
+
+    // Restaurar la pestaña activa al cargar/recargar la página
+    (function restoreActiveTab() {
+        let saved = null;
+        try { saved = sessionStorage.getItem(TAB_STORAGE_KEY); } catch (e) {}
+        if (saved && document.getElementById(saved)) {
+            activateTab(saved, false);
+        }
+    })();
 
     // AJAX Save Progress
     async function saveProgress(quiet = false) {
@@ -760,6 +781,8 @@
             });
             const data = await resp.json();
             if (data.success) {
+                // Mantener al usuario en la pestaña de Evidencias tras el reload
+                try { sessionStorage.setItem(TAB_STORAGE_KEY, 'tab-evidencias'); } catch (e) {}
                 // Success feedback before reload
                 Swal.fire({
                     icon: 'success',
@@ -859,6 +882,24 @@
         }
     }
 
+    // Cambia el banner de estado de "En Proceso de Cierre" a "Cerrado & Notificado"
+    function setEstadoCierreNotificado() {
+        const badge = document.getElementById('estado-cierre-badge');
+        const icon = document.getElementById('estado-cierre-icon');
+        const text = document.getElementById('estado-cierre-text');
+        if (badge) {
+            badge.classList.remove('badge-warning');
+            badge.classList.add('badge-success');
+        }
+        if (icon) {
+            icon.classList.remove('ph-clock');
+            icon.classList.add('ph-check-circle');
+        }
+        if (text) {
+            text.textContent = 'Cerrado & Notificado';
+        }
+    }
+
     // Complete Closure
     async function completeClosure() {
         // Primero guardamos el progreso actual
@@ -880,6 +921,8 @@
             });
             const data = await resp.json();
             if (data.success) {
+                // Actualizar el banner de estado a "Cerrado & Notificado" sin recargar
+                setEstadoCierreNotificado();
                 Swal.fire({
                     icon: 'success',
                     title: '¡Cierre Notificado!',

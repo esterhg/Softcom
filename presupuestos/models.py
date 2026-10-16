@@ -762,6 +762,24 @@ class Requisicion(models.Model):
         return self.monto_pagado * -1
 
     @property
+    def area_solicitante(self):
+        """
+        Área (departamento) del usuario solicitante de la requisición.
+        Se usa como "Área Solicitante" en la vista de solicitudes de pago.
+        Devuelve una cadena vacía si no hay solicitante o departamento asociado.
+        """
+        solicitante = self.usuario_solicitante
+        if not solicitante:
+            return ""
+        perfil = getattr(solicitante, 'perfil', None)
+        if not perfil:
+            return ""
+        departamento = getattr(perfil, 'departamento', None)
+        if not departamento:
+            return ""
+        return departamento.nombre or ""
+
+    @property
     def resumen_por_proveedor(self):
         """Retorna una lista de diccionarios con proveedor, sus artículos y el subtotal"""
         from mantenimiento.models import Empresa

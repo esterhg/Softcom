@@ -144,7 +144,7 @@ def detalle_solicitud_pago(request, pk):
     detalle_partida = {}
     detalle_item_budget = {}
 
-    for item in solicitud.items.all().select_related('requisicion__proveedor', 'requisicion__tipo_rutina', 'requisicion__partida__disciplina', 'requisicion__item_presupuesto'):
+    for item in solicitud.items.all().select_related('requisicion__proveedor', 'requisicion__tipo_rutina', 'requisicion__partida__disciplina', 'requisicion__item_presupuesto', 'requisicion__usuario_solicitante__perfil__departamento'):
         # --- Datos para la tabla principal ---
         p_name = item.requisicion.proveedor.nombre if item.requisicion.proveedor else "Sin Proveedor"
         if p_name not in items_por_proveedor:

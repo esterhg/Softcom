@@ -112,6 +112,9 @@
     .fiori-link { color: var(--fiori-blue); text-decoration: none; font-weight: 500; }
     .fiori-link:hover { text-decoration: underline; }
 
+    .fiori-row-link { cursor: pointer; transition: background-color 0.15s ease; }
+    .fiori-row-link:hover td { background-color: #f0f4f8; }
+
     .fiori-status {
         display: inline-block; padding: 3px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
     }
@@ -235,14 +238,17 @@
                     <th style="text-align:right;">Aprobado</th>
                     <th style="text-align:right;">Pagado</th>
                     <th>Progreso</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for req in solicitudes %}
-                <tr>
+                <tr class="fiori-row-link" onclick="window.location.href='{% url 'presupuestos:detalle_solicitud_pago' req.pk %}'" title="Ver detalle de la solicitud">
                     <td><span style="font-weight:600;">#{{ req.pk }}</span></td>
-                    <td>{{ req.descripcion|truncatechars:35 }}</td>
+                    <td>
+                        <a href="{% url 'presupuestos:detalle_solicitud_pago' req.pk %}" class="fiori-link" onclick="event.stopPropagation();">
+                            {{ req.descripcion|truncatechars:35 }}
+                        </a>
+                    </td>
                     <td>{{ req.usuario_solicitante.get_full_name|default:"-" }}</td>
                     <td>{{ req.fecha_solicitud|date:"d/m/Y" }}</td>
                     <td>
@@ -264,15 +270,10 @@
                         {% endif %}
                         {% endwith %}
                     </td>
-                    <td>
-                        <a href="{% url 'presupuestos:detalle_solicitud_pago' req.pk %}" class="fiori-link" title="Ver detalle">
-                            <i class="ph ph-arrow-right"></i>
-                        </a>
-                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="10">
+                    <td colspan="9">
                         <div class="fiori-empty">
                             <i class="ph ph-file-search" style="font-size:2.5rem; opacity:0.3; display:block; margin-bottom:0.5rem;"></i>
                             No se encontraron solicitudes con los filtros actuales.

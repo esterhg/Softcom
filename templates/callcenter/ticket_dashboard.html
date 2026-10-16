@@ -634,8 +634,17 @@
                                     </div>
                                 </div>
 
-                                <div class="panel-footer">
+                                <div class="panel-footer" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                                     <span>Ver Analisis <i class="ph ph-arrow-up-right"></i></span>
+                                    <button type="button"
+                                            class="btn-cluster-sync-sig"
+                                            data-cluster-id="{{ grupo.id|unlocalize }}"
+                                            data-cluster-nombre="{{ grupo.correlativo }}"
+                                            onclick="event.stopPropagation(); syncClusterSIG(this);"
+                                            title="Sincronizar los tickets de este cluster con SIG">
+                                        <i class="ph ph-arrows-clockwise"></i>
+                                        <span>Sincronizar con SIG</span>
+                                    </button>
                                 </div>
                             </div>
                             {% endfor %}
@@ -683,8 +692,17 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="panel-footer">
+                                    <div class="panel-footer" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                                         <span>Ver Analisis <i class="ph ph-arrow-up-right"></i></span>
+                                        <button type="button"
+                                                class="btn-cluster-sync-sig"
+                                                data-cluster-id="{{ grupo.id|unlocalize }}"
+                                                data-cluster-nombre="{{ grupo.correlativo }}"
+                                                onclick="event.stopPropagation(); syncClusterSIG(this);"
+                                                title="Sincronizar los tickets de este cluster con SIG">
+                                            <i class="ph ph-arrows-clockwise"></i>
+                                            <span>Sincronizar con SIG</span>
+                                        </button>
                                     </div>
                                 </div>
                                 {% endfor %}
@@ -989,6 +1007,40 @@
                 color: #adb5bd;
             }
             .empty-clusters i { font-size: 4rem; margin-bottom: 16px; opacity: 0.3; }
+
+            /* Botón "Sincronizar con SIG" dentro de cada tarjeta de cluster */
+            .btn-cluster-sync-sig {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                background: #0070f2;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                font-family: inherit;
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.01em;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+            }
+            .btn-cluster-sync-sig:hover {
+                background: #0058c9;
+                transform: translateY(-1px);
+                box-shadow: 0 3px 8px rgba(0, 112, 242, 0.25);
+            }
+            .btn-cluster-sync-sig:disabled { cursor: default; opacity: 0.85; transform: none; }
+            .btn-cluster-sync-sig i { font-size: 0.9rem; }
+            .btn-cluster-sync-sig--loading { background: #4a90d9; }
+            .btn-cluster-sync-sig--done { background: #107e3e; }
+            .btn-cluster-sync-sig--done:hover { background: #107e3e; }
+            .btn-cluster-sync-sig--error { background: #bb0000; }
+            .btn-cluster-sync-sig--error:hover { background: #bb0000; }
+            @keyframes cluster-sync-spin { to { transform: rotate(360deg); } }
+            .btn-cluster-sync-sig .ph-spin { animation: cluster-sync-spin 1s linear infinite; }
         </style>
     </div>
 
@@ -1275,7 +1327,7 @@
                     <label style="display:block; font-weight:600; margin-bottom:4px; font-size:0.85rem;">Descripción</label>
                     <textarea name="descripcion" rows="3" style="width:100%; padding:10px 12px; border:1px solid #d9d9d9; border-radius:6px; font-size:0.95rem; resize:vertical;"></textarea>
                 </div>
-                <div style="margin-bottom:20px;">
+                <div style="margin-bottom:16px;">
                     <label style="display:block; font-weight:600; margin-bottom:4px; font-size:0.85rem;">Departamento *</label>
                     <select name="departamento_id" id="cluster-depto-select" required style="width:100%; padding:10px 12px; border:1px solid #d9d9d9; border-radius:6px; font-size:0.95rem;">
                         <option value="">Seleccionar...</option>
@@ -1283,6 +1335,20 @@
                             <option value="{{ depto.id }}">{{ depto.nombre }}</option>
                         {% endfor %}
                     </select>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-weight:600; margin-bottom:4px; font-size:0.85rem;">Rango de Fechas <span style="font-weight:400; color:#6a6d70;">(opcional)</span></label>
+                    <p style="margin:0 0 8px; font-size:0.75rem; color:#6a6d70;">Si lo indicas, se agregarán automáticamente los tickets del departamento cuya fecha de solicitud esté dentro del rango.</p>
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1;">
+                            <label style="display:block; font-size:0.72rem; color:#6a6d70; margin-bottom:2px;">Desde</label>
+                            <input type="date" name="fecha_inicio" id="cluster-fecha-inicio" style="width:100%; padding:9px 12px; border:1px solid #d9d9d9; border-radius:6px; font-size:0.9rem;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; font-size:0.72rem; color:#6a6d70; margin-bottom:2px;">Hasta</label>
+                            <input type="date" name="fecha_fin" id="cluster-fecha-fin" style="width:100%; padding:9px 12px; border:1px solid #d9d9d9; border-radius:6px; font-size:0.9rem;">
+                        </div>
+                    </div>
                 </div>
                 <div style="display:flex; gap:10px; justify-content:flex-end;">
                     <button type="button" onclick="closeManualClusterModal()" style="padding:10px 20px; border:1px solid #d9d9d9; border-radius:6px; background:white; cursor:pointer;">Cancelar</button>
@@ -1390,6 +1456,63 @@
                 btn.disabled = false;
                 btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Reintentar';
                 btn.classList.remove('btn-sync-sig--loading');
+            });
+        }
+
+        // ── Sincronizar un cluster específico con SIG ──────────────────────
+        // La URL se arma con un placeholder resuelto por Django (id = 0) y se
+        // reemplaza por el id real del cluster en tiempo de ejecución.
+        const SYNC_CLUSTER_URL_TPL = '{% url "callcenter:sync_cluster_sig" cluster_id=0 %}';
+
+        function syncClusterSIG(btn) {
+            const clusterId = btn.getAttribute('data-cluster-id');
+            const nombre = btn.getAttribute('data-cluster-nombre') || 'cluster';
+            const originalHTML = btn.innerHTML;
+            const url = SYNC_CLUSTER_URL_TPL.replace(/0\/sync-sig\/$/, clusterId + '/sync-sig/');
+
+            btn.disabled = true;
+            btn.classList.add('btn-cluster-sync-sig--loading');
+            btn.innerHTML = '<i class="ph ph-arrows-clockwise ph-spin"></i> <span>Sincronizando...</span>';
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    btn.classList.remove('btn-cluster-sync-sig--loading');
+                    btn.classList.add('btn-cluster-sync-sig--done');
+                    btn.innerHTML = '<i class="ph ph-check"></i> <span>Iniciada</span>';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.classList.remove('btn-cluster-sync-sig--done');
+                        btn.innerHTML = originalHTML;
+                    }, 4000);
+                } else {
+                    btn.classList.remove('btn-cluster-sync-sig--loading');
+                    btn.classList.add('btn-cluster-sync-sig--error');
+                    btn.innerHTML = '<i class="ph ph-warning"></i> <span>Error</span>';
+                    btn.title = data.message || 'Error al sincronizar';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.classList.remove('btn-cluster-sync-sig--error');
+                        btn.innerHTML = originalHTML;
+                    }, 4000);
+                }
+            })
+            .catch(() => {
+                btn.classList.remove('btn-cluster-sync-sig--loading');
+                btn.classList.add('btn-cluster-sync-sig--error');
+                btn.innerHTML = '<i class="ph ph-warning"></i> <span>Error de red</span>';
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.classList.remove('btn-cluster-sync-sig--error');
+                    btn.innerHTML = originalHTML;
+                }, 4000);
             });
         }
     </script>
