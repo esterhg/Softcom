@@ -367,9 +367,9 @@
 <body>
 
     <header class="fiori-header">
-        <button onclick="window.history.back()" class="back-btn">
+        <a href="{% url 'inventarios:dashboard' %}" class="back-btn" title="Volver al Dashboard de Inventarios" style="display:inline-flex; align-items:center; text-decoration:none;">
             <ion-icon name="arrow-back-outline"></ion-icon>
-        </button>
+        </a>
         <h1>{{ title }}</h1>
     </header>
 

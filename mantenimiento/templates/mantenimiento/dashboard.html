@@ -735,7 +735,7 @@
             <p>{% trans "Control operativo, planificación y avisos en tiempo real" %}</p>
         </div>
         <div class="hero-actions">
-            <a href="javascript:history.back()" class="sap-btn">
+            <a href="{% url 'core:system_portal' %}" class="sap-btn" title="{% trans 'Volver al Portal Principal' %}">
                 <ion-icon name="arrow-back-outline"></ion-icon> {% trans "Volver" %}
             </a>
             <button onclick="openOtnpModal()" class="sap-btn sap-btn-emph">
