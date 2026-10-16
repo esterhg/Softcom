@@ -1,0 +1,209 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    .ta-action-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        background: #ffffff;
+        border: 1px solid #d9d9d9;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.08);
+        padding: 14px 18px;
+        margin-bottom: 16px;
+        font-family: 'Artifakt Element', 'Outfit', sans-serif;
+    }
+    .ta-action-bar .ta-title {
+        font-weight: 700;
+        color: #32363a;
+        margin-right: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .ta-action-bar .ta-title small {
+        display: block;
+        font-weight: 400;
+        color: #6a6d70;
+        font-size: 12px;
+    }
+    .ta-btn {
+        border: none;
+        border-radius: 4px;
+        padding: 8px 14px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        text-decoration: none;
+        transition: filter 0.15s ease, transform 0.15s ease;
+        font-family: 'Artifakt Element', 'Outfit', sans-serif;
+    }
+    .ta-btn:hover { filter: brightness(0.95); transform: translateY(-1px); }
+    .ta-btn-download { background: #0070f2; color: #fff; }
+    .ta-btn-print { background: #ffffff; color: #32363a; border: 1px solid #d9d9d9; }
+    .ta-btn-email { background: #107e3e; color: #fff; }
+    .ta-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .ta-sent-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #dcfce7;
+        color: #166534;
+    }
+    .ta-hint {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1d4ed8;
+        border-radius: 0.5rem;
+        padding: 12px 18px;
+        margin-bottom: 16px;
+        font-family: 'Artifakt Element', 'Outfit', sans-serif;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if original %}
+<div class="ta-action-bar" id="ta-action-bar">
+    <div class="ta-title">
+        <i class="fas fa-file-signature" style="color:#0070f2;"></i>
+        <span>
+            Acuerdo de Tiempo #{{ original.id }}
+            <small>Descarga, imprime o envía el reporte por correo.</small>
+        </span>
+    </div>
+
+    <a class="ta-btn ta-btn-download"
+       href="{% url 'callcenter:exportar_tiempo_acordado_pdf' original.id %}"
+       title="Descargar el reporte en PDF">
+        <i class="fas fa-download"></i> Descargar PDF
+    </a>
+
+    <button type="button" class="ta-btn ta-btn-print" id="ta-btn-print"
+            data-url="{% url 'callcenter:exportar_tiempo_acordado_pdf' original.id %}?inline=1"
+            title="Abrir el reporte para imprimir">
+        <i class="fas fa-print"></i> Imprimir
+    </button>
+
+    <button type="button" class="ta-btn ta-btn-email" id="ta-btn-email"
+            data-url="{% url 'callcenter:enviar_tiempo_acordado_power_automate' original.id %}"
+            title="Enviar el reporte por correo">
+        <i class="fas fa-paper-plane"></i> Enviar por correo
+    </button>
+
+    {% if original.enviado %}
+    <span class="ta-sent-badge" id="ta-sent-badge"><i class="fas fa-check-circle"></i> Enviado</span>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    var csrftoken = "{{ csrf_token }}";
+
+    // --- Imprimir: abre el PDF en una pestaña nueva y lanza el diálogo de impresión ---
+    var printBtn = document.getElementById('ta-btn-print');
+    if (printBtn) {
+        printBtn.addEventListener('click', function () {
+            var win = window.open(printBtn.dataset.url, '_blank');
+            if (win) {
+                win.addEventListener('load', function () {
+                    try { win.focus(); win.print(); } catch (e) { /* el visor del navegador maneja la impresión */ }
+                });
+            }
+        });
+    }
+
+    // --- Enviar por correo vía Power Automate ---
+    var emailBtn = document.getElementById('ta-btn-email');
+    if (emailBtn) {
+        emailBtn.addEventListener('click', function () {
+            Swal.fire({
+                title: '¿Enviar reporte por correo?',
+                text: 'Se generará el PDF y se enviará a través del flujo de Power Automate.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0070f2',
+                cancelButtonColor: '#6a6d70',
+                confirmButtonText: 'Sí, enviar',
+                cancelButtonText: 'Cancelar'
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                Swal.fire({
+                    title: 'Enviando...',
+                    text: 'Generando el reporte y enviando el correo.',
+                    allowOutsideClick: false,
+                    didOpen: function () { Swal.showLoading(); }
+                });
+
+                fetch(emailBtn.dataset.url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+                .then(function (r) {
+                    if (r.ok && r.data.status === 'success') {
+                        Swal.fire({
+                            title: 'Enviado',
+                            text: r.data.message || 'El acuerdo fue enviado correctamente.',
+                            icon: 'success',
+                            confirmButtonColor: '#0070f2'
+                        });
+                        var bar = document.getElementById('ta-action-bar');
+                        if (bar && !document.getElementById('ta-sent-badge')) {
+                            var badge = document.createElement('span');
+                            badge.className = 'ta-sent-badge';
+                            badge.id = 'ta-sent-badge';
+                            badge.innerHTML = '<i class="fas fa-check-circle"></i> Enviado';
+                            bar.appendChild(badge);
+                        }
+                    } else {
+                        Swal.fire({
+                            title: 'Error al enviar',
+                            text: (r.data && r.data.message) || 'No se pudo enviar el reporte.',
+                            icon: 'error',
+                            confirmButtonColor: '#bb0000'
+                        });
+                    }
+                })
+                .catch(function (err) {
+                    Swal.fire({
+                        title: 'Error de conexión',
+                        text: String(err),
+                        icon: 'error',
+                        confirmButtonColor: '#bb0000'
+                    });
+                });
+            });
+        });
+    }
+})();
+</script>
+{% else %}
+<div class="ta-hint">
+    <i class="fas fa-info-circle"></i>
+    <span>Guarda el acuerdo primero. Una vez creado, aquí aparecerán las opciones para <strong>descargar</strong>, <strong>imprimir</strong> y <strong>enviar por correo</strong> el reporte.</span>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

@@ -2065,7 +2065,9 @@ def exportar_tiempo_acordado_pdf_view(request, pk):
         filename = f"Plantilla_Manual_Acuerdo_{acuerdo.id}.pdf"
     
     response = HttpResponse(data, content_type=content_type)
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    # inline=1 -> mostrar en el navegador (para imprimir). Por defecto, descarga.
+    disposition = 'inline' if request.GET.get('inline') == '1' else 'attachment'
+    response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
     return response
 
 @staff_member_required

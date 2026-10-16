@@ -631,6 +631,7 @@ class EnlaceAdmin(ImportExportModelAdmin):
 
 @admin.register(TiempoAcordado)
 class TiempoAcordadoAdmin(admin.ModelAdmin):
+    change_form_template = 'admin/callcenter/tiempoacordado/change_form.html'
     list_display = ('id', 'get_folio', 'enlace', 'institucion', 'estatus', 'fecha_solucion_final', 'departamento')
     list_filter = ('estatus', 'departamento', 'institucion', 'creado_en')
     search_fields = ('ticket__folio', 'ticket__id_solicitud', 'enlace__nombre', 'motivo_extension', 'institucion__nombre')
