@@ -577,6 +577,15 @@ class MaterialResource(resources.ModelResource):
         if sku_clean:
             row['sku'] = sku_clean
 
+        # Validación de formato de SKU: debe contener al menos un guion.
+        # Rechaza filas cuyo SKU no cumpla (ej. "4070049"), aceptando
+        # formatos como "REP-DB96-15745A" o "ADM-INF-IMPER".
+        if sku_clean and '-' not in sku_clean:
+            raise ValueError(
+                f"SKU inválido '{sku_clean}': debe contener al menos un guion "
+                f"(ejemplo de formato: REP-DB96-15745A). Fila omitida."
+            )
+
         # Limpiar Código de Barras
         cb_clean = self._clean_sku_string(row.get('codigo_barras'))
         if cb_clean:
