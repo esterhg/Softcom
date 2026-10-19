@@ -316,11 +316,25 @@ class DocumentoRequisicionInline(admin.TabularInline):
         return "Guarde para previsualizar"
     previsualizar.short_description = "Vista Previa"
 
+class DepartamentoSolicitanteFilter(admin.RelatedFieldListFilter):
+    """Filtro por departamento del solicitante con un título legible."""
+    def __init__(self, field, request, params, model, model_admin, field_path):
+        super().__init__(field, request, params, model, model_admin, field_path)
+        self.title = "Departamento (solicitante)"
+
+
 @admin.register(Requisicion)
 class RequisicionAdmin(ImportExportModelAdmin):
     change_list_template = 'admin/presupuestos/requisicion/change_list.html'
     list_display = ('cr8ca_requisicion', 'fecha', 'partida', 'item_presupuesto', 'tipo_rutina', 'proveedor', 'cr8ca_asunto', 'cr8ca_prioridad', 'cr8ca_totalenarticulos', 'usuario_solicitante', 'createdon')
-    list_filter = ('fecha', 'cr8ca_prioridad', 'estado_requisicion')
+    list_filter = (
+        'estado_requisicion',
+        'usuario_solicitante',
+        'proveedor',
+        ('usuario_solicitante__perfil__departamento', DepartamentoSolicitanteFilter),
+        'fecha',
+        'cr8ca_prioridad',
+    )
     search_fields = ('cr8ca_requisicion', 'cr8ca_asunto', 'cr8ca_motivo')
     autocomplete_fields = ['partida', 'item_presupuesto', 'tipo_rutina', 'proveedor', 'usuario_solicitante', 'usuario_en_nombre_de', 'aprobador']
     ordering = ('-fecha',)

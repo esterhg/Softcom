@@ -651,6 +651,26 @@ def requisicion_dashboard(request):
     es_procura = request.user.groups.filter(name__in=['Procura', 'PROCURA']).exists()
     es_procura_tecnica = request.user.groups.filter(name__in=['Procura_Tecnica', 'PROCURA_TECNICA']).exists()
 
+    # Filtros adicionales (dropdowns del dashboard)
+    f_solicitante = request.GET.get('solicitante', '').strip()
+    f_proveedor = request.GET.get('proveedor', '').strip()
+    f_estado = request.GET.get('estado', '').strip()
+    f_departamento = request.GET.get('departamento', '').strip()
+    f_solicitud_pago = request.GET.get('solicitud_pago', '').strip()
+
+    extra_q = Q()
+    if f_solicitante:
+        extra_q &= Q(usuario_solicitante_id=f_solicitante)
+    if f_proveedor:
+        extra_q &= Q(proveedor_id=f_proveedor)
+    if f_estado:
+        extra_q &= Q(estado_requisicion=f_estado)
+    if f_departamento:
+        extra_q &= Q(usuario_solicitante__perfil__departamento_id=f_departamento)
+    if f_solicitud_pago:
+        extra_q &= Q(items_pago__solicitud_id=f_solicitud_pago)
+    hay_filtros = bool(extra_q)
+
     # Departamento del usuario logueado
     dept = None
     if hasattr(request.user, 'perfil'):
@@ -670,6 +690,9 @@ def requisicion_dashboard(request):
     base_qs = Requisicion.objects.filter(dept_q)
     if es_procura or es_procura_tecnica:
         base_qs = base_qs.exclude(estado_requisicion__in=['BORRADOR', 'PENDIENTE'])
+    # Aplicar filtros adicionales (si los hay). distinct() por el join a items_pago.
+    if hay_filtros:
+        base_qs = base_qs.filter(extra_q).distinct()
 
     # Métricas (siempre filtradas por departamento)
     total_reqs = base_qs.count()
@@ -690,9 +713,14 @@ def requisicion_dashboard(request):
         )
         if es_procura or es_procura_tecnica:
             query = query.exclude(estado_requisicion__in=['BORRADOR', 'PENDIENTE'])
+        # Los filtros de dropdown también acotan la búsqueda
+        if hay_filtros:
+            query = query.filter(extra_q).distinct()
     else:
         query = base_qs
-    ultimas_requisiciones = query.order_by('-fecha', '-createdon')[:20]
+    ultimas_requisiciones = query.prefetch_related(
+        'items_pago__solicitud', 'ordenes_compra'
+    ).order_by('-fecha', '-createdon')[:20]
 
     # Estadísticas del departamento (solo el del usuario)
     stats_departamento = base_qs.values('usuario_solicitante__perfil__departamento__nombre') \
@@ -702,7 +730,7 @@ def requisicion_dashboard(request):
     # Mis requisiciones (usuario actual)
     mis_requisiciones = base_qs.filter(
         Q(usuario_solicitante=request.user) | Q(usuario_en_nombre_de=request.user)
-    ).order_by('-fecha', '-createdon')[:15]
+    ).prefetch_related('items_pago__solicitud', 'ordenes_compra').order_by('-fecha', '-createdon')[:15]
 
     # Última vista personalizada del usuario
     from .models import DashboardView
@@ -722,6 +750,34 @@ def requisicion_dashboard(request):
     except Exception:
         last_view = None
 
+    # Opciones para los dropdowns de filtro.
+    # El alcance de solicitantes/departamentos depende del rol: Procura ve todo,
+    # el resto solo lo visible según dept_q (coherente con base_qs).
+    from .models import SolicitudPago
+    from core.models import Departamento
+    from mantenimiento.models import Empresa
+    from django.contrib.auth.models import User
+
+    scope_qs = Requisicion.objects.filter(dept_q)
+    if es_procura or es_procura_tecnica:
+        scope_qs = scope_qs.exclude(estado_requisicion__in=['BORRADOR', 'PENDIENTE'])
+
+    solicitante_ids = scope_qs.values_list('usuario_solicitante_id', flat=True).distinct()
+    solicitantes = User.objects.filter(id__in=solicitante_ids).order_by('first_name', 'username')
+
+    proveedor_ids = scope_qs.exclude(proveedor__isnull=True).values_list('proveedor_id', flat=True).distinct()
+    proveedores = Empresa.objects.filter(id__in=proveedor_ids).order_by('nombre')
+
+    departamento_ids = scope_qs.values_list(
+        'usuario_solicitante__perfil__departamento_id', flat=True
+    ).distinct()
+    departamentos = Departamento.objects.filter(id__in=departamento_ids).order_by('nombre')
+
+    solicitud_pago_ids = scope_qs.exclude(items_pago__isnull=True).values_list(
+        'items_pago__solicitud_id', flat=True
+    ).distinct()
+    solicitudes_pago = SolicitudPago.objects.filter(id__in=solicitud_pago_ids).order_by('-fecha_solicitud')
+
     context = {
         'total_reqs': total_reqs,
         'total_monto': total_monto,
@@ -736,6 +792,18 @@ def requisicion_dashboard(request):
         'es_procura': es_procura,
         'es_procura_tecnica': es_procura_tecnica,
         'last_view_json': json.dumps(last_view),
+        # Opciones y valores seleccionados para los filtros
+        'solicitantes': solicitantes,
+        'proveedores': proveedores,
+        'estados_choices': Requisicion.ESTADO_REQUISICION_CHOICES,
+        'departamentos': departamentos,
+        'solicitudes_pago': solicitudes_pago,
+        'f_solicitante': f_solicitante,
+        'f_proveedor': f_proveedor,
+        'f_estado': f_estado,
+        'f_departamento': f_departamento,
+        'f_solicitud_pago': f_solicitud_pago,
+        'hay_filtros': hay_filtros,
     }
     return render(request, 'admin/presupuestos/requisicion/dashboard.html', context)
 

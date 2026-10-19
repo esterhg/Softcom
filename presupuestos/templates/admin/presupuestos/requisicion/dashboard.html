@@ -317,15 +317,56 @@
             📦 Panel de Requisiciones
             {% if dept %}<span style="font-size: 0.9rem; font-weight: 500; color: var(--text-muted); display: block; margin-top: 4px;">{{ dept.nombre }}</span>{% endif %}
         </h1>
-        <div style="display: flex; gap: 12px; align-items: center; flex: 1; max-width: 600px; margin: 0 auto;">
-            <form method="get" style="display: flex; gap: 8px; flex: 1;">
+        <div style="display: flex; gap: 12px; align-items: center; flex: 1; max-width: 900px; margin: 0 auto;">
+            <form method="get" id="req-filters-form" style="display: flex; gap: 8px; flex: 1; flex-wrap: wrap; align-items: center;">
                 <input type="text" name="q" value="{{ search_query }}"
                     placeholder="🔍 Buscar por N° requisición, asunto o motivo..."
-                    style="flex: 1; padding: 10px 16px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9rem; font-family: 'Inter', sans-serif;" />
+                    style="flex: 1; min-width: 220px; padding: 10px 16px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9rem; font-family: 'Inter', sans-serif;" />
+
+                <select name="estado" onchange="this.form.submit()"
+                    style="padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; font-family: 'Inter', sans-serif; background:#fff;">
+                    <option value="">Estado: Todos</option>
+                    {% for value, label in estados_choices %}
+                    <option value="{{ value }}" {% if f_estado == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+
+                <select name="solicitante" onchange="this.form.submit()"
+                    style="padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; font-family: 'Inter', sans-serif; background:#fff;">
+                    <option value="">Solicitante: Todos</option>
+                    {% for u in solicitantes %}
+                    <option value="{{ u.id }}" {% if f_solicitante == u.id|stringformat:'s' %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                    {% endfor %}
+                </select>
+
+                <select name="proveedor" onchange="this.form.submit()"
+                    style="padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; font-family: 'Inter', sans-serif; background:#fff;">
+                    <option value="">Proveedor: Todos</option>
+                    {% for p in proveedores %}
+                    <option value="{{ p.id }}" {% if f_proveedor == p.id|stringformat:'s' %}selected{% endif %}>{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+
+                <select name="departamento" onchange="this.form.submit()"
+                    style="padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; font-family: 'Inter', sans-serif; background:#fff;">
+                    <option value="">Departamento: Todos</option>
+                    {% for d in departamentos %}
+                    <option value="{{ d.id }}" {% if f_departamento == d.id|stringformat:'s' %}selected{% endif %}>{{ d.nombre }}</option>
+                    {% endfor %}
+                </select>
+
+                <select name="solicitud_pago" onchange="this.form.submit()"
+                    style="padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; font-family: 'Inter', sans-serif; background:#fff;">
+                    <option value="">Tabla de Pago: Todas</option>
+                    {% for sp in solicitudes_pago %}
+                    <option value="{{ sp.id }}" {% if f_solicitud_pago == sp.id|stringformat:'s' %}selected{% endif %}>#{{ sp.pk }} - {{ sp.descripcion|truncatechars:30 }}</option>
+                    {% endfor %}
+                </select>
+
                 <button type="submit" class="btn-custom btn-outline-custom" style="white-space: nowrap;">
                     Buscar
                 </button>
-                {% if search_query %}
+                {% if search_query or hay_filtros %}
                 <a href="{% url 'presupuestos:requisicion_dashboard' %}" class="btn-custom btn-outline-custom"
                     style="white-space: nowrap;">
                     Limpiar
@@ -432,6 +473,7 @@
                             <th data-column-id="estado">Estado</th>
                             <th data-column-id="total">Total</th>
                             <th data-column-id="oc">O/C</th>
+                            <th data-column-id="pago">Tabla de Pago</th>
                             <th data-column-id="tipo" style="display:none;">Tipo</th>
                             <th data-column-id="solicitante" style="display:none;">Solicitante</th>
                             <th data-column-id="aprobador" style="display:none;">Aprobador</th>
@@ -476,142 +518,14 @@
                                 <div style="white-space:nowrap;">{% if es_procura %}<a href="#" onclick="abrirModalOC({{ oc.pk }}); return false;" style="color:#2563eb;text-decoration:underline;">{{ oc.numero_oc }}</a>{% else %}{{ oc.numero_oc }}{% endif %}</div>
                                 {% endfor %}
                             </td>
-                            <td data-column-id="tipo" style="display:none;">{{ req.get_tipo_display|default:"-" }}</td>
-                            <td data-column-id="solicitante" style="display:none;">{{ req.usuario_solicitante.get_full_name|default:"-" }}</td>
-                            <td data-column-id="aprobador" style="display:none;">{{ req.aprobador.get_full_name|default:"-" }}</td>
-                            <td data-column-id="motivo" style="display:none;">{{ req.cr8ca_motivo|default:"-"|truncatechars:30 }}</td>
-                            <td data-column-id="partida" style="display:none;">{{ req.partida|default:"-" }}</td>
-                            <td data-column-id="proveedor" style="display:none;">{{ req.proveedor|default:"-" }}</td>
-                            <td data-column-id="acciones" style="text-align: right; white-space: nowrap;">
-                                <a href="{% url 'presupuestos:requisicion_editar' req.pk %}"
-                                    class="btn-custom btn-outline-custom" style="padding: 6px 12px; font-size: 0.75rem;">
-                                    Editar
-                                </a>
-                                {% if es_procura or es_procura_tecnica %}
-                                {% if req.estado_requisicion == 'AUTORIZADO' or req.estado_requisicion == 'VISTO_PROCURA' %}
-                                <button type="button" class="btn-custom btn-procesar-requisicion"
-                                    style="padding: 6px 12px; font-size: 0.75rem; background: #f59e0b; color: white !important; border: none; cursor: pointer;"
-                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
-                                    📋 Procesar Requisición
-                                </button>
-                                {% endif %}
-                                {% if req.estado_requisicion == 'PROCURA_PROCESANDO' %}
-                                <button type="button" class="btn-custom btn-procesar-requisicion"
-                                    style="padding: 6px 12px; font-size: 0.75rem; background: #f97316; color: white !important; border: none; cursor: pointer;"
-                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
-                                    🔄 Continuar Procesando
-                                </button>
-                                {% endif %}
-                                {% if req.estado_requisicion == 'AUTORIZADO' or req.estado_requisicion == 'VISTO_PROCURA' or req.estado_requisicion == 'PROCURA_PROCESANDO' %}
-                                <button type="button" class="btn-custom btn-solicitar-informacion"
-                                    style="padding: 6px 12px; font-size: 0.75rem; background: #a855f7; color: white !important; border: none; cursor: pointer;"
-                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
-                                    ❓ Solicitar Información
-                                </button>
-                                {% endif %}
-                                {% endif %}
-                                {% if req.estado_requisicion == 'SOLICITUD_INFORMACION' %}
-                                {% if request.user == req.usuario_solicitante or request.user == req.usuario_en_nombre_de %}
-                                <button type="button" class="btn-custom btn-responder-informacion"
-                                    style="padding: 6px 12px; font-size: 0.75rem; background: #ec4899; color: white !important; border: none; cursor: pointer;"
-                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
-                                    📝 Responder Solicitud
-                                </button>
-                                {% endif %}
-                                {% endif %}
-                                {% if req.estado_requisicion == 'EN_ORDEN_COMPRA' and not req.recepcion_notificada and req.tipo == 'BIEN' %}
-                                <button type="button" class="btn-custom btn-notificar-recepcion"
-                                    style="padding: 6px 12px; font-size: 0.75rem; background: #6366f1; color: white !important; border: none; cursor: pointer;"
-                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
-                                    📬 Notificar Recepción
-                                </button>
-                                {% if es_procura %}
-                                <button type="button" class="btn-custom btn-revertir-oc"
-                                    style="padding: 6px 12px; font-size: 0.75rem; background: #ef4444; color: white !important; border: none; cursor: pointer;"
-                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
-                                    ↩️ Revertir
-                                </button>
-                                {% endif %}
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="14" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                                No hay requisiciones registradas.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tab Content: Mis Requisiciones -->
-    <div id="tab-personales" class="tab-content-area" style="display: none;">
-        <div class="main-surface">
-            <div class="surface-header">
-                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600;">
-                    👤 Mis Requisiciones Recientes
-                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">
-                        (Donde aparezco como solicitante o responsable)
-                    </span>
-                </h3>
-            </div>
-            <div style="overflow-x: auto;">
-                <table class="table-modern">
-                    <thead>
-                        <tr>
-                            <th data-column-id="requisicion">N° Requisición</th>
-                            <th data-column-id="fecha">Fecha</th>
-                            <th data-column-id="asunto">Asunto</th>
-                            <th data-column-id="prioridad">Prioridad</th>
-                            <th data-column-id="estado">Estado</th>
-                            <th data-column-id="total">Total</th>
-                            <th data-column-id="oc">O/C</th>
-                            <th data-column-id="tipo" style="display:none;">Tipo</th>
-                            <th data-column-id="solicitante" style="display:none;">Solicitante</th>
-                            <th data-column-id="aprobador" style="display:none;">Aprobador</th>
-                            <th data-column-id="motivo" style="display:none;">Motivo</th>
-                            <th data-column-id="partida" style="display:none;">Partida Presup.</th>
-                            <th data-column-id="proveedor" style="display:none;">Proveedor</th>
-                            <th data-column-id="acciones" style="text-align: right;">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for req in mis_requisiciones %}
-                        <tr>
-                            <td data-column-id="requisicion" style="font-weight: 600; color: var(--secondary);">
-                                <a href="{% url 'presupuestos:requisicion_editar' req.pk %}"
-                                    style="color: inherit;">{{req.cr8ca_requisicion}}</a>
-                            </td>
-                            <td data-column-id="fecha" data-sort-value="{{ req.fecha|default:req.createdon|date:'Y-m-d' }}">{{req.fecha|default:req.createdon|date:"d/m/Y"}}</td>
-                            <td data-column-id="asunto">{{req.cr8ca_asunto|truncatechars:40}}</td>
-                            <td data-column-id="prioridad" data-sort-value="{{req.get_cr8ca_prioridad_display}}">
-                                <span class="priority-badge priority-{{req.cr8ca_prioridad}}">
-                                    {{req.get_cr8ca_prioridad_display}}
-                                </span>
-                            </td>
-                            <td data-column-id="estado">
-                                <span class="priority-badge" style="
-                                    {% if req.estado_requisicion == 'AUTORIZADO' %}background:#dcfce7; color:#166534;{% endif %}
-                                    {% if req.estado_requisicion == 'PENDIENTE' %}background:#fef9c3; color:#854d0e;{% endif %}
-                                    {% if req.estado_requisicion == 'BORRADOR' %}background:#f1f5f9; color:#475569;{% endif %}
-                                    {% if req.estado_requisicion == 'VISTO_PROCURA' %}background:#e0e7ff; color:#3730a3;{% endif %}
-                                    {% if req.estado_requisicion == 'PROCURA_PROCESANDO' %}background:#fff7ed; color:#9a3412;{% endif %}
-                                    {% if req.estado_requisicion == 'SOLICITUD_INFORMACION' %}background:#fdf4ff; color:#86198f;{% endif %}
-                                    {% if req.estado_requisicion == 'EN_ORDEN_COMPRA' %}background:#dbeafe; color:#1e40af;{% endif %}
-                                    {% if req.estado_requisicion == 'RECHAZADO' %}background:#fee2e2; color:#991b1b;{% endif %}
-                                ">
-                                    {{req.get_estado_requisicion_display}}
-                                </span>
-                            </td>
-                            <td data-column-id="total" data-sort-value="{{ req.cr8ca_totalenarticulos }}" style="font-family: monospace; font-weight: 600;">
-                                {{ req.moneda_simbolo }}.{{req.cr8ca_totalenarticulos|floatformat:2}}</td>
-                            <td data-column-id="oc" style="font-size:0.8rem;">
-                                {% for oc in req.ordenes_compra.all %}
-                                <div style="white-space:nowrap;">{% if es_procura %}<a href="#" onclick="abrirModalOC({{ oc.pk }}); return false;" style="color:#2563eb;text-decoration:underline;">{{ oc.numero_oc }}</a>{% else %}{{ oc.numero_oc }}{% endif %}</div>
+                            <td data-column-id="pago" style="font-size:0.8rem;">
+                                {% for item in req.items_pago.all %}
+                                <div style="white-space:nowrap;" title="{{ item.solicitud.descripcion }}">
+                                    <a href="{% url 'presupuestos:dashboard_pagos' %}?q={{ item.solicitud.pk }}" style="color:#2563eb;text-decoration:underline;">#{{ item.solicitud.pk }}</a>
+                                    <span style="color:var(--text-muted);">{{ item.solicitud.descripcion|truncatechars:20 }}</span>
+                                </div>
+                                {% empty %}
+                                <span style="color:var(--text-muted);">—</span>
                                 {% endfor %}
                             </td>
                             <td data-column-id="tipo" style="display:none;">{{ req.get_tipo_display|default:"-" }}</td>
@@ -675,7 +589,156 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="14" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <td colspan="15" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                No hay requisiciones registradas.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Content: Mis Requisiciones -->
+    <div id="tab-personales" class="tab-content-area" style="display: none;">
+        <div class="main-surface">
+            <div class="surface-header">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600;">
+                    👤 Mis Requisiciones Recientes
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">
+                        (Donde aparezco como solicitante o responsable)
+                    </span>
+                </h3>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="table-modern">
+                    <thead>
+                        <tr>
+                            <th data-column-id="requisicion">N° Requisición</th>
+                            <th data-column-id="fecha">Fecha</th>
+                            <th data-column-id="asunto">Asunto</th>
+                            <th data-column-id="prioridad">Prioridad</th>
+                            <th data-column-id="estado">Estado</th>
+                            <th data-column-id="total">Total</th>
+                            <th data-column-id="oc">O/C</th>
+                            <th data-column-id="pago">Tabla de Pago</th>
+                            <th data-column-id="tipo" style="display:none;">Tipo</th>
+                            <th data-column-id="solicitante" style="display:none;">Solicitante</th>
+                            <th data-column-id="aprobador" style="display:none;">Aprobador</th>
+                            <th data-column-id="motivo" style="display:none;">Motivo</th>
+                            <th data-column-id="partida" style="display:none;">Partida Presup.</th>
+                            <th data-column-id="proveedor" style="display:none;">Proveedor</th>
+                            <th data-column-id="acciones" style="text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in mis_requisiciones %}
+                        <tr>
+                            <td data-column-id="requisicion" style="font-weight: 600; color: var(--secondary);">
+                                <a href="{% url 'presupuestos:requisicion_editar' req.pk %}"
+                                    style="color: inherit;">{{req.cr8ca_requisicion}}</a>
+                            </td>
+                            <td data-column-id="fecha" data-sort-value="{{ req.fecha|default:req.createdon|date:'Y-m-d' }}">{{req.fecha|default:req.createdon|date:"d/m/Y"}}</td>
+                            <td data-column-id="asunto">{{req.cr8ca_asunto|truncatechars:40}}</td>
+                            <td data-column-id="prioridad" data-sort-value="{{req.get_cr8ca_prioridad_display}}">
+                                <span class="priority-badge priority-{{req.cr8ca_prioridad}}">
+                                    {{req.get_cr8ca_prioridad_display}}
+                                </span>
+                            </td>
+                            <td data-column-id="estado">
+                                <span class="priority-badge" style="
+                                    {% if req.estado_requisicion == 'AUTORIZADO' %}background:#dcfce7; color:#166534;{% endif %}
+                                    {% if req.estado_requisicion == 'PENDIENTE' %}background:#fef9c3; color:#854d0e;{% endif %}
+                                    {% if req.estado_requisicion == 'BORRADOR' %}background:#f1f5f9; color:#475569;{% endif %}
+                                    {% if req.estado_requisicion == 'VISTO_PROCURA' %}background:#e0e7ff; color:#3730a3;{% endif %}
+                                    {% if req.estado_requisicion == 'PROCURA_PROCESANDO' %}background:#fff7ed; color:#9a3412;{% endif %}
+                                    {% if req.estado_requisicion == 'SOLICITUD_INFORMACION' %}background:#fdf4ff; color:#86198f;{% endif %}
+                                    {% if req.estado_requisicion == 'EN_ORDEN_COMPRA' %}background:#dbeafe; color:#1e40af;{% endif %}
+                                    {% if req.estado_requisicion == 'RECHAZADO' %}background:#fee2e2; color:#991b1b;{% endif %}
+                                ">
+                                    {{req.get_estado_requisicion_display}}
+                                </span>
+                            </td>
+                            <td data-column-id="total" data-sort-value="{{ req.cr8ca_totalenarticulos }}" style="font-family: monospace; font-weight: 600;">
+                                {{ req.moneda_simbolo }}.{{req.cr8ca_totalenarticulos|floatformat:2}}</td>
+                            <td data-column-id="oc" style="font-size:0.8rem;">
+                                {% for oc in req.ordenes_compra.all %}
+                                <div style="white-space:nowrap;">{% if es_procura %}<a href="#" onclick="abrirModalOC({{ oc.pk }}); return false;" style="color:#2563eb;text-decoration:underline;">{{ oc.numero_oc }}</a>{% else %}{{ oc.numero_oc }}{% endif %}</div>
+                                {% endfor %}
+                            </td>
+                            <td data-column-id="pago" style="font-size:0.8rem;">
+                                {% for item in req.items_pago.all %}
+                                <div style="white-space:nowrap;" title="{{ item.solicitud.descripcion }}">
+                                    <a href="{% url 'presupuestos:dashboard_pagos' %}?q={{ item.solicitud.pk }}" style="color:#2563eb;text-decoration:underline;">#{{ item.solicitud.pk }}</a>
+                                    <span style="color:var(--text-muted);">{{ item.solicitud.descripcion|truncatechars:20 }}</span>
+                                </div>
+                                {% empty %}
+                                <span style="color:var(--text-muted);">—</span>
+                                {% endfor %}
+                            </td>
+                            <td data-column-id="tipo" style="display:none;">{{ req.get_tipo_display|default:"-" }}</td>
+                            <td data-column-id="solicitante" style="display:none;">{{ req.usuario_solicitante.get_full_name|default:"-" }}</td>
+                            <td data-column-id="aprobador" style="display:none;">{{ req.aprobador.get_full_name|default:"-" }}</td>
+                            <td data-column-id="motivo" style="display:none;">{{ req.cr8ca_motivo|default:"-"|truncatechars:30 }}</td>
+                            <td data-column-id="partida" style="display:none;">{{ req.partida|default:"-" }}</td>
+                            <td data-column-id="proveedor" style="display:none;">{{ req.proveedor|default:"-" }}</td>
+                            <td data-column-id="acciones" style="text-align: right; white-space: nowrap;">
+                                <a href="{% url 'presupuestos:requisicion_editar' req.pk %}"
+                                    class="btn-custom btn-outline-custom" style="padding: 6px 12px; font-size: 0.75rem;">
+                                    Editar
+                                </a>
+                                {% if es_procura or es_procura_tecnica %}
+                                {% if req.estado_requisicion == 'AUTORIZADO' or req.estado_requisicion == 'VISTO_PROCURA' %}
+                                <button type="button" class="btn-custom btn-procesar-requisicion"
+                                    style="padding: 6px 12px; font-size: 0.75rem; background: #f59e0b; color: white !important; border: none; cursor: pointer;"
+                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
+                                    📋 Procesar Requisición
+                                </button>
+                                {% endif %}
+                                {% if req.estado_requisicion == 'PROCURA_PROCESANDO' %}
+                                <button type="button" class="btn-custom btn-procesar-requisicion"
+                                    style="padding: 6px 12px; font-size: 0.75rem; background: #f97316; color: white !important; border: none; cursor: pointer;"
+                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
+                                    🔄 Continuar Procesando
+                                </button>
+                                {% endif %}
+                                {% if req.estado_requisicion == 'AUTORIZADO' or req.estado_requisicion == 'VISTO_PROCURA' or req.estado_requisicion == 'PROCURA_PROCESANDO' %}
+                                <button type="button" class="btn-custom btn-solicitar-informacion"
+                                    style="padding: 6px 12px; font-size: 0.75rem; background: #a855f7; color: white !important; border: none; cursor: pointer;"
+                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
+                                    ❓ Solicitar Información
+                                </button>
+                                {% endif %}
+                                {% endif %}
+                                {% if req.estado_requisicion == 'SOLICITUD_INFORMACION' %}
+                                {% if request.user == req.usuario_solicitante or request.user == req.usuario_en_nombre_de %}
+                                <button type="button" class="btn-custom btn-responder-informacion"
+                                    style="padding: 6px 12px; font-size: 0.75rem; background: #ec4899; color: white !important; border: none; cursor: pointer;"
+                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
+                                    📝 Responder Solicitud
+                                </button>
+                                {% endif %}
+                                {% endif %}
+                                {% if req.estado_requisicion == 'EN_ORDEN_COMPRA' and not req.recepcion_notificada and req.tipo == 'BIEN' %}
+                                <button type="button" class="btn-custom btn-notificar-recepcion"
+                                    style="padding: 6px 12px; font-size: 0.75rem; background: #6366f1; color: white !important; border: none; cursor: pointer;"
+                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
+                                    📬 Notificar Recepción
+                                </button>
+                                {% if es_procura %}
+                                <button type="button" class="btn-custom btn-revertir-oc"
+                                    style="padding: 6px 12px; font-size: 0.75rem; background: #ef4444; color: white !important; border: none; cursor: pointer;"
+                                    data-pk="{{ req.pk }}" data-req="{{ req.cr8ca_requisicion }}">
+                                    ↩️ Revertir
+                                </button>
+                                {% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="15" style="text-align: center; padding: 40px; color: var(--text-muted);">
                                 No has creado o no tienes requisiciones asignadas recientemente.
                             </td>
                         </tr>
