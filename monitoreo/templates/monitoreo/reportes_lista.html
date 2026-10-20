@@ -116,6 +116,54 @@
 /* ── Empty ── */
 .mon-empty { text-align: center; padding: 3rem 1rem; color: #6a6d70; }
 .mon-empty i { font-size: 2.2rem; opacity: .3; display: block; margin-bottom: .65rem; }
+
+/* ── Responsive: tabla → tarjetas en móvil ── */
+@media (max-width: 680px) {
+  .table-scroll { overflow-x: visible; }
+  .mon-table { min-width: 0; display: block; }
+  .mon-table thead { display: none; }
+  .mon-table tbody { display: block; }
+  .mon-table tr {
+    display: block;
+    border: 1px solid #d9d9d9;
+    border-radius: .5rem;
+    padding: .6rem .75rem;
+    margin-bottom: .7rem;
+    background: #fff;
+  }
+  .mon-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    padding: .3rem 0;
+    border: none;
+    text-align: right;
+  }
+  .mon-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #6a6d70;
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .mon-table td[data-label="Acciones"] {
+    border-top: 1px solid #f0f0f0;
+    margin-top: .35rem;
+    padding-top: .55rem;
+    justify-content: flex-end;
+  }
+  .mon-table td[data-label="Acciones"]::before { display: none; }
+  .row-actions { flex-wrap: wrap; justify-content: flex-end; }
+}
+
+/* Dark mode para las tarjetas móviles */
+[data-theme="dark"] .mon-table tr { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .mon-table td::before { color: #94a3b8; }
+[data-theme="dark"] .mon-table td[data-label="Acciones"] { border-top-color: #2a3a50; }
 </style>
 {% endblock %}
 
@@ -175,23 +223,23 @@
         <tbody>
           {% for rpt in page_obj %}
           <tr>
-            <td><strong style="color:#0070f2;">#{{ rpt.pk }}</strong></td>
-            <td style="white-space:nowrap;">
+            <td data-label="#"><strong style="color:#0070f2;">#{{ rpt.pk }}</strong></td>
+            <td data-label="Fecha y hora" style="white-space:nowrap;">
               <span style="font-weight:600;">{{ rpt.fecha_hora|date:"d/m/Y" }}</span>
-              <span style="color:#6a6d70;font-size:.8rem;display:block;">{{ rpt.fecha_hora|date:"H:i" }}</span>
+              <span style="color:#6a6d70;font-size:.8rem;">{{ rpt.fecha_hora|date:"H:i" }}</span>
             </td>
-            <td>{{ rpt.supervisor_display }}</td>
-            <td>
+            <td data-label="Supervisor OCC">{{ rpt.supervisor_display }}</td>
+            <td data-label="Elevadores">
               <span style="font-size:.82rem;color:#6a6d70;">
                 {{ rpt.filas.count }} elev.
               </span>
             </td>
-            <td>
+            <td data-label="Estado">
               <span class="badge-estado badge-{{ rpt.estado }}">
                 {{ rpt.get_estado_display }}
               </span>
             </td>
-            <td>
+            <td data-label="Acciones">
               <div class="row-actions">
                 <a href="{% url 'monitoreo:reporte_detalle' rpt.pk %}"
                    class="mon-btn mon-btn-secondary mon-btn-sm" title="Ver detalle">
