@@ -978,5 +978,54 @@
             } catch (e) { Swal.fire('Error', 'No se pudo cargar', 'error'); }
         }
     </script>
+
+    <!-- Toast de confirmación al volver de crear un reporte -->
+    <script>
+    (function () {
+        const params = new URLSearchParams(window.location.search);
+        const nuevo = params.get('nuevo_reporte');
+        if (!nuevo) return;
+
+        const MENSAJES = {
+            'verificacion': 'Verificación de elevadores creada',
+            'elevadores':   'Reporte de elevadores creado',
+        };
+        const texto = MENSAJES[nuevo] || 'Reporte creado';
+
+        function showToast() {
+            if (typeof Swal === 'undefined') {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+                s.onload = fire;
+                document.head.appendChild(s);
+            } else {
+                fire();
+            }
+        }
+        function fire() {
+            Swal.fire({
+                toast: true,
+                position: 'top',
+                icon: 'success',
+                title: texto,
+                text: 'El PDF se genera en segundo plano.',
+                showConfirmButton: false,
+                timer: 4000,
+                timerProgressBar: true,
+            });
+        }
+        // Limpiar los parámetros de la URL para no repetir el aviso al recargar
+        const url = new URL(window.location.href);
+        url.searchParams.delete('nuevo_reporte');
+        url.searchParams.delete('id');
+        window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', showToast);
+        } else {
+            showToast();
+        }
+    })();
+    </script>
 </body>
 </html>

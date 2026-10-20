@@ -128,11 +128,6 @@
                  value="{{ reporte.responsable_nombre_manual|default:'' }}" placeholder="Nombre del responsable" autocomplete="off">
         </div>
         <div class="mon-form-group">
-          <label>Elaborado por</label>
-          <input type="text" name="elaborado_por" class="mon-form-control"
-                 value="{{ reporte.elaborado_por|default:'' }}" placeholder="Nombre" autocomplete="off">
-        </div>
-        <div class="mon-form-group">
           <label>Edificio</label>
           <input type="text" name="edificio" class="mon-form-control"
                  value="{{ reporte.edificio|default:'' }}" placeholder="Edificio / ubicación" autocomplete="off">
@@ -141,14 +136,6 @@
           <label>Fecha y hora</label>
           <input type="datetime-local" name="fecha_hora" class="mon-form-control"
                  value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}" required>
-        </div>
-        <div class="mon-form-group">
-          <label>Estado</label>
-          <select name="estado" class="mon-form-control">
-            <option value="borrador"  {% if not reporte or reporte.estado == 'borrador' %}selected{% endif %}>Borrador</option>
-            <option value="enviado"   {% if reporte and reporte.estado == 'enviado' %}selected{% endif %}>Enviado</option>
-            <option value="archivado" {% if reporte and reporte.estado == 'archivado' %}selected{% endif %}>Archivado</option>
-          </select>
         </div>
       </div>
     </div>

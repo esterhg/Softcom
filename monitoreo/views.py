@@ -610,7 +610,8 @@ def verif_crear(request):
             except Exception as exc:
                 logger.warning('No se pudo encolar PDF verif %s: %s', reporte.pk, exc)
             messages.success(request, f'Verificación #{reporte.pk} creada. El PDF se genera en segundo plano.')
-            return redirect('monitoreo:verif_detalle', pk=reporte.pk)
+            # Volver al dashboard móvil (/app/) con aviso de creación
+            return redirect(f'/app/?nuevo_reporte=verificacion&id={reporte.pk}')
         except Exception as exc:
             logger.exception('Error creando verificación')
             messages.error(request, f'Error: {exc}')
@@ -799,13 +800,17 @@ def _procesar_form_verif(request, instance):
       elevador_id[], y por cada campo booleano un array
       '<campo>[]' con '1' (cumple) o '0' (no cumple), más hallazgos[].
     """
-    post    = request.POST
-    reporte = instance if instance is not None else ReporteVerificacionAlarma(creado_por=request.user)
+    post      = request.POST
+    es_nuevo  = instance is None
+    reporte   = instance if instance is not None else ReporteVerificacionAlarma(creado_por=request.user)
 
     reporte.responsable_id            = None
     reporte.responsable_nombre_manual = post.get('responsable_manual', '').strip()
-    reporte.elaborado_por             = post.get('elaborado_por', '').strip()
     reporte.edificio                  = post.get('edificio', '').strip()
+    # 'elaborado_por' y 'estado' ya no están en el formulario: se preservan
+    # los valores existentes (edición) o se usan los defaults (creación).
+    if 'elaborado_por' in post:
+        reporte.elaborado_por = post.get('elaborado_por', '').strip()
 
     fh = post.get('fecha_hora', '').strip()
     if fh:
@@ -814,7 +819,11 @@ def _procesar_form_verif(request, instance):
             reporte.fecha_hora = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
 
     reporte.observaciones_generales = post.get('observaciones_generales', '').strip()
-    reporte.estado = post.get('estado', 'borrador')
+    if 'estado' in post:
+        reporte.estado = post.get('estado', 'enviado')
+    elif es_nuevo:
+        # Sin selector en el formulario: una verificación nueva queda "Enviado".
+        reporte.estado = 'enviado'
     reporte.save()
 
     elev_ids  = post.getlist('elevador_id[]')
