@@ -27,6 +27,64 @@
 .hist-pager { display:flex; align-items:center; justify-content:center; gap:.5rem; padding:.85rem 1rem; border-top:1px solid #f0f0f0; }
 .hist-empty { text-align:center; padding:3rem 1rem; color:#6a6d70; }
 .hist-empty i { font-size:2.4rem; opacity:.35; display:block; margin-bottom:.75rem; }
+
+/* ── Filtros / stats responsive ── */
+@media (max-width: 600px) {
+  .hist-filters { flex-direction: column; align-items: stretch; }
+  .hist-filter-group select { width: 100%; min-width: 0; }
+  .hist-stats { gap: .6rem; }
+  .hist-stat-card { flex: 1; min-width: 0; padding: .5rem .6rem; }
+  .zip-download-box { flex-direction: column; align-items: flex-start; }
+  .zip-download-box .mon-btn { margin-left: 0 !important; width: 100%; justify-content: center; }
+}
+
+/* ── Responsive: tabla → tarjetas en móvil ── */
+@media (max-width: 680px) {
+  .hist-table-wrap { overflow-x: visible; }
+  .hist-table { display: block; }
+  .hist-table thead { display: none; }
+  .hist-table tbody { display: block; }
+  .hist-table tr {
+    display: block;
+    border: 1px solid #d9d9d9;
+    border-radius: .5rem;
+    padding: .6rem .75rem;
+    margin-bottom: .7rem;
+    background: #fff;
+  }
+  .hist-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    padding: .3rem 0 !important;
+    border: none;
+    text-align: right !important;
+    width: auto !important;
+  }
+  .hist-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #6a6d70;
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .hist-table td[data-label="Acciones"] {
+    border-top: 1px solid #f0f0f0;
+    margin-top: .35rem;
+    padding-top: .55rem !important;
+    justify-content: flex-end;
+  }
+  .hist-table td[data-label="Acciones"]::before { display: none; }
+}
+
+/* Dark mode para las tarjetas móviles */
+[data-theme="dark"] .hist-table tr { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .hist-table td::before { color: #94a3b8; }
+[data-theme="dark"] .hist-table td[data-label="Acciones"] { border-top-color: #2a3a50; }
 </style>
 {% endblock %}
 
@@ -106,15 +164,15 @@
         <tbody>
           {% for rpt in page_obj %}
           <tr>
-            <td style="text-align:center;"><strong style="color:#0070f2;">{{ rpt.pk }}</strong></td>
-            <td style="white-space:nowrap;"><span style="font-weight:600;">{{ rpt.fecha_hora|date:"d/m/Y" }}</span><span style="color:#6a6d70;font-size:.8rem;display:block;">{{ rpt.fecha_hora|date:"H:i" }}</span></td>
-            <td>{{ rpt.responsable_display }}</td>
-            <td>{{ rpt.edificio|default:"—" }}</td>
-            <td style="text-align:center;"><span style="font-weight:600;">{{ rpt.filas.count }}</span></td>
-            <td><span class="badge-estado badge-{{ rpt.estado }}">{{ rpt.get_estado_display }}</span></td>
-            <td style="text-align:center;">{% if rpt.pdf_archivo %}<i class="fas fa-circle" style="color:#107e3e;font-size:.6rem;" title="PDF guardado"></i>{% else %}<i class="fas fa-circle" style="color:#d9d9d9;font-size:.6rem;" title="PDF no generado"></i>{% endif %}</td>
-            <td>
-              <div style="display:flex;gap:.3rem;flex-wrap:nowrap;">
+            <td data-label="#" style="text-align:center;"><strong style="color:#0070f2;">{{ rpt.pk }}</strong></td>
+            <td data-label="Fecha y hora" style="white-space:nowrap;"><span style="font-weight:600;">{{ rpt.fecha_hora|date:"d/m/Y" }}</span><span style="color:#6a6d70;font-size:.8rem;"> {{ rpt.fecha_hora|date:"H:i" }}</span></td>
+            <td data-label="Responsable OCC">{{ rpt.responsable_display }}</td>
+            <td data-label="Edificio">{{ rpt.edificio|default:"—" }}</td>
+            <td data-label="Equipos" style="text-align:center;"><span style="font-weight:600;">{{ rpt.filas.count }}</span></td>
+            <td data-label="Estado"><span class="badge-estado badge-{{ rpt.estado }}">{{ rpt.get_estado_display }}</span></td>
+            <td data-label="PDF" style="text-align:center;">{% if rpt.pdf_archivo %}<i class="fas fa-circle" style="color:#107e3e;font-size:.6rem;" title="PDF guardado"></i>{% else %}<i class="fas fa-circle" style="color:#d9d9d9;font-size:.6rem;" title="PDF no generado"></i>{% endif %}</td>
+            <td data-label="Acciones">
+              <div style="display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end;">
                 <a href="{% url 'monitoreo:verif_detalle' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Ver"><i class="fas fa-eye"></i></a>
                 <a href="{% url 'monitoreo:verif_pdf' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="PDF" target="_blank"><i class="fas fa-file-pdf" style="color:#bb0000;"></i></a>
                 <a href="{% url 'monitoreo:verif_editar' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Editar"><i class="fas fa-pencil-alt" style="color:#0070f2;"></i></a>
