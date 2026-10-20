@@ -89,9 +89,27 @@
     .verif-table td.equipo { font-weight: 700; text-align: left; padding: 3px 5px; font-size: 7.5pt; }
     .verif-table td.hallazgo { text-align: left; padding: 3px 5px; font-size: 7pt; color: #991b1b; }
     .verif-table tr:nth-child(even) td { background: #fafafa; }
-    .chk { font-size: 9pt; line-height: 1; font-family: 'Segoe UI Symbol', 'DejaVu Sans', sans-serif; }
-    .chk-on  { color: #107e3e; font-weight: 700; }
-    .chk-off { color: #bbb; }
+    /* Casilla dibujada con CSS (no depende de glifos de fuente) */
+    .box {
+      display: inline-block;
+      width: 11px; height: 11px;
+      border: 1.2px solid #555;
+      border-radius: 2px;
+      position: relative;
+      vertical-align: middle;
+      background: #fff;
+    }
+    .box.on { background: #107e3e; border-color: #107e3e; }
+    /* palomita dibujada con dos bordes */
+    .box.on::after {
+      content: "";
+      position: absolute;
+      left: 3px; top: 0px;
+      width: 3px; height: 6px;
+      border: solid #fff;
+      border-width: 0 1.6px 1.6px 0;
+      transform: rotate(45deg);
+    }
 
     /* ── Comentarios ── */
     .coment-box {
@@ -198,20 +216,20 @@
     <tr>
       <td class="equipo">{{ f.elevador.nombre }}</td>
       {# Etiqueta interna #}
-      <td><span class="chk {% if f.etiqueta_interna %}chk-on{% else %}chk-off{% endif %}">{% if f.etiqueta_interna %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="box {% if f.etiqueta_interna %}on{% endif %}"></span></td>
       {# Alarma: suena / no suena #}
-      <td><span class="chk {% if f.alarma_suena %}chk-on{% else %}chk-off{% endif %}">{% if f.alarma_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
-      <td><span class="chk {% if not f.alarma_suena %}chk-on{% else %}chk-off{% endif %}">{% if not f.alarma_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="box {% if f.alarma_suena %}on{% endif %}"></span></td>
+      <td><span class="box {% if not f.alarma_suena %}on{% endif %}"></span></td>
       {# Luz indicadora: enciende / no enciende #}
-      <td><span class="chk {% if f.luz_enciende %}chk-on{% else %}chk-off{% endif %}">{% if f.luz_enciende %}&#9745;{% else %}&#9744;{% endif %}</span></td>
-      <td><span class="chk {% if not f.luz_enciende %}chk-on{% else %}chk-off{% endif %}">{% if not f.luz_enciende %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="box {% if f.luz_enciende %}on{% endif %}"></span></td>
+      <td><span class="box {% if not f.luz_enciende %}on{% endif %}"></span></td>
       {# Parlante: suena / no suena #}
-      <td><span class="chk {% if f.parlante_suena %}chk-on{% else %}chk-off{% endif %}">{% if f.parlante_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
-      <td><span class="chk {% if not f.parlante_suena %}chk-on{% else %}chk-off{% endif %}">{% if not f.parlante_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="box {% if f.parlante_suena %}on{% endif %}"></span></td>
+      <td><span class="box {% if not f.parlante_suena %}on{% endif %}"></span></td>
       {# Teléfono: etiqueta / suena / no suena #}
-      <td><span class="chk {% if f.telefono_etiqueta %}chk-on{% else %}chk-off{% endif %}">{% if f.telefono_etiqueta %}&#9745;{% else %}&#9744;{% endif %}</span></td>
-      <td><span class="chk {% if f.telefono_suena %}chk-on{% else %}chk-off{% endif %}">{% if f.telefono_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
-      <td><span class="chk {% if not f.telefono_suena %}chk-on{% else %}chk-off{% endif %}">{% if not f.telefono_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="box {% if f.telefono_etiqueta %}on{% endif %}"></span></td>
+      <td><span class="box {% if f.telefono_suena %}on{% endif %}"></span></td>
+      <td><span class="box {% if not f.telefono_suena %}on{% endif %}"></span></td>
       <td class="hallazgo">{{ f.hallazgos }}</td>
     </tr>
     {% empty %}
