@@ -18,7 +18,7 @@
     <style>
         :root {
             --header-bg: #334155;
-            --card-border: #e2e8f0;
+            --card-border: var(--sap-border-color);
             --sap-brand-color: #0070f2;
         }
 
@@ -26,8 +26,8 @@
 
         body {
             font-family: 'Outfit', sans-serif;
-            background-color: #f1f5f9;
-            color: #1e293b;
+            background-color: var(--sap-bg-color);
+            color: var(--sap-text-color);
             margin: 0;
             padding-bottom: 30px;
         }
@@ -51,7 +51,7 @@
 
         /* Estilo de Tarjetas igual al Dashboard */
         .return-card {
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--card-border);
             margin-bottom: 12px;
             padding: 15px;
@@ -62,37 +62,37 @@
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 12px;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--sap-border-color);
             padding-bottom: 10px;
         }
 
-        .return-id { font-weight: 800; color: var(--header-bg); font-size: 14px; }
-        .return-date { font-size: 11px; color: #94a3b8; font-weight: 700; }
+        .return-id { font-weight: 800; color: var(--sap-text-color); font-size: 14px; }
+        .return-date { font-size: 11px; color: var(--sap-text-muted); font-weight: 700; }
 
         .info-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 13px; }
-        .info-label { font-weight: 800; color: #64748b; font-size: 11px; text-transform: uppercase; width: 70px; flex-shrink: 0; }
-        .info-value { font-weight: 600; color: #1e293b; }
+        .info-label { font-weight: 800; color: var(--sap-text-muted); font-size: 11px; text-transform: uppercase; width: 70px; flex-shrink: 0; }
+        .info-value { font-weight: 600; color: var(--sap-text-color); }
 
         .items-box {
-            background: #f8fafc;
+            background: var(--sap-bg-color);
             padding: 12px;
             margin-top: 10px;
-            border: 1px solid #f1f5f9;
+            border: 1px solid var(--sap-border-color);
         }
 
-        .items-title { font-size: 10px; font-weight: 800; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; }
+        .items-title { font-size: 10px; font-weight: 800; color: var(--sap-text-muted); margin-bottom: 8px; text-transform: uppercase; }
 
         .item-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 6px 0;
-            border-bottom: 1px dashed #e2e8f0;
+            border-bottom: 1px dashed var(--sap-border-color);
             font-size: 12px;
         }
         .item-row:last-child { border-bottom: none; }
 
-        .item-name { font-weight: 700; color: #334155; }
+        .item-name { font-weight: 700; color: var(--sap-text-color); }
         
         .status-badge {
             font-size: 9px;
@@ -127,31 +127,31 @@
             width: 60px;
             height: 60px;
             object-fit: cover;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--sap-border-color);
         }
 
         .empty-state {
             text-align: center;
             padding: 60px 20px;
-            color: #94a3b8;
+            color: var(--sap-text-muted);
         }
 
         /* Overlay para detalle de material */
         .detail-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: #f1f5f9;
+            background: var(--sap-bg-color);
             z-index: 2000;
             display: none;
             flex-direction: column;
         }
         .overlay-header {
-            background: white;
+            background: var(--sap-card-bg);
             padding: 15px;
             display: flex;
             align-items: center;
             gap: 15px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--sap-border-color);
         }
 
     </style>
@@ -232,7 +232,7 @@
             <ion-icon name="close-outline" onclick="closeMaterialDetail()" style="font-size: 28px;"></ion-icon>
             <h2 style="margin:0; font-size: 16px; font-weight: 800;">Detalle de Material</h2>
         </div>
-        <div id="material-content" style="padding: 20px; flex: 1; overflow-y: auto; background: white;">
+        <div id="material-content" style="padding: 20px; flex: 1; overflow-y: auto; background: var(--sap-card-bg);">
             <!-- Contenido AJAX -->
         </div>
     </div>
@@ -252,11 +252,11 @@
                     <div style="text-align:center; margin-bottom: 20px;">
                         <img src="${data.image_url}" style="width: 150px; height: 150px; object-fit: cover; border: 1px solid #e2e8f0;">
                     </div>
-                    <h2 style="margin: 0; color: #334155;">${data.nombre}</h2>
-                    <p style="color: #64748b; font-size: 12px; font-weight: 800;">SKU: ${data.sku}</p>
+                    <h2 style="margin: 0; color: var(--sap-text-color);">${data.nombre}</h2>
+                    <p style="color: var(--sap-text-muted); font-size: 12px; font-weight: 800;">SKU: ${data.sku}</p>
                     <hr style="opacity: 0.1; margin: 20px 0;">
-                    <div style="background: #f1f5f9; padding: 15px; margin-bottom: 15px;">
-                        <span style="display:block; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase;">Stock Total</span>
+                    <div style="background: var(--sap-bg-color); padding: 15px; margin-bottom: 15px;">
+                        <span style="display:block; font-size: 10px; font-weight: 800; color: var(--sap-text-muted); text-transform: uppercase;">Stock Total</span>
                         <span style="font-size: 24px; font-weight: 800; color: #0070f2;">${data.stock_total} ${data.unidad}</span>
                     </div>
                     <p style="font-size: 13px; line-height: 1.5;">${data.descripcion || 'Sin descripción adicional.'}</p>

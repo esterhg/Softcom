@@ -9,13 +9,14 @@
     {% include 'core/pwa_tags.html' %}
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    {% include 'core/fiori_tokens.html' %}
     <style>
         :root {
             /* Fiori Quartz Palette */
             --sapShellColor: #354a5f;
-            --sapBackgroundColor: #f7f7f7;
-            --sapTextColor: #32363a;
-            --sapContent_LabelColor: #6a6d70;
+            --sapBackgroundColor: var(--sap-bg-color);
+            --sapTextColor: var(--sap-text-color);
+            --sapContent_LabelColor: var(--sap-text-muted);
             --sapPrimaryColor: #0064d1;
             --sapSuccessColor: #107e3e;
             --sapWarningColor: #e9730c;
@@ -70,11 +71,11 @@
 
         /* Fiori Card style for List Items */
         .fiori-card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 0.25rem;
             padding: 16px;
             margin-bottom: 12px;
-            border: 1px solid #d9d9d9;
+            border: 1px solid var(--sap-border-color);
             box-shadow: 0 0 0.125rem 0 rgba(0,0,0,0.08);
             text-decoration: none;
             color: inherit;
@@ -83,7 +84,7 @@
         }
 
         .fiori-card:active {
-            background-color: #f2f2f2;
+            background-color: var(--sap-group-bg);
         }
 
         .card-header {
@@ -140,7 +141,7 @@
         .card-footer {
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--sap-border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;

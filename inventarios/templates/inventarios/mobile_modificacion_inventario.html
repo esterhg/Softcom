@@ -11,22 +11,22 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     {% include 'core/fiori_tokens.html' %}
     <style>
-        body { font-family: 'Outfit', sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding-bottom: 80px; }
+        body { font-family: 'Outfit', sans-serif; background: var(--sap-bg-color); color: var(--sap-text-color); margin: 0; padding-bottom: 80px; }
         header { background: #334155; color: white; padding: 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
         header a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.85rem; }
         header h1 { font-size: 1rem; font-weight: 700; flex: 1; margin: 0; }
         .container { padding: 12px; }
 
-        .ubicacion-selector { background: white; border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 12px; }
-        .ubicacion-selector label { font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 4px; }
-        .ubicacion-selector select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; font-family: inherit; font-size: 0.9rem; background: #fff; }
+        .ubicacion-selector { background: var(--sap-card-bg); border: 1px solid var(--sap-border-color); padding: 12px; margin-bottom: 12px; }
+        .ubicacion-selector label { font-size: 0.78rem; font-weight: 600; color: var(--sap-text-muted); text-transform: uppercase; display: block; margin-bottom: 4px; }
+        .ubicacion-selector select { width: 100%; padding: 10px; border: 1px solid var(--sap-border-color); font-family: inherit; font-size: 0.9rem; background: var(--sap-card-bg); color: var(--sap-text-color); }
 
         .search-box { margin-bottom: 12px; position: relative; }
-        .search-box input { width: 100%; padding: 10px 10px 10px 36px; border: 1px solid #e2e8f0; font-family: inherit; font-size: 0.88rem; background: white; }
+        .search-box input { width: 100%; padding: 10px 10px 10px 36px; border: 1px solid var(--sap-border-color); font-family: inherit; font-size: 0.88rem; background: var(--sap-card-bg); color: var(--sap-text-color); }
         .search-box ion-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
 
         .materiales-grid { display: flex; flex-direction: column; gap: 8px; }
-        .material-row { background: white; border: 1px solid #e2e8f0; padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+        .material-row { background: var(--sap-card-bg); border: 1px solid var(--sap-border-color); padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
         .material-row.changed { border-left: 3px solid #f59e0b; }
         .material-row.positivo { border-left: 3px solid #22c55e; }
         .material-row.negativo { border-left: 3px solid #ef4444; }
@@ -36,16 +36,16 @@
         .material-info .meta { font-size: 0.72rem; color: #64748b; }
         .material-stock { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 100px; }
         .stock-sistema { font-size: 0.72rem; color: #64748b; }
-        .stock-input { width: 80px; padding: 6px 8px; border: 1px solid #e2e8f0; font-family: inherit; font-size: 0.9rem; text-align: right; font-weight: 600; }
+        .stock-input { width: 80px; padding: 6px 8px; border: 1px solid var(--sap-border-color); background: var(--sap-card-bg); color: var(--sap-text-color); font-family: inherit; font-size: 0.9rem; text-align: right; font-weight: 600; }
         .stock-input:focus { outline: none; border-color: #0070f2; }
         .diferencia { font-size: 0.75rem; font-weight: 700; }
         .dif-pos { color: #22c55e; }
         .dif-neg { color: #ef4444; }
         .dif-zero { color: #94a3b8; }
 
-        .resumen-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 2px solid #e2e8f0; padding: 12px 16px; display: flex; align-items: center; gap: 12px; z-index: 50; }
-        .resumen-bar .info { flex: 1; font-size: 0.8rem; color: #64748b; }
-        .resumen-bar .info strong { color: #1e293b; }
+        .resumen-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--sap-card-bg); border-top: 2px solid var(--sap-border-color); padding: 12px 16px; display: flex; align-items: center; gap: 12px; z-index: 50; }
+        .resumen-bar .info { flex: 1; font-size: 0.8rem; color: var(--sap-text-muted); }
+        .resumen-bar .info strong { color: var(--sap-text-color); }
         .resumen-bar button { padding: 10px 20px; background: #0070f2; color: white; border: none; font-family: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
         .resumen-bar button:disabled { background: #94a3b8; cursor: not-allowed; }
 
