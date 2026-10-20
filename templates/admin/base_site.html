@@ -330,9 +330,6 @@
   } catch(e) {}
 })();
 </script>
-{# jQuery DEBE cargarse antes que Bootstrap/AdminLTE/Select2.
-   Jazzmin los pone en el bloque extrajs (final del body) pero bootstrap.min.js necesita
-   window.jQuery disponible. Usamos el mismo archivo de Django admin y lo exponemos globalmente. #}
 <script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
 <script>
   // Exponer jQuery globalmente para Bootstrap/AdminLTE/Select2
