@@ -21,9 +21,9 @@
 
         body {
             font-family: 'Autodesk Fusion', Arial, sans-serif;
-            background-color: #f4f7fa;
+            background-color: var(--sap-bg-color);
             margin: 0;
-            color: #1a1c1e;
+            color: var(--sap-text-color);
             padding-bottom: 20px;
         }
 
@@ -52,12 +52,12 @@
         }
 
         .card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 16px;
             padding: 20px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             margin-bottom: 16px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--sap-border-color);
         }
 
         .form-group {
@@ -68,7 +68,7 @@
             display: block;
             font-size: 13px;
             font-weight: 700;
-            color: #64748b;
+            color: var(--sap-text-muted);
             margin-bottom: 8px;
             text-transform: uppercase;
         }
@@ -76,11 +76,13 @@
         .form-control {
             width: 100%;
             padding: 12px;
-            border: 2px solid #e2e8f0;
+            border: 2px solid var(--sap-border-color);
             border-radius: 12px;
             font-family: inherit;
             font-size: 15px;
             box-sizing: border-box;
+            background: var(--sap-card-bg);
+            color: var(--sap-text-color);
             transition: border-color 0.2s;
         }
 
@@ -113,18 +115,18 @@
 
         /* Photo Upload Styling */
         .photo-uploader {
-            border: 2px dashed #cbd5e1;
+            border: 2px dashed var(--sap-border-color);
             border-radius: 12px;
             padding: 30px 20px;
             text-align: center;
-            color: #64748b;
+            color: var(--sap-text-muted);
             cursor: pointer;
             margin-bottom: 15px;
             transition: all 0.2s;
         }
 
         .photo-uploader:active {
-            background: #f1f5f9;
+            background: var(--sap-bg-color);
             transform: scale(0.98);
         }
 
@@ -204,7 +206,7 @@
 
             <!-- Evidencias -->
             <div class="card">
-                <label style="font-size: 13px; font-weight: 700; color: #64748b; margin-bottom: 12px; display: block; text-transform: uppercase;">
+                <label style="font-size: 13px; font-weight: 700; color: var(--sap-text-muted); margin-bottom: 12px; display: block; text-transform: uppercase;">
                     <ion-icon name="images-outline"></ion-icon> Evidencias (Fotos)
                 </label>
                 

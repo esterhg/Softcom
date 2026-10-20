@@ -9,18 +9,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {% include 'core/fiori_tokens.html' %}
     <style>
         :root {
-            --sapShellColor: #354a5f;
-            --sapBackgroundColor: #f7f7f7;
-            --sapTextColor: #32363a;
-            --sapContent_LabelColor: #6a6d70;
-            --sapPrimaryColor: #0064d1;
-            --sapSuccessColor: #107e3e;
-            --sapWarningColor: #e9730c;
-            --sapErrorColor: #bb0000;
-            --sapField_Background: #ffffff;
-            --sapField_BorderColor: #d9d9d9;
+            --sapShellColor: var(--sap-shell-bg);
+            --sapBackgroundColor: var(--sap-bg-color);
+            --sapTextColor: var(--sap-text-color);
+            --sapContent_LabelColor: var(--sap-text-muted);
+            --sapPrimaryColor: var(--sap-brand-color);
+            --sapSuccessColor: var(--sap-success);
+            --sapWarningColor: var(--sap-warning);
+            --sapErrorColor: var(--sap-error);
+            --sapField_Background: var(--sap-card-bg);
+            --sapField_BorderColor: var(--sap-border-color);
             --radius-sm: 0.25rem;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -29,13 +30,13 @@
         .header-back { font-size: 24px; margin-right: 12px; cursor: pointer; display: flex; align-items: center; color: white; }
         .header-title { flex: 1; font-size: 16px; font-weight: 400; }
         .header-badge { background: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; }
-        .search-container { padding: 12px 16px; background: white; border-bottom: 1px solid var(--sapField_BorderColor); position: sticky; top: 48px; z-index: 900; }
+        .search-container { padding: 12px 16px; background: var(--sap-card-bg); border-bottom: 1px solid var(--sapField_BorderColor); position: sticky; top: 48px; z-index: 900; }
         .fiori-search-box { display: flex; align-items: center; background: var(--sapField_Background); border: 1px solid var(--sapField_BorderColor); border-radius: var(--radius-sm); padding: 8px 12px; }
         .fiori-search-box ion-icon { color: var(--sapPrimaryColor); font-size: 1.25rem; margin-right: 8px; }
-        .fiori-search-box input { border: none; background: transparent; width: 100%; font-size: 0.875rem; outline: none; }
+        .fiori-search-box input { border: none; background: transparent; width: 100%; font-size: 0.875rem; outline: none; color: var(--sap-text-color); }
         .requests-list { padding: 12px; }
-        .request-card { background: white; border-radius: 0.25rem; padding: 16px; margin-bottom: 12px; border: 1px solid var(--sapField_BorderColor); border-left: 5px solid var(--sapWarningColor); box-shadow: 0 0 0.125rem 0 rgba(0,0,0,0.08); transition: background 0.2s; }
-        .request-card:active { background: #f2f2f2; }
+        .request-card { background: var(--sap-card-bg); border-radius: 0.25rem; padding: 16px; margin-bottom: 12px; border: 1px solid var(--sapField_BorderColor); border-left: 5px solid var(--sapWarningColor); box-shadow: 0 0 0.125rem 0 rgba(0,0,0,0.08); transition: background 0.2s; }
+        .request-card:active { background: var(--sap-bg-color); }
         .request-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .request-id { font-weight: 700; color: var(--sapPrimaryColor); font-size: 0.75rem; }
         .request-date { font-size: 0.75rem; color: var(--sapContent_LabelColor); }
@@ -43,8 +44,8 @@
         .user-avatar { width: 32px; height: 32px; background: #eff6ff; color: var(--sapPrimaryColor); border-radius: 0.25rem; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
         .request-info h4 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--sapTextColor); }
         .request-info p { margin: 4px 0 0 0; font-size: 0.875rem; color: var(--sapContent_LabelColor); }
-        .request-footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-        .item-count { background: #f1f5f9; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; color: #475569; }
+        .request-footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--sap-border-color); display: flex; justify-content: space-between; align-items: center; }
+        .item-count { background: var(--sap-bg-color); padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; color: var(--sap-text-muted); }
         .btn-view { background: var(--sapPrimaryColor); color: white; border: none; padding: 6px 15px; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.85rem; cursor: pointer; }
 
         .detail-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: white; z-index: 2000; display: none; flex-direction: column; animation: slideUp 0.3s ease-out; }

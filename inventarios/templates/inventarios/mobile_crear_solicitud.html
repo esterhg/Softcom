@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Nueva Solicitud - SoftCoM</title>
     {% include 'core/pwa_tags.html' %}
+    {% include 'core/fiori_tokens.html' %}
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -15,24 +16,24 @@
     
     <style>
         :root {
-            /* Fiori Quartz / Horizon Palette */
-            --sapShellColor: #354a5f;
-            --sapBackgroundColor: #f3f5f7;
-            --sapTextColor: #32363a;
-            --sapContent_LabelColor: #6a6d70;
-            --sapPrimaryColor: #0064d1;
-            --sapSuccessColor: #107e3e;
-            --sapWarningColor: #e9730c;
-            --sapErrorColor: #bb0000;
-            --sapField_Background: #ffffff;
-            --sapField_BorderColor: #d9d9d9;
+            /* Fiori Quartz / Horizon Palette — mapeado a tokens de tema */
+            --sapShellColor: var(--sap-shell-bg);
+            --sapBackgroundColor: var(--sap-bg-color);
+            --sapTextColor: var(--sap-text-color);
+            --sapContent_LabelColor: var(--sap-text-muted);
+            --sapPrimaryColor: var(--sap-brand-color);
+            --sapSuccessColor: var(--sap-success);
+            --sapWarningColor: var(--sap-warning);
+            --sapErrorColor: var(--sap-error);
+            --sapField_Background: var(--sap-card-bg);
+            --sapField_BorderColor: var(--sap-border-color);
             --sapBorderRadius: 2px; /* Solicitado: 2px */
 
             /* Alias for consistency */
-            --sap-accent: #0064d1;
-            --sap-border: #d9d9d9;
-            --sap-text: #32363a;
-            --sap-text-sub: #6a6d70;
+            --sap-accent: var(--sap-brand-color);
+            --sap-border: var(--sap-border-color);
+            --sap-text: var(--sap-text-color);
+            --sap-text-sub: var(--sap-text-muted);
             --sap-border-radius: 2px;
         }
 
@@ -86,7 +87,7 @@
         }
 
         .fiori-card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: var(--sapBorderRadius);
             padding: 16px;
             margin-bottom: 16px;
@@ -125,7 +126,7 @@
             font-size: 15px;
             font-family: inherit;
             color: var(--sap-text);
-            background: #fff;
+            background: var(--sap-card-bg);
         }
 
         .form-control:focus {
@@ -165,7 +166,7 @@
 
         .item-row {
             padding: 12px 0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--sap-border);
         }
 
         .item-row:last-child { border-bottom: none; }
@@ -181,7 +182,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            background: #f8f9fa;
+            background: var(--sap-bg-color);
             padding: 4px;
             border-radius: 4px;
         }
@@ -190,7 +191,7 @@
             width: 38px;
             height: 38px;
             border: 1px solid var(--sap-border);
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 2px;
             display: flex;
             align-items: center;
@@ -224,13 +225,13 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
             box-shadow: 0 -4px 15px rgba(0,0,0,0.08);
             z-index: 1000;
             display: flex;
             gap: 12px;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--sap-border);
         }
 
         .btn {
@@ -269,7 +270,7 @@
         .drawer-overlay.active { display: flex; opacity: 1; }
 
         .bottom-drawer {
-            background: white;
+            background: var(--sap-card-bg);
             width: 100%;
             max-height: 85vh;
             border-top-left-radius: 12px;
@@ -284,7 +285,7 @@
 
         .drawer-header {
             padding: 16px;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--sap-border);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -309,12 +310,12 @@
         .category-scroller::-webkit-scrollbar { display: none; }
         .chip {
             padding: 8px 16px;
-            background: #f0f2f4;
+            background: var(--sap-bg-color);
             border-radius: 20px;
             font-size: 13px;
             white-space: nowrap;
             color: var(--sap-text-sub);
-            border: 1px solid transparent;
+            border: 1px solid var(--sap-border);
             cursor: pointer;
         }
         .chip.active {
@@ -336,7 +337,7 @@
         }
 
         .skeleton {
-            background: #f0f2f4;
+            background: var(--sap-bg-color);
             height: 60px;
             border-radius: 4px;
             margin-bottom: 8px;
@@ -391,7 +392,7 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 8px;">
-                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; background:#f8fafc; border:1px solid var(--sap-border); border-radius:4px;">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; background:var(--sap-bg-color); border:1px solid var(--sap-border); border-radius:4px;">
                     <input type="checkbox" id="chk-no-tecnica" style="width:18px; height:18px; accent-color:var(--sapPrimaryColor); cursor:pointer;">
                     <span style="font-size:13px; font-weight:600; color:var(--sap-text);">Solicitud No Técnica</span>
                     <span style="font-size:11px; color:var(--sap-text-sub); margin-left:auto;">No requiere Orden de Trabajo</span>
@@ -419,7 +420,7 @@
                             </button>
                         </div>
                     </div>
-                    <div id="ot-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #d9d9d9; border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                    <div id="ot-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--sap-card-bg); border:1px solid var(--sap-border-color); border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
             </div>
 
@@ -444,7 +445,7 @@
                             </button>
                         </div>
                     </div>
-                    <div id="entregar-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #d9d9d9; border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                    <div id="entregar-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--sap-card-bg); border:1px solid var(--sap-border-color); border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
             </div>
         </div>
@@ -504,7 +505,7 @@
     </div>
 
     <div class="sticky-footer" style="display:flex; gap:8px;">
-        <button type="button" class="btn" id="btn-guardar" style="flex:1; background:#fff; color:#0070f2; border:2px solid #0070f2; font-weight:700;">
+        <button type="button" class="btn" id="btn-guardar" style="flex:1; background:var(--sap-card-bg); color:var(--sap-brand-color); border:2px solid var(--sap-brand-color); font-weight:700;">
             <ion-icon name="save-outline"></ion-icon> Guardar Borrador
         </button>
         <button type="button" class="btn btn-primary" id="btn-submit" style="flex:1;">

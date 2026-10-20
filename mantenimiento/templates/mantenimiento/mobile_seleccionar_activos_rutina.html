@@ -21,7 +21,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--sap-background);
+            background-color: var(--sap-bg-color);
             color: var(--sap-text-color);
             margin: 0;
             padding: 0;
@@ -34,7 +34,7 @@
 
         /* Header SAP Horizon */
         .fiori-header {
-            background: rgba(255, 255, 255, 0.9);
+            background: var(--sap-card-bg);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             padding: calc(12px + var(--safe-area-top)) 16px 12px;
@@ -98,7 +98,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 10px;
-            background: rgba(242, 242, 242, 0.3);
+            background: var(--sap-bg-color);
         }
 
         .card-header h2 {
@@ -117,7 +117,7 @@
 
         /* Custom Input for Modal Toggle */
         .fiori-modal-toggle {
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--sap-border-color);
             border-radius: 10px;
             padding: 12px 16px;
@@ -150,7 +150,7 @@
             display: flex;
             align-items: center;
             padding: 14px;
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--sap-border-color);
             border-radius: 14px;
             gap: 16px;
@@ -170,7 +170,7 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
-            background: white;
+            background: var(--sap-card-bg);
         }
 
         .asset-item.selected .checkbox-ui {
@@ -182,13 +182,13 @@
         .asset-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
         .asset-name { font-size: 14px; font-weight: 700; color: var(--sap-text-color); }
         .asset-meta { display: flex; gap: 8px; flex-wrap: wrap; }
-        .asset-tag { font-size: 10px; font-weight: 700; color: var(--sap-text-muted); background: #f1f5f9; padding: 2px 8px; border-radius: 6px; }
+        .asset-tag { font-size: 10px; font-weight: 700; color: var(--sap-text-muted); background: var(--sap-bg-color); padding: 2px 8px; border-radius: 6px; }
 
         /* Bottom Toolbar SAP Horizon */
         .fiori-toolbar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            background: rgba(255, 255, 255, 0.95);
+            background: var(--sap-card-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             padding: 12px 16px calc(12px + var(--safe-area-bottom));
@@ -214,7 +214,7 @@
         }
 
         .fiori-btn-primary { background: var(--sap-brand-color); color: white; box-shadow: 0 4px 12px rgba(10, 110, 209, 0.3); }
-        .fiori-btn-primary:disabled { background: #e2e8f0; color: #94a3b8; box-shadow: none; cursor: not-allowed; }
+        .fiori-btn-primary:disabled { background: var(--sap-group-bg); color: var(--sap-text-muted); box-shadow: none; cursor: not-allowed; }
         .fiori-btn:active:not(:disabled) { transform: scale(0.98); opacity: 0.9; }
 
         /* Fiori Sheet Modal */
@@ -230,7 +230,7 @@
         .fiori-sheet-content {
             position: absolute;
             bottom: 0; left: 0; right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 24px 24px 0 0;
             height: 85vh;
             display: flex;
@@ -325,9 +325,9 @@
                 <button onclick="closeLocationSelector()" class="back-btn"><ion-icon name="close-outline"></ion-icon></button>
             </div>
             <div style="padding: 12px 16px;">
-                <div style="background: #f1f5f9; border-radius: 12px; display: flex; align-items: center; padding: 0 16px;">
+                <div style="background: var(--sap-bg-color); border-radius: 12px; display: flex; align-items: center; padding: 0 16px;">
                     <ion-icon name="search-outline" style="color: var(--sap-text-muted);"></ion-icon>
-                    <input type="text" id="location-search" placeholder="Buscar ubicación..." style="width: 100%; border: none; background: transparent; height: 44px; padding-left: 12px; outline: none; font-size: 15px;">
+                    <input type="text" id="location-search" placeholder="Buscar ubicación..." style="width: 100%; border: none; background: transparent; height: 44px; padding-left: 12px; outline: none; font-size: 15px; color: var(--sap-text-color);">
                 </div>
             </div>
             <div id="location-list" class="sheet-body" style="padding: 0 8px 40px;">

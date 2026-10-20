@@ -10,18 +10,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {% include 'core/fiori_tokens.html' %}
     <style>
         :root {
-            --sapShellColor: #354a5f;
-            --sapBackgroundColor: #f7f7f7;
-            --sapTextColor: #32363a;
-            --sapContent_LabelColor: #6a6d70;
-            --sapPrimaryColor: #0064d1;
-            --sapSuccessColor: #107e3e;
-            --sapWarningColor: #e9730c;
-            --sapErrorColor: #bb0000;
-            --sapButton_TextColor: #0064d1;
-            --sapTile_TitleColor: #32363a;
+            --sapShellColor: var(--sap-shell-bg);
+            --sapBackgroundColor: var(--sap-bg-color);
+            --sapTextColor: var(--sap-text-color);
+            --sapContent_LabelColor: var(--sap-text-muted);
+            --sapPrimaryColor: var(--sap-brand-color);
+            --sapSuccessColor: var(--sap-success);
+            --sapWarningColor: var(--sap-warning);
+            --sapErrorColor: var(--sap-error);
+            --sapButton_TextColor: var(--sap-brand-color);
+            --sapTile_TitleColor: var(--sap-text-color);
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: '72', 'Outfit', sans-serif; background-color: var(--sapBackgroundColor); color: var(--sapTextColor); margin: 0; padding-bottom: 100px; }
@@ -30,7 +31,7 @@
         header h1 { margin: 0; font-size: 16px; font-weight: 400; flex: 1; }
         .edit-header-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
         .container { padding: 0; }
-        .object-header { background: white; padding: 24px 16px; border-bottom: 1px solid #d9d9d9; margin-bottom: 1rem; }
+        .object-header { background: var(--sap-card-bg); padding: 24px 16px; border-bottom: 1px solid var(--sap-border-color); margin-bottom: 1rem; }
         .object-header-title { font-size: 1.3rem; font-weight: 400; margin: 0 0 8px 0; color: var(--sapTextColor); }
         .status-tag { font-size: 0.875rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 2rem; display: inline-block; }
         .tag-ENTREGADO { background: #e7f4e9; color: var(--sapSuccessColor); }
@@ -40,35 +41,35 @@
         .tag-LISTO_RECOLECCION { background: #e5f0ff; color: #0064d1; }
         .tag-RECHAZADO { background: #ffebeb; color: var(--sapErrorColor); }
         .section-title { font-size: 1rem; font-weight: 700; color: var(--sapTextColor); padding: 1rem 1rem 0.5rem 1rem; background: transparent; }
-        .fiori-card { background: white; margin: 0 0.5rem 0.5rem 0.5rem; border-radius: 0.25rem; border: 1px solid #d9d9d9; box-shadow: 0 0 0.125rem 0 rgba(0,0,0,0.08); overflow: hidden; }
+        .fiori-card { background: var(--sap-card-bg); margin: 0 0.5rem 0.5rem 0.5rem; border-radius: 0.25rem; border: 1px solid var(--sap-border-color); box-shadow: 0 0 0.125rem 0 rgba(0,0,0,0.08); overflow: hidden; }
         .fiori-card-content { padding: 1rem; }
         .material-name { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
         .material-sku { font-size: 0.875rem; color: var(--sapContent_LabelColor); }
-        .qty-grid { display: grid; grid-template-columns: 1fr 1fr; margin-top: 1rem; border-top: 1px solid #eee; }
+        .qty-grid { display: grid; grid-template-columns: 1fr 1fr; margin-top: 1rem; border-top: 1px solid var(--sap-border-color); }
         .qty-item { padding: 0.75rem; text-align: center; }
-        .qty-item:first-child { border-right: 1px solid #eee; }
+        .qty-item:first-child { border-right: 1px solid var(--sap-border-color); }
         .qty-label { font-size: 0.75rem; color: var(--sapContent_LabelColor); display: block; margin-bottom: 0.25rem; }
         .qty-val { font-size: 1.25rem; font-weight: 700; color: var(--sapTextColor); }
         .qty-val.delivered { color: var(--sapSuccessColor); }
         .unit { font-size: 0.75rem; font-weight: normal; color: var(--sapContent_LabelColor); }
-        .info-list { background: white; border-top: 1px solid #d9d9d9; border-bottom: 1px solid #d9d9d9; }
-        .info-item { display: flex; justify-content: space-between; padding: 0.875rem 1rem; border-bottom: 1px solid #eee; }
+        .info-list { background: var(--sap-card-bg); border-top: 1px solid var(--sap-border-color); border-bottom: 1px solid var(--sap-border-color); }
+        .info-item { display: flex; justify-content: space-between; padding: 0.875rem 1rem; border-bottom: 1px solid var(--sap-border-color); }
         .info-item:last-child { border-bottom: none; }
         .info-label { color: var(--sapContent_LabelColor); font-size: 0.875rem; }
         .info-value { font-weight: 700; font-size: 0.875rem; text-align: right; }
-        .comment-box { background: #fff; padding: 1rem; margin: 0.5rem; border-radius: 0.25rem; border-left: 4px solid var(--sapPrimaryColor); font-size: 0.875rem; box-shadow: 0 0 0.125rem 0 rgba(0,0,0,0.08); }
+        .comment-box { background: var(--sap-card-bg); padding: 1rem; margin: 0.5rem; border-radius: 0.25rem; border-left: 4px solid var(--sapPrimaryColor); font-size: 0.875rem; box-shadow: 0 0 0.125rem 0 rgba(0,0,0,0.08); }
         .comment-header { font-weight: 700; margin-bottom: 0.5rem; color: var(--sapContent_LabelColor); font-size: 0.75rem; text-transform: uppercase; }
 
-        .edit-qty-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; }
-        .edit-qty-row input { width: 80px; padding: 8px; border: 2px solid var(--sapPrimaryColor); border-radius: 6px; text-align: center; font-weight: 700; font-size: 1.1rem; }
+        .edit-qty-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--sap-border-color); }
+        .edit-qty-row input { width: 80px; padding: 8px; border: 2px solid var(--sapPrimaryColor); border-radius: 6px; text-align: center; font-weight: 700; font-size: 1.1rem; background: var(--sap-card-bg); color: var(--sap-text-color); }
         .edit-qty-row button { background: none; border: none; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; padding: 4px; }
         .btn-delete-item { color: var(--sapErrorColor); }
         .edit-mode .fiori-card { border-color: var(--sapPrimaryColor); }
-        .save-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px 16px; border-top: 1px solid #d9d9d9; display: none; gap: 10px; z-index: 1001; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); }
+        .save-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--sap-card-bg); padding: 12px 16px; border-top: 1px solid var(--sap-border-color); display: none; gap: 10px; z-index: 1001; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); }
         .save-bar.show { display: flex; }
         .save-bar button { flex: 1; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; border: none; }
         .btn-save { background: var(--sapPrimaryColor); color: white; }
-        .btn-cancel-edit { background: #f1f5f9; color: #475569; }
+        .btn-cancel-edit { background: var(--sap-bg-color); color: var(--sap-text-color); }
         .fade-in { animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -195,20 +196,20 @@
 
     <!-- Add Materials Modal -->
     <div id="add-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999;">
-        <div style="position:absolute; bottom:0; left:0; right:0; background:white; border-radius:16px 16px 0 0; max-height:85vh; display:flex; flex-direction:column; animation:slideUp 0.3s ease-out;">
+        <div style="position:absolute; bottom:0; left:0; right:0; background:var(--sap-card-bg); border-radius:16px 16px 0 0; max-height:85vh; display:flex; flex-direction:column; animation:slideUp 0.3s ease-out;">
             <style>@keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }</style>
-            <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0; font-weight:700;">Agregar Materiales</h3>
-                <button onclick="closeAddMaterials()" style="background:none; border:none; font-size:24px; cursor:pointer;">✕</button>
+            <div style="padding:16px 20px; border-bottom:1px solid var(--sap-border-color); display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; font-weight:700; color:var(--sap-text-color);">Agregar Materiales</h3>
+                <button onclick="closeAddMaterials()" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--sap-text-color);">✕</button>
             </div>
-            <div style="padding:12px 20px; border-bottom:1px solid #e2e8f0;">
-                <input type="text" id="add-search" placeholder="Buscar por nombre o SKU..." oninput="searchMaterials()" style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px; font-size:16px; box-sizing:border-box;">
+            <div style="padding:12px 20px; border-bottom:1px solid var(--sap-border-color);">
+                <input type="text" id="add-search" placeholder="Buscar por nombre o SKU..." oninput="searchMaterials()" style="width:100%; padding:12px; border:2px solid var(--sap-border-color); border-radius:8px; font-size:16px; box-sizing:border-box; background:var(--sap-card-bg); color:var(--sap-text-color);">
             </div>
             <div id="add-results" style="flex:1; overflow-y:auto; padding:12px 20px 80px;">
                 <p style="color:#94a3b8; text-align:center; margin-top:40px;">Escribe al menos 2 caracteres para buscar</p>
             </div>
-            <div style="padding:12px 20px 20px; border-top:1px solid #e2e8f0; display:flex; gap:10px;">
-                <button onclick="closeAddMaterials()" style="flex:1; padding:14px; border:2px solid #e2e8f0; border-radius:8px; background:white; font-weight:600; cursor:pointer;">Cancelar</button>
+            <div style="padding:12px 20px 20px; border-top:1px solid var(--sap-border-color); display:flex; gap:10px;">
+                <button onclick="closeAddMaterials()" style="flex:1; padding:14px; border:2px solid var(--sap-border-color); border-radius:8px; background:var(--sap-card-bg); color:var(--sap-text-color); font-weight:600; cursor:pointer;">Cancelar</button>
                 <button id="btn-confirm-add" onclick="confirmAddMaterials()" style="flex:2; padding:14px; border:none; border-radius:8px; background:#0064d1; color:white; font-weight:700; cursor:pointer;">Agregar seleccionados (0)</button>
             </div>
         </div>

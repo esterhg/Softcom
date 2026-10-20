@@ -13,10 +13,9 @@
         :root {
             --primary: #007bff;
             --primary-dark: #0056b3;
-            --bg-body: #f0f2f5;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            --text-main: #1e293b;
-            --text-secondary: #64748b;
+            --card-shadow: var(--sap-card-shadow);
+            --text-main: var(--sap-text-color);
+            --text-secondary: var(--sap-text-muted);
             --sap-border-radius: 4px;
         }
 
@@ -130,7 +129,7 @@
             font-size: 10px;
             padding: 2px 8px;
             border-radius: 4px;
-            background: #f1f5f9;
+            background: var(--sap-group-bg);
             color: var(--text-secondary);
             font-weight: 600;
             text-transform: uppercase;
@@ -160,7 +159,7 @@
         .status-cancelado { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
 
         .history-item {
-            border-bottom: 1px solid #edf2f7;
+            border-bottom: 1px solid var(--sap-border-color);
             padding: 12px 0;
         }
         .history-item:last-child { border-bottom: none; }
@@ -198,13 +197,13 @@
             flex: 0 0 120px;
             height: 120px;
             border-radius: 6px;
-            border: 2px dashed #cbd5e1;
+            border: 2px dashed var(--sap-border-color);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             color: var(--text-secondary);
-            background: #f8fafc;
+            background: var(--sap-bg-color);
             cursor: pointer;
         }
         .upload-placeholder ion-icon { font-size: 24px; margin-bottom: 4px; }
@@ -213,7 +212,7 @@
         /* Tabs Styles */
         .fiori-tabs {
             display: flex;
-            background: white;
+            background: var(--sap-card-bg);
             border-bottom: 1px solid var(--sap-border-color);
             position: sticky;
             top: 56px; /* Below header */
@@ -258,7 +257,7 @@
             width: 60px;
             height: 60px;
             border-radius: 8px;
-            background: #f1f5f9;
+            background: var(--sap-group-bg);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -279,7 +278,7 @@
             padding: 0 5px;
         }
         .category-item {
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--sap-border-color);
             border-radius: 6px;
             padding: 15px 5px;
@@ -295,12 +294,12 @@
         }
         .category-item:active { background: #f8fafc; transform: scale(0.95); }
         .category-item ion-icon { font-size: 26px; color: var(--sap-brand-color); margin-bottom: 8px; }
-        .category-item span { font-size: 11px; font-weight: 700; color: var(--sap-shell-bg); }
+        .category-item span { font-size: 11px; font-weight: 700; color: var(--sap-text-color); }
         
         .subcat-header {
             font-size: 13px;
             font-weight: 700;
-            color: var(--sap-shell-bg);
+            color: var(--sap-text-color);
             margin: 25px 0 12px 0;
             display: flex;
             align-items: center;
@@ -320,7 +319,7 @@
             margin-bottom: 15px;
         }
         .fiori-search-field {
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--sap-border-color);
             border-radius: var(--sap-border-radius);
             display: flex;
@@ -341,7 +340,7 @@
 
         /* Accordion */
         .cat-container { 
-            background: white; 
+            background: var(--sap-card-bg); 
             border-radius: var(--sap-border-radius); 
             border: 1px solid var(--sap-border-color);
             overflow: hidden;
@@ -353,17 +352,17 @@
             align-items: center;
             justify-content: space-between;
             cursor: pointer;
-            background: #fff;
+            background: var(--sap-card-bg);
             transition: background 0.2s;
         }
         .cat-header:active { background: #f8fafc; }
         .header-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
-        .header-main h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--sap-shell-bg); }
+        .header-main h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--sap-text-color); }
         .header-main ion-icon { font-size: 22px; color: var(--sap-brand-color); }
         
         .cat-badge {
-            background: #f1f5f9;
-            color: #64748b;
+            background: var(--sap-group-bg);
+            color: var(--sap-text-muted);
             font-size: 10px;
             font-weight: 700;
             padding: 2px 8px;
@@ -392,7 +391,7 @@
 
         /* Sub-accordion inside level folders */
         .subcat-container {
-            border-top: 1px solid #f1f5f9;
+            border-top: 1px solid var(--sap-border-color);
         }
         .subcat-header {
             padding: 10px 4px;
@@ -492,7 +491,7 @@
         }
 
         .modal-content-mobile {
-            background: white;
+            background: var(--sap-card-bg);
             width: 100%;
             max-height: 85vh;
             border-radius: 16px 16px 0 0;
@@ -516,7 +515,7 @@
 
         .m-header {
             padding: 20px;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--sap-border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -529,7 +528,7 @@
 
         .routine-item {
             padding: 15px 20px;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--sap-border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -538,13 +537,13 @@
         .routine-info h4 {
             margin: 0;
             font-size: 15px;
-            color: #1e293b;
+            color: var(--sap-text-color);
         }
 
         .routine-info p {
             margin: 4px 0 0 0;
             font-size: 12px;
-            color: #64748b;
+            color: var(--sap-text-muted);
         }
 
         .btn-add-ot {
@@ -598,7 +597,7 @@
         <div class="fiori-card" style="margin-bottom: 20px;">
             <div style="padding: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h4 style="margin: 0; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--sap-shell-bg);">
+                    <h4 style="margin: 0; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--sap-text-color);">
                         <ion-icon name="images-outline"></ion-icon> Galería de la Zona
                     </h4>
                     <span id="upload-status" style="font-size: 11px; font-weight: 600; color: var(--sap-brand-color); display: none;">Subiendo...</span>
@@ -769,7 +768,7 @@
                             <ion-icon name="{{ loc.icono|default:'location' }}-outline"></ion-icon>
                             <div style="display: flex; flex-direction: column;">
                                 <h3>{{ loc.nombre }}</h3>
-                                <span style="font-size: 10px; color: #64748b; font-weight: 500;">Jerarquía de activos</span>
+                                <span style="font-size: 10px; color: var(--sap-text-muted); font-weight: 500;">Jerarquía de activos</span>
                             </div>
                         </div>
                         <ion-icon name="chevron-down-outline" class="chevron-icon"></ion-icon>
@@ -800,7 +799,7 @@
                                     </div>
                                     <div class="asset-body">
                                         <h4>{{ a.nombre }}</h4>
-                                        <p style="font-weight: 700; color: var(--sap-shell-bg);">{{ a.codigo_interno }}</p>
+                                        <p style="font-weight: 700; color: var(--sap-text-color);">{{ a.codigo_interno }}</p>
                                         <p>{{ a.modelo.marca.nombre }} {{ a.modelo.nombre }}</p>
                                         {% if a.ubicacion_id != parent.id %}
                                         <p style="font-size: 10px; color: var(--sap-brand-color); margin-top: 4px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
@@ -890,7 +889,7 @@
                 </div>
 
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <span id="p-id" style="font-family: monospace; font-weight: 700; color: var(--sap-shell-bg);"></span>
+                    <span id="p-id" style="font-family: monospace; font-weight: 700; color: var(--sap-text-color);"></span>
                     <span id="p-estado" class="status-badge"></span>
                 </div>
 
@@ -912,11 +911,11 @@
 
                 <div>
                     <label style="font-size: 10px; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">Descripción Detallada</label>
-                    <p id="p-desc" style="font-size: 14px; line-height: 1.5; color: var(--sap-text-color); margin: 0; white-space: pre-wrap; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #edf2f7;"></p>
+                    <p id="p-desc" style="font-size: 14px; line-height: 1.5; color: var(--sap-text-color); margin: 0; white-space: pre-wrap; background: var(--sap-bg-color); padding: 12px; border-radius: 8px; border: 1px solid var(--sap-border-color);"></p>
                 </div>
             </div>
             
-            <div style="padding: 16px; border-top: 1px solid #edf2f7; display: flex; gap: 10px;">
+            <div style="padding: 16px; border-top: 1px solid var(--sap-border-color); display: flex; gap: 10px;">
                 <button onclick="closeNoticeModal()" class="fiori-btn fiori-btn-ghost" style="flex: 1; justify-content: center;">Cerrar</button>
             </div>
         </div>
@@ -1193,7 +1192,7 @@
 
         .modal-content-mobile {
             width: 100%;
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 8px 8px 0 0;
             min-height: 40vh;
             max-height: 85vh;
@@ -1210,9 +1209,9 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #edf2f7;
+            border-bottom: 1px solid var(--sap-border-color);
         }
-        .m-header h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--sap-shell-bg); }
+        .m-header h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--sap-text-color); }
 
         @keyframes spin {
             from {

@@ -102,7 +102,8 @@
             font-family: inherit;
             font-size: 15px;
             box-sizing: border-box;
-            background: #fdfdfd;
+            background: var(--sap-card-bg);
+            color: var(--sap-text-color);
             transition: all 0.2s;
         }
 
@@ -112,19 +113,19 @@
             outline: none;
             border-color: #d81b60;
             box-shadow: 0 0 0 2px rgba(216, 27, 96, 0.1);
-            background: white;
+            background: var(--sap-card-bg);
         }
 
         .form-field input[readonly] {
-            background: #f4f4f4;
-            color: #666;
+            background: var(--sap-bg-color);
+            color: var(--sap-text-muted);
             cursor: not-allowed;
             border-style: dashed;
         }
 
         .task-row {
             padding: 12px;
-            background: #fffcfd;
+            background: var(--sap-card-bg);
             border-radius: 8px;
             margin-bottom: 12px;
             position: relative;
@@ -149,7 +150,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             padding: 12px 16px;
             display: grid;
             grid-template-columns: 1fr 1.5fr 1.5fr;
@@ -190,7 +191,7 @@
 
         /* Ticket Detail Card */
         .ticket-detail-card {
-            background: #fafafa;
+            background: var(--sap-bg-color);
             border: 1px solid var(--sap-border-color);
             border-left: 4px solid #16a34a;
             border-radius: 8px;
@@ -339,7 +340,7 @@
                     <label>Persona de Enlace (Buscador)</label>
                     <input type="text" id="enlace-search" placeholder="Escriba nombre o institución..." autocomplete="off" value="{{ acuerdo.enlace.nombre }}">
                     <input type="hidden" name="enlace" id="enlace-id" required value="{{ acuerdo.enlace.id|unlocalize }}">
-                    <div id="enlace-results" class="fiori-dropdown" style="display: none; position: absolute; width: 100%; z-index: 101; background: white; border: 1px solid var(--sap-border-color); border-radius: 6px; box-shadow: var(--sap-card-shadow);"></div>
+                    <div id="enlace-results" class="fiori-dropdown" style="display: none; position: absolute; width: 100%; z-index: 101; background: var(--sap-card-bg); border: 1px solid var(--sap-border-color); border-radius: 6px; box-shadow: var(--sap-card-shadow);"></div>
                     
                     <div id="contact-detail-card" class="ticket-detail-card" style="border-left-color: #2563eb; {% if acuerdo.enlace %}display: block;{% endif %}">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -441,7 +442,7 @@
                     <div class="form-field" style="margin-bottom: 0;">
                         <label>Fecha de Inicio Estimada</label>
                         <input type="datetime-local" id="fecha-inicio-base" value="{{ now|date:'Y-m-d\TH:i' }}">
-                        <p style="font-size: 10px; color: #888; margin-top: 4px;">* Las fechas se recalcularán automáticamente según la duración y predecesores.</p>
+                        <p style="font-size: 10px; color: var(--sap-text-muted); margin-top: 4px;">* Las fechas se recalcularán automáticamente según la duración y predecesores.</p>
                     </div>
                 </div>
                 
@@ -497,7 +498,7 @@
         <button type="button" class="fiori-btn fiori-btn-ghost" onclick="window.location.href='{% url 'core:mobile_dashboard' %}'" style="padding: 10px 5px; font-size: 13px;">
             Cancelar
         </button>
-        <button type="button" class="fiori-btn fiori-btn-secondary" id="btn-save-draft" style="background: #f0f0f0; color: #333; border: 1px solid #ccc; padding: 10px 5px; font-size: 13px;">
+        <button type="button" class="fiori-btn fiori-btn-secondary" id="btn-save-draft" style="background: var(--sap-card-bg); color: var(--sap-text-color); border: 1px solid var(--sap-border-color); padding: 10px 5px; font-size: 13px;">
             <ion-icon name="save-outline"></ion-icon> Solo Guardar
         </button>
         <button type="button" class="fiori-btn fiori-btn-primary" id="btn-submit" style="background: #e91e63; padding: 10px 5px; font-size: 13px;">

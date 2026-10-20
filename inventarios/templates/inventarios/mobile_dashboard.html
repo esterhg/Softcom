@@ -19,15 +19,14 @@
     <style>
         :root {
             --fiori-border-radius: 0;
-            --sap-brand-color: #0070f2;
             --header-bg: #334155;
-            --card-border: #e2e8f0;
+            --card-border: var(--sap-border-color);
         }
 
         body {
             font-family: 'Outfit', sans-serif;
-            background-color: #f1f5f9;
-            color: #1e293b;
+            background-color: var(--sap-bg-color);
+            color: var(--sap-text-color);
             margin: 0;
             padding-bottom: 100px;
         }
@@ -91,7 +90,7 @@
             font-size: 16px;
             font-weight: 800;
             margin: 20px 0 10px 0;
-            color: #1e293b;
+            color: var(--sap-text-color);
         }
 
         .action-grid {
@@ -101,7 +100,7 @@
         }
 
         .action-card {
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--card-border);
             padding: 12px;
             text-decoration: none;
@@ -122,8 +121,8 @@
         }
 
         .action-card-text { display: flex; flex-direction: column; }
-        .action-card-text h3 { margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; }
-        .action-card-text p { margin: 2px 0 0 0; font-size: 10px; color: #64748b; font-weight: 400; }
+        .action-card-text h3 { margin: 0; font-size: 13px; font-weight: 700; color: var(--sap-text-color); }
+        .action-card-text p { margin: 2px 0 0 0; font-size: 10px; color: var(--sap-text-muted); font-weight: 400; }
 
         .badge-notif {
             position: absolute;
@@ -137,7 +136,7 @@
         }
 
         .request-card {
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--card-border);
             padding: 15px;
             margin-bottom: 10px;
@@ -147,8 +146,8 @@
         }
 
         .request-header { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; color: #94a3b8; }
-        .request-body h4 { margin: 5px 0 2px 0; font-size: 15px; font-weight: 800; }
-        .request-body p { margin: 0; font-size: 12px; color: #64748b; }
+        .request-body h4 { margin: 5px 0 2px 0; font-size: 15px; font-weight: 800; color: var(--sap-text-color); }
+        .request-body p { margin: 0; font-size: 12px; color: var(--sap-text-muted); }
 
         .search-container { position: relative; margin-bottom: 15px; }
         .search-container ion-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
@@ -156,7 +155,8 @@
             width: 100%; 
             padding: 12px 12px 12px 40px; 
             border: 1px solid var(--card-border); 
-            background: white;
+            background: var(--sap-card-bg);
+            color: var(--sap-text-color);
             font-size: 13px; 
             box-sizing: border-box; 
         }
@@ -167,7 +167,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #f1f5f9;
+            background: var(--sap-bg-color);
             z-index: 1000;
             display: none;
             flex-direction: column;
@@ -175,25 +175,25 @@
         }
 
         .detail-header {
-            background: white;
+            background: var(--sap-card-bg);
             padding: 15px;
             display: flex;
             align-items: center;
             gap: 15px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--sap-border-color);
             position: sticky;
             top: 0;
             z-index: 10;
         }
 
         .item-row {
-            background: white;
+            background: var(--sap-card-bg);
             margin: 8px;
             padding: 15px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--sap-border-color);
         }
-        .item-row h3 { margin: 0; font-size: 14px; font-weight: 800; }
-        .qty-input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; font-size: 16px; font-weight: 800; text-align: center; margin-top: 10px; }
+        .item-row h3 { margin: 0; font-size: 14px; font-weight: 800; color: var(--sap-text-color); }
+        .qty-input { width: 100%; padding: 12px; border: 1px solid var(--sap-border-color); background: var(--sap-card-bg); color: var(--sap-text-color); font-size: 16px; font-weight: 800; text-align: center; margin-top: 10px; }
 
         .used-notice {
             background: #fff7ed;
@@ -214,25 +214,26 @@
             bottom: 0;
             left: 0;
             width: 100%;
-            background: white;
+            background: var(--sap-card-bg);
             display: flex;
             justify-content: space-around;
             padding: 10px 0 25px 0;
-            border-top: 1px solid #e2e8f0;
+            border-top: 1px solid var(--sap-border-color);
             z-index: 100;
         }
-        .tab-item { display: flex; flex-direction: column; align-items: center; color: #94a3b8; text-decoration: none; font-size: 10px; font-weight: 700; }
-        .tab-item.active { color: #334155; }
+        .tab-item { display: flex; flex-direction: column; align-items: center; color: var(--sap-text-muted); text-decoration: none; font-size: 10px; font-weight: 700; }
+        .tab-item.active { color: var(--sap-brand-color); }
         .tab-item ion-icon { font-size: 24px; margin-bottom: 2px; }
 
         /* Form Styles for Quick Create */
         .fiori-field { margin-bottom: 15px; }
-        .fiori-field label { display: block; font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 6px; text-transform: uppercase; }
+        .fiori-field label { display: block; font-size: 11px; font-weight: 800; color: var(--sap-text-muted); margin-bottom: 6px; text-transform: uppercase; }
         .fiori-field input, .fiori-field select, .fiori-field textarea {
             width: 100%;
             padding: 12px;
-            border: 1px solid #e2e8f0;
-            background: white;
+            border: 1px solid var(--sap-border-color);
+            background: var(--sap-card-bg);
+            color: var(--sap-text-color);
             font-size: 14px;
             box-sizing: border-box;
             font-family: inherit;
@@ -431,9 +432,9 @@
             <ion-icon name="close-outline" onclick="closeDetail()" style="font-size: 28px;"></ion-icon>
             <h2 style="margin:0; font-size: 16px; font-weight: 800;">Despacho Material</h2>
         </div>
-        <div id="detail-info" style="padding: 15px; background: white; border-bottom: 1px solid #e2e8f0; font-size: 13px;"></div>
+        <div id="detail-info" style="padding: 15px; background: var(--sap-card-bg); color: var(--sap-text-color); border-bottom: 1px solid var(--sap-border-color); font-size: 13px;"></div>
         <div id="detail-items" style="flex: 1;"></div>
-        <div style="padding: 15px; background: white; border-top: 1px solid #e2e8f0;">
+        <div style="padding: 15px; background: var(--sap-card-bg); border-top: 1px solid var(--sap-border-color);">
             <button onclick="confirmDispatch()" id="btn-confirm" style="width: 100%; padding: 16px; background: #334155; color: white; border: none; font-weight: 800;">CONFIRMAR ENTREGA</button>
         </div>
     </div>
@@ -476,13 +477,13 @@
             <ion-icon name="close-outline" onclick="closeQuickCreate()" style="font-size: 28px;"></ion-icon>
             <h2 style="margin:0; font-size: 16px; font-weight: 800;">Nuevo Material</h2>
         </div>
-        <div style="flex: 1; padding: 20px; background: white;">
+        <div style="flex: 1; padding: 20px; background: var(--sap-card-bg);">
             <form id="quick-create-form">
                 <div class="fiori-field">
                     <label>SKU / CÓDIGO BARRAS</label>
                     <div style="display: flex; gap: 10px;">
                         <input type="text" id="qc-sku" name="sku" required placeholder="Ingresar o escanear...">
-                        <button type="button" onclick="startSkuScanner('qc-sku')" style="padding: 10px; background: #f1f5f9; border: 1px solid #e2e8f0;">
+                        <button type="button" onclick="startSkuScanner('qc-sku')" style="padding: 10px; background: var(--sap-bg-color); border: 1px solid var(--sap-border-color);">
                             <ion-icon name="scan-outline" style="font-size: 20px;"></ion-icon>
                         </button>
                     </div>
@@ -530,7 +531,7 @@
 
                 <div class="fiori-field">
                     <label>FOTOS DE EVIDENCIA (MAX 3)</label>
-                    <input type="file" name="fotos" multiple accept="image/*" style="border: 1px dashed #cbd5e1; background: #f8fafc; padding: 20px; text-align: center;">
+                    <input type="file" name="fotos" multiple accept="image/*" style="border: 1px dashed var(--sap-border-color); background: var(--sap-bg-color); color: var(--sap-text-color); padding: 20px; text-align: center;">
                 </div>
 
                 <button type="button" onclick="saveQuickMaterial()" style="width: 100%; padding: 18px; background: #334155; color: white; border: none; font-weight: 800; margin-top: 10px;">
@@ -547,10 +548,10 @@
         </div>
         <div id="reader" style="width: 100%; height: 100%;"></div>
         <!-- Input manual -->
-        <div id="manual-input-bar" style="display:none;position:absolute;bottom:0;left:0;right:0;background:white;padding:16px;z-index:101;box-shadow:0 -4px 20px rgba(0,0,0,0.3);">
-            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px;text-transform:uppercase;">Ingresar código manualmente</div>
+        <div id="manual-input-bar" style="display:none;position:absolute;bottom:0;left:0;right:0;background:var(--sap-card-bg);padding:16px;z-index:101;box-shadow:0 -4px 20px rgba(0,0,0,0.3);">
+            <div style="font-size:12px;font-weight:700;color:var(--sap-text-muted);margin-bottom:6px;text-transform:uppercase;">Ingresar código manualmente</div>
             <div style="display:flex;gap:8px;">
-                <input type="text" id="manual-sku-input" placeholder="SKU o código de barras..." style="flex:1;padding:10px;border:1px solid #e2e8f0;font-size:0.95rem;font-family:inherit;" onkeydown="if(event.key==='Enter'){submitManualSku();}">
+                <input type="text" id="manual-sku-input" placeholder="SKU o código de barras..." style="flex:1;padding:10px;border:1px solid var(--sap-border-color);background:var(--sap-card-bg);color:var(--sap-text-color);font-size:0.95rem;font-family:inherit;" onkeydown="if(event.key==='Enter'){submitManualSku();}">
                 <button onclick="submitManualSku()" style="padding:10px 16px;background:#0070f2;color:white;border:none;font-weight:600;font-family:inherit;cursor:pointer;">Buscar</button>
             </div>
         </div>

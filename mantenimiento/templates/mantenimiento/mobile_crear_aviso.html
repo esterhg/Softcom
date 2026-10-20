@@ -107,7 +107,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: #fafafa;
+            background: var(--sap-bg-color);
         }
 
         .card-header ion-icon {
@@ -149,7 +149,7 @@
             font-size: 14px;
             font-family: inherit;
             color: var(--sap-text-color);
-            background: white;
+            background: var(--sap-card-bg);
             transition: all 0.2s;
             outline: none;
         }
@@ -168,7 +168,7 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             border: 1px solid var(--sap-border-color);
             border-radius: 0 0 var(--sap-border-radius) var(--sap-border-radius);
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
@@ -260,7 +260,7 @@
             overflow: hidden;
             border: 1px solid var(--sap-border-color);
             position: relative;
-            background: white;
+            background: var(--sap-card-bg);
             display: flex;
             flex-direction: column;
         }
@@ -315,7 +315,7 @@
         .fiori-toolbar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             padding: 12px 16px calc(12px + var(--safe-area-bottom));
             border-top: 1px solid var(--sap-border-color);
             display: flex;
@@ -429,7 +429,7 @@
                             <div class="asset-info-item"><b>Categoría</b><span id="detail-categoria">-</span></div>
                             <div style="grid-column: 1 / -1; margin-top: 4px;">
                                 <a id="detail-link" href="#" target="_blank"
-                                   style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--sap-brand-color); text-decoration: none; padding: 6px 10px; border: 1px solid var(--sap-brand-color); border-radius: var(--sap-border-radius); background: white;">
+                                   style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--sap-brand-color); text-decoration: none; padding: 6px 10px; border: 1px solid var(--sap-brand-color); border-radius: var(--sap-border-radius); background: var(--sap-card-bg);">
                                     <ion-icon name="open-outline" style="font-size: 14px;"></ion-icon>
                                     Ver ficha del activo
                                 </a>
@@ -565,7 +565,7 @@
                         <div class="photo-item" style="cursor:default;">
                             <img src="{{ foto.foto.url }}" style="flex:1;object-fit:cover;min-height:0;">
                             {% if foto.descripcion %}
-                            <div style="font-size:10px;padding:2px 4px;background:#f5f5f5;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ foto.descripcion }}</div>
+                            <div style="font-size:10px;padding:2px 4px;background:var(--sap-bg-color);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ foto.descripcion }}</div>
                             {% endif %}
                         </div>
                         {% endfor %}

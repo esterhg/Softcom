@@ -19,11 +19,9 @@
             --success: #28a745;
             --warning: #ffc107;
             --danger: #dc3545;
-            --dark: #212529;
-            --gray-100: #f8f9fa;
-            --gray-200: #e9ecef;
-            --gray-600: #6c757d;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --gray-100: var(--sap-bg-color);
+            --gray-600: var(--sap-text-muted);
+            --card-shadow: var(--sap-card-shadow);
         }
 
         body {
@@ -158,7 +156,7 @@
         }
 
         .info-card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 2px;
             padding: 20px;
             box-shadow: var(--card-shadow);
@@ -192,7 +190,7 @@
         }
 
         .history-item {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 2px;
             padding: 15px;
             box-shadow: var(--card-shadow);
@@ -242,7 +240,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             padding: 12px 16px;
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -273,9 +271,9 @@
         }
 
         .btn-outline {
-            background: white;
+            background: var(--sap-card-bg);
             color: var(--dark);
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--sap-border-color);
         }
 
         .btn ion-icon {
@@ -284,7 +282,7 @@
 
         /* Measuring Points Styles */
         .medicion-card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 2px;
             padding: 20px;
             box-shadow: var(--card-shadow);
@@ -295,7 +293,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--sap-border-color);
         }
 
         .medicion-row:last-child {
@@ -335,7 +333,7 @@
         .drawer-overlay.active { display: flex; opacity: 1; }
 
         .bottom-drawer {
-            background: white;
+            background: var(--sap-card-bg);
             width: 100%;
             max-height: 80vh;
             border-top-left-radius: 4px;
@@ -350,7 +348,7 @@
 
         .drawer-header {
             padding: 20px;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--sap-border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -373,12 +371,12 @@
             font-size: 11px;
             text-transform: uppercase;
             color: var(--gray-600);
-            border-bottom: 2px solid #f1f5f9;
+            border-bottom: 2px solid var(--sap-border-color);
         }
         .history-table td {
             padding: 12px 10px;
             font-size: 14px;
-            border-bottom: 1px solid #f8fafc;
+            border-bottom: 1px solid var(--sap-border-color);
         }
 
         /* Floating camera button for superusers */
@@ -532,10 +530,10 @@
             <ion-icon name="speedometer-outline"></ion-icon> Puntos de Medición
         </div>
         <div class="medicion-card"
-            style="background: white; border-radius: 18px; padding: 20px; box-shadow: var(--card-shadow); margin-bottom: 20px;">
+            style="background: var(--sap-card-bg); border-radius: 18px; padding: 20px; box-shadow: var(--card-shadow); margin-bottom: 20px;">
             {% for punto in puntos_medicion %}
             <div class="medicion-row" onclick="showPointDetail('{{ punto.id }}')"
-                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9; cursor: pointer;">
+                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--sap-border-color); cursor: pointer;">
                 <div>
                     <span class="medicion-label" style="font-weight: 600; font-size: 14px;">{{ punto.nombre }}</span>
                     {% with ultima=punto.lecturas.first %}
@@ -554,14 +552,14 @@
                         {% with ultima=punto.lecturas.first %}
                         {% if ultima %}{{ ultima.valor }}{% else %}---{% endif %}
                         {% endwith %}
-                        <small style="font-size: 10px; color: #64748b;">{{ punto.unidad }}</small>
+                        <small style="font-size: 10px; color: var(--sap-text-muted);">{{ punto.unidad }}</small>
                     </span>
                     <ion-icon name="chevron-forward-outline" style="color: #cbd5e1;"></ion-icon>
                 </div>
             </div>
             {% endfor %}
             <a href="{% url 'mantenimiento:mobile_ot_finalizar' 0 %}" class="btn btn-outline"
-                style="margin-top: 15px; width: 100%; font-size: 12px; height: 40px; border-style: dashed; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--gray-200); border-radius: 12px; color: var(--gray-600); text-decoration: none;">
+                style="margin-top: 15px; width: 100%; font-size: 12px; height: 40px; border-style: dashed; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--sap-border-color); border-radius: 12px; color: var(--gray-600); text-decoration: none;">
                 <ion-icon name="add-circle-outline"></ion-icon> Nueva Lectura
             </a>
         </div>

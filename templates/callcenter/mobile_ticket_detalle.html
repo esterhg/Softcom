@@ -123,7 +123,7 @@
         }
 
         .block-text {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 2px;
             padding: 15px;
             box-shadow: var(--sap-card-shadow);
@@ -144,7 +144,7 @@
             border-radius: 2px;
             overflow: hidden;
             border: 1px solid var(--sap-border-color);
-            background: #eee;
+            background: var(--sap-bg-color);
         }
 
         .evidence-item img {
@@ -155,7 +155,7 @@
 
         /* Timeline / Extension Tickets */
         .timeline-card {
-            background: white;
+            background: var(--sap-card-bg);
             border-radius: 2px;
             padding: 15px;
             margin-bottom: 10px;
@@ -169,7 +169,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--sap-card-bg);
             padding: 12px 16px;
             display: flex;
             gap: 12px;
@@ -195,10 +195,10 @@
         }
 
         .btn-primary { background: var(--primary); color: white; }
-        .btn-outline { background: white; color: var(--sap-text-color); border: 1px solid var(--sap-border-color); }
+        .btn-outline { background: var(--sap-card-bg); color: var(--sap-text-color); border: 1px solid var(--sap-border-color); }
         .btn-pink { background: #e7327d; color: white; }
         .btn-purple { background: #a461d1; color: white; }
-        .btn-outline-pink { background: white; color: #e7327d; border: 1px solid #ffadd2; }
+        .btn-outline-pink { background: var(--sap-card-bg); color: #e7327d; border: 1px solid #ffadd2; }
 
         /* Restricción Section */
         .restriccion-card {
@@ -238,7 +238,7 @@
         }
 
         .modal-content {
-            background: white;
+            background: var(--sap-card-bg);
             width: 100%;
             border-radius: 24px 24px 0 0;
             padding: 24px;
@@ -322,7 +322,7 @@
             {{ ticket.solicitud_descripcion|default:"Sin descripción"|linebreaks }}
             
             {% if ticket.falla_descripcion %}
-            <hr style="margin: 10px 0; border: 0; border-top: 1px solid #eee;">
+            <hr style="margin: 10px 0; border: 0; border-top: 1px solid var(--sap-border-color);">
             <strong>Falla detectada:</strong> {{ ticket.falla_descripcion }}
             {% endif %}
         </div>
@@ -342,7 +342,7 @@
             {% endif %}
 
             {% if ticket.actividades %}
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--sap-border-color);">
                 <label style="font-size: 11px; color: var(--sap-text-muted); text-transform: uppercase;">Actividades Realizadas:</label>
                 <p style="margin: 4px 0;">{{ ticket.actividades|linebreaksbr }}</p>
                 <small style="color: var(--sap-text-muted);">{{ ticket.fecha_actividades|date:"d/m/Y H:i" }}</small>
@@ -469,12 +469,12 @@
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0; color: #e7327d;">Restricción de Acceso</h3>
-                <button onclick="closeRestriccion()" style="background: none; border: none; font-size: 24px; color: #64748b;">
+                <button onclick="closeRestriccion()" style="background: none; border: none; font-size: 24px; color: var(--sap-text-muted);">
                     <ion-icon name="close-circle-outline"></ion-icon>
                 </button>
             </div>
 
-            <div style="background: #f8fafc; padding: 15px; border-radius: 2px; margin-bottom: 20px; font-size: 13px;">
+            <div style="background: var(--sap-bg-color); padding: 15px; border-radius: 2px; margin-bottom: 20px; font-size: 13px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <p style="margin: 0;"><strong>Ticket:</strong><br>{{ ticket.folio|default:ticket.id_solicitud }}</p>
                     <p style="margin: 0;"><strong>Usuario que reporta:</strong><br>{{ ticket.solicitante }}</p>
@@ -484,14 +484,14 @@
                     <p style="margin: 10px 0 0 0;"><strong>Reporte:</strong><br>{{ ticket.fecha_solicitud|date:"d/m/Y H:i" }}</p>
                     <p style="margin: 10px 0 0 0;"><strong>Cierre:</strong><br>{{ ticket.fecha_cierre|date:"d/m/Y H:i" }}</p>
                 </div>
-                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #e2e8f0;">
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid var(--sap-border-color);">
                 <p style="margin: 0; text-align: center; color: #e7327d; font-weight: 700;">
                     <ion-icon name="information-circle-outline"></ion-icon> Se descontarán fines de semana y horarios no hábiles.
                 </p>
             </div>
 
             <div style="margin-bottom: 20px;">
-                <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 8px;">1. Firma de Conformidad (Usuario)</label>
+                <label style="font-size: 11px; font-weight: 700; color: var(--sap-text-muted); text-transform: uppercase; display: block; margin-bottom: 8px;">1. Firma de Conformidad (Usuario)</label>
                 <div class="signature-wrapper">
                     <canvas id="signature-pad-usuario"></canvas>
                 </div>
@@ -499,7 +499,7 @@
             </div>
 
             <div style="margin-bottom: 25px;">
-                <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 8px;">2. Firma del Técnico / Responsable</label>
+                <label style="font-size: 11px; font-weight: 700; color: var(--sap-text-muted); text-transform: uppercase; display: block; margin-bottom: 8px;">2. Firma del Técnico / Responsable</label>
                 <div class="signature-wrapper">
                     <canvas id="signature-pad-tecnico"></canvas>
                 </div>

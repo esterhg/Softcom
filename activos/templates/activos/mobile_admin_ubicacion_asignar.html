@@ -61,7 +61,7 @@
         .card-header {
             padding: 16px;
             border-bottom: 1px solid var(--sap-border-color);
-            background: #f8f9fa;
+            background: var(--sap-bg-color);
         }
 
         .card-header h2 {
@@ -84,7 +84,7 @@
         .fiori-form-group label {
             display: block;
             font-size: 13px;
-            color: var(--sap-label);
+            color: var(--sap-text-color);
             margin-bottom: 6px;
             font-weight: 500;
         }
@@ -92,12 +92,12 @@
         .fiori-input {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid #bcbcbc;
+            border: 1px solid var(--sap-border-color);
             border-radius: 4px;
             font-family: inherit;
             font-size: 14px;
-            color: var(--sap-text);
-            background: #ffffff;
+            color: var(--sap-text-color);
+            background: var(--sap-card-bg);
             box-sizing: border-box;
             transition: border-color 0.2s;
         }
@@ -111,13 +111,14 @@
         /* Select2 Theme adjustments */
         .select2-container .select2-selection--single {
             height: 40px;
-            border: 1px solid #bcbcbc;
+            border: 1px solid var(--sap-border-color);
             border-radius: 4px;
             display: flex;
             align-items: center;
+            background: var(--sap-card-bg);
         }
         .select2-container--default .select2-selection--single .select2-selection__rendered {
-            color: var(--sap-text);
+            color: var(--sap-text-color);
         }
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 38px;
@@ -163,8 +164,8 @@
             display: none;
             margin-top: 12px;
             padding: 12px;
-            background: #fbfbfb;
-            border: 1px solid #ddd;
+            background: var(--sap-bg-color);
+            border: 1px solid var(--sap-border-color);
             border-radius: 4px;
         }
     </style>
@@ -216,7 +217,7 @@
                         <div class="fiori-form-group" style="margin-bottom: 0;">
                             <label style="color: var(--sap-brand-color);">Nombre del Nuevo Espacio/Área</label>
                             <input type="text" name="nueva_area" class="fiori-input" placeholder="Ej. Cuarto de Bombas">
-                            <div style="font-size: 11px; color: #888; margin-top: 4px;">Se creará automáticamente debajo de la ruta seleccionada arriba.</div>
+                            <div style="font-size: 11px; color: var(--sap-text-muted); margin-top: 4px;">Se creará automáticamente debajo de la ruta seleccionada arriba.</div>
                         </div>
                     </div>
                 </div>
