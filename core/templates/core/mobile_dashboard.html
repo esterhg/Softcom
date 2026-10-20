@@ -93,7 +93,7 @@
 
         /* --- SAP FIORI TAB BAR (Classic) --- */
         .tab-bar {
-            background: #ffffff;
+            background: var(--sap-card-bg);
             border-bottom: 1px solid var(--sap-border-color);
             display: flex;
             overflow-x: auto;
@@ -134,7 +134,7 @@
 
         /* --- ACTION TOOLBAR --- */
         .action-toolbar {
-            background: #ffffff;
+            background: var(--sap-card-bg);
             border-bottom: 1px solid var(--sap-border-color);
             padding: 12px 16px;
             display: flex;
@@ -197,7 +197,7 @@
         }
 
         .kpi-card {
-            background: #ffffff;
+            background: var(--sap-card-bg);
             border: 1px solid var(--sap-border-color);
             border-radius: var(--sap-border-radius);
             padding: 15px 10px;
@@ -229,7 +229,7 @@
             border-bottom: 1px solid var(--sap-border-color);
             text-decoration: none;
             color: var(--sap-text-color);
-            background: #ffffff;
+            background: var(--sap-card-bg);
             transition: all 0.2s;
             border-left: 0px solid var(--sap-brand-color);
         }
@@ -292,7 +292,7 @@
         .bottom-nav {
             height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 15px));
             padding-bottom: env(safe-area-inset-bottom, 15px);
-            background: #ffffff;
+            background: var(--sap-card-bg);
             border-top: 1px solid var(--sap-border-color);
             display: flex;
             justify-content: space-around;
@@ -345,7 +345,7 @@
         }
 
         .catalog-item {
-            background: #ffffff;
+            background: var(--sap-card-bg);
             border: 1px solid var(--sap-border-color);
             border-radius: var(--sap-border-radius);
             padding: 18px 12px;
@@ -443,12 +443,12 @@
     </div>
 
     <!-- GLOBAL SEARCH BAR -->
-    <div style="background: #ffffff; padding: 12px 16px; border-bottom: 1px solid var(--sap-border-color);">
+    <div style="background: var(--sap-card-bg); padding: 12px 16px; border-bottom: 1px solid var(--sap-border-color);">
         <div style="position: relative;">
             <ion-icon name="search-outline" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #888; font-size: 18px;"></ion-icon>
             <input type="text" id="global-search-input" placeholder="Buscar activos, tareas, manuales..." 
                    onkeyup="handleGlobalSearch(this.value)"
-                   style="width: 100%; padding: 10px 12px 10px 40px; border: 1px solid var(--sap-border-color); border-radius: 8px; background: var(--sap-bg-color); font-size: 14px; outline: none; font-family: inherit;">
+                   style="width: 100%; padding: 10px 12px 10px 40px; border: 1px solid var(--sap-border-color); border-radius: 8px; background: var(--sap-bg-color); color: var(--sap-text-color); font-size: 14px; outline: none; font-family: inherit;">
         </div>
     </div>
 
@@ -691,7 +691,7 @@
                     <ion-icon name="add-circle-outline" style="font-size:24px;color:#0070f2;"></ion-icon>
                 </div>
                 <div>
-                    <div style="font-weight:700;font-size:14px;color:#32363a;">Nuevo Reporte de Elevadores</div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Nuevo Reporte de Elevadores</div>
                     <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Registrar estado del turno actual</div>
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
@@ -702,7 +702,7 @@
                     <ion-icon name="list-outline" style="font-size:24px;color:#107e3e;"></ion-icon>
                 </div>
                 <div>
-                    <div style="font-weight:700;font-size:14px;color:#32363a;">Reportes Recientes</div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Reportes Recientes</div>
                     <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Ver todos los reportes generados</div>
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
@@ -713,7 +713,7 @@
                     <ion-icon name="time-outline" style="font-size:24px;color:#d97706;"></ion-icon>
                 </div>
                 <div>
-                    <div style="font-weight:700;font-size:14px;color:#32363a;">Historial de Reportes</div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Historial de Reportes</div>
                     <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Filtrar por mes y descargar PDF</div>
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
@@ -729,7 +729,7 @@
                     <ion-icon name="notifications-outline" style="font-size:24px;color:#e9730c;"></ion-icon>
                 </div>
                 <div>
-                    <div style="font-weight:700;font-size:14px;color:#32363a;">Nueva Verificación de Elevadores</div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Nueva Verificación de Elevadores</div>
                     <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Alarma, intercomunicador, luz y etiquetado</div>
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
@@ -740,7 +740,7 @@
                     <ion-icon name="list-outline" style="font-size:24px;color:#107e3e;"></ion-icon>
                 </div>
                 <div>
-                    <div style="font-weight:700;font-size:14px;color:#32363a;">Verificaciones Recientes</div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Verificaciones Recientes</div>
                     <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Ver checklists de alarma e intercomunicador</div>
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
@@ -751,7 +751,7 @@
                     <ion-icon name="time-outline" style="font-size:24px;color:#d97706;"></ion-icon>
                 </div>
                 <div>
-                    <div style="font-weight:700;font-size:14px;color:#32363a;">Historial de Verificaciones</div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Historial de Verificaciones</div>
                     <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Filtrar por mes y descargar PDF</div>
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>

@@ -354,3 +354,185 @@
   .mon-table th, .mon-table td { padding: .45rem .55rem; font-size: .8rem; }
   .mon-fotos-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
 }
+
+
+/* ============================================================
+   RESPONSIVE — breakpoints adicionales (tablet / phone)
+   ============================================================ */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .mon-info-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .mon-fotos-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+
+/* Phone */
+@media (max-width: 600px) {
+  .mon-card { padding: .85rem 1rem; }
+  .mon-page-header h1 { font-size: 1.15rem; }
+  .mon-table { font-size: .82rem; }
+  .mon-table th, .mon-table td { padding: .4rem .5rem; }
+  .mon-info-grid { grid-template-columns: 1fr 1fr; gap: .65rem; }
+  .mon-fotos-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .mon-btn { padding: .4rem .7rem; font-size: .8rem; }
+}
+
+/* Phone pequeño */
+@media (max-width: 400px) {
+  .mon-info-grid { grid-template-columns: 1fr; }
+}
+
+/* Todas las tablas de monitoreo scrollables en pantallas estrechas */
+.mon-table-wrapper,
+.table-scroll,
+.hist-table-wrap,
+.vt-wrap { -webkit-overflow-scrolling: touch; }
+
+
+/* ============================================================
+   MODO OSCURO — se activa con [data-theme="dark"] en <html>
+   (theme engine SoftCom; ver core/fiori_tokens.html)
+   Neutraliza los colores claros hardcodeados de las plantillas
+   de monitoreo (listas, detalle, historial y verificación).
+   Los colores semánticos (badges) se conservan por identidad.
+   ============================================================ */
+[data-theme="dark"] {
+  --fiori-primary:        #4d9ef7;
+  --fiori-bg:             #0f172a;
+  --fiori-card-bg:        #1e293b;
+  --fiori-text:           #e2e8f0;
+  --fiori-text-secondary: #94a3b8;
+  --fiori-border:         #334155;
+  --fiori-success:        #4ade80;
+  --fiori-warning:        #fbbf24;
+  --fiori-error:          #f87171;
+}
+
+/* ── Contenedores de página (usan fondo claro inline) ── */
+[data-theme="dark"] .mon-wrap { background: #0f172a; }
+
+/* ── Cards ── */
+[data-theme="dark"] .mon-card,
+[data-theme="dark"] .grp,
+[data-theme="dark"] .hist-stat-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+[data-theme="dark"] .mon-card:hover {
+  box-shadow: 0 .25rem .6rem rgba(0,0,0,.55);
+}
+[data-theme="dark"] .mon-card-header,
+[data-theme="dark"] .mon-card-title,
+[data-theme="dark"] .mon-page-header h1,
+[data-theme="dark"] .sec-bar h2,
+[data-theme="dark"] .mon-info-field span { color: #e2e8f0; }
+[data-theme="dark"] .mon-card-header { border-bottom-color: #334155; }
+
+/* ── Textos secundarios / breadcrumb ── */
+[data-theme="dark"] .mon-breadcrumb,
+[data-theme="dark"] .mon-card-subtitle,
+[data-theme="dark"] .mon-list-meta,
+[data-theme="dark"] .mon-form-group label,
+[data-theme="dark"] .mon-info-field label,
+[data-theme="dark"] .hist-stat-card .stat-lbl { color: #94a3b8; }
+[data-theme="dark"] .mon-breadcrumb a { color: #4d9ef7; }
+
+/* ── Tablas (listas, historial, detalle verificación) ── */
+[data-theme="dark"] .mon-table th,
+[data-theme="dark"] .hist-table th {
+  background: #243449;
+  color: #e2e8f0;
+  border-bottom-color: #3b4a60;
+}
+[data-theme="dark"] .mon-table td,
+[data-theme="dark"] .hist-table td {
+  color: #e2e8f0;
+  border-bottom-color: #2a3a50;
+}
+[data-theme="dark"] .mon-table tr:hover td,
+[data-theme="dark"] .hist-table tr:hover td { background: #243449; }
+
+/* Tabla de verificación (detalle) */
+[data-theme="dark"] .vt td { border-color: #2a3a50; color: #e2e8f0; }
+[data-theme="dark"] .vt tr:nth-child(even) td { background: #182434; }
+[data-theme="dark"] .vt tr.row-nov td { background: #3a1e22 !important; }
+
+/* Filas de agrupación / listas */
+[data-theme="dark"] .mon-list-row { border-bottom-color: #2a3a50; }
+[data-theme="dark"] .mon-list-row:hover { background: #243449; }
+[data-theme="dark"] .mon-list-title { color: #e2e8f0; }
+
+/* ── Campos de formulario ── */
+[data-theme="dark"] .mon-form-control,
+[data-theme="dark"] .mon-table select,
+[data-theme="dark"] .mon-table textarea,
+[data-theme="dark"] .mon-table input[type="text"] {
+  background: #0f1b2d;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+[data-theme="dark"] .mon-form-control::placeholder { color: #64748b; }
+
+/* ── Botones secundarios / ghost ── */
+[data-theme="dark"] .mon-btn-secondary {
+  background: #1e293b; color: #e2e8f0; border-color: #334155;
+}
+[data-theme="dark"] .mon-btn-secondary:hover { background: #273548; color: #e2e8f0; }
+[data-theme="dark"] .mon-btn-ghost { color: #4d9ef7; }
+[data-theme="dark"] .mon-btn-ghost:hover { background: rgba(77,158,247,.12); }
+
+/* ── Fotos ── */
+[data-theme="dark"] .mon-foto-item { background: #182434; border-color: #334155; }
+[data-theme="dark"] .mon-foto-desc { background: #1e293b; border-top-color: #334155; color: #94a3b8; }
+[data-theme="dark"] .mon-foto-desc input { color: #e2e8f0; }
+[data-theme="dark"] .mon-foto-add-btn { background: #182434; border-color: #334155; color: #94a3b8; }
+[data-theme="dark"] .mon-foto-add-btn:hover { background: #1e3a5f; border-color: #4d9ef7; color: #4d9ef7; }
+
+/* ── Empty state ── */
+[data-theme="dark"] .mon-empty,
+[data-theme="dark"] .hist-empty { color: #94a3b8; }
+
+/* ── Cajas de información del historial / zip ── */
+[data-theme="dark"] .zip-download-box { background: #1e3a5f; border-color: #2d4f7a; }
+[data-theme="dark"] .zip-download-box .zip-text strong { color: #93c5fd; }
+[data-theme="dark"] .zip-download-box .zip-text span { color: #7cb3f0; }
+
+/* ── Paginadores ── */
+[data-theme="dark"] .pager,
+[data-theme="dark"] .hist-pager { border-top-color: #2a3a50; }
+[data-theme="dark"] .pager span,
+[data-theme="dark"] .hist-pager span { color: #94a3b8; }
+
+/* ── Resumen global del formulario ── */
+[data-theme="dark"] #resumen-global { background: #182434; border-color: #334155; color: #94a3b8; }
+
+/* ── Tarjetas de elevador en formularios (estado OK/novedad) ── */
+[data-theme="dark"] .ec { background: #10251a; border-color: #1f6b3f; }
+[data-theme="dark"] .ec.nov { background: #2a1416; border-color: #a04040; }
+[data-theme="dark"] .ec-name { color: #e2e8f0; }
+[data-theme="dark"] .ec-panel { background: #241012; border-top-color: #a04040; }
+[data-theme="dark"] .ec-panel select,
+[data-theme="dark"] .ec-panel textarea { background: #0f1b2d; color: #e2e8f0; border-color: #334155; }
+
+/* Tarjetas de verificación (verif_form) */
+[data-theme="dark"] .evc { background: #10251a; border-color: #1f6b3f; }
+[data-theme="dark"] .evc.nov { background: #2a1416; border-color: #a04040; }
+[data-theme="dark"] .evc-name { color: #e2e8f0; }
+[data-theme="dark"] .chk-row { color: #e2e8f0; }
+[data-theme="dark"] .evc-hallazgo textarea { background: #0f1b2d; color: #e2e8f0; border-color: #a04040; }
+[data-theme="dark"] #zona-up { border-color: #334155; color: #94a3b8; }
+[data-theme="dark"] #zona-up:hover, [data-theme="dark"] #zona-up.over { background: #1e3a5f; border-color: #4d9ef7; color: #4d9ef7; }
+
+/* ── Grupo header (azul) se mantiene; ajustar contadores ── */
+[data-theme="dark"] .fp-cap { background: #1e293b; border-top-color: #334155; }
+[data-theme="dark"] .fp-cap input { color: #e2e8f0; }
+[data-theme="dark"] .fp-item { border-color: #334155; }
+
+/* ── Bloques de observaciones (inline f7f9fc) ── */
+[data-theme="dark"] .mon-form-group > div[style*="f7f9fc"],
+[data-theme="dark"] .mon-info-grid + .mon-form-group div {
+  background: #0f1b2d !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
