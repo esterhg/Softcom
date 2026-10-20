@@ -19,7 +19,10 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
-from .models import Elevador, FotoAnexoReporte, FilaReporteElevador, ReporteElevador
+from .models import (
+    Elevador, FotoAnexoReporte, FilaReporteElevador, ReporteElevador,
+    ReporteVerificacionAlarma, FilaVerificacionAlarma, FotoAnexoVerificacionAlarma,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -448,6 +451,414 @@ def _procesar_form_reporte(request, instance):
             except Exception: pass
             f.delete()
         except FotoAnexoReporte.DoesNotExist:
+            pass
+
+    return reporte
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  VERIFICACIÓN DE ELEVADORES — ALARMA E INTERCOMUNICADOR
+#  Checklist OCC. Mismo patrón que los reportes de elevadores.
+# ═══════════════════════════════════════════════════════════════════
+
+# Campos booleanos del checklist (orden del formato OCC)
+VERIF_CAMPOS = [
+    'etiqueta_interna', 'alarma_suena', 'luz_enciende',
+    'parlante_suena', 'telefono_etiqueta', 'telefono_suena',
+]
+
+
+def _agrupar_filas_verif(filas):
+    """Agrupa filas de verificación por ubicación en orden canónico."""
+    grupos = defaultdict(list)
+    for f in filas:
+        grupos[f.elevador.ubicacion or 'Sin ubicación'].append(f)
+    result = {}
+    for ub in ORDEN_UBICACIONES:
+        if ub in grupos:
+            result[ub] = grupos.pop(ub)
+    result.update(grupos)
+    return result
+
+
+# ─────────────────────────────────────────────────────────────
+# Listado
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def verif_lista(request):
+    qs = (ReporteVerificacionAlarma.objects
+          .select_related('responsable', 'creado_por')
+          .order_by('-fecha_hora'))
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(
+            Q(responsable_nombre_manual__icontains=q) |
+            Q(elaborado_por__icontains=q) |
+            Q(edificio__icontains=q) |
+            Q(observaciones_generales__icontains=q)
+        )
+
+    paginator = Paginator(qs, 20)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'monitoreo/verif_lista.html', {
+        'title': 'Verificación de Elevadores — Alarma e Intercomunicador',
+        'page_obj': page_obj,
+        'q': q,
+        'total': qs.count(),
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Historial + ZIP
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def verif_historial(request):
+    anio_sel = request.GET.get('anio', '')
+    mes_sel  = request.GET.get('mes', '')
+
+    qs = (ReporteVerificacionAlarma.objects
+          .select_related('responsable', 'creado_por')
+          .order_by('-fecha_hora'))
+
+    if anio_sel:
+        try: qs = qs.filter(fecha_hora__year=int(anio_sel))
+        except ValueError: pass
+    if mes_sel:
+        try: qs = qs.filter(fecha_hora__month=int(mes_sel))
+        except ValueError: pass
+
+    anios_disponibles = (
+        ReporteVerificacionAlarma.objects
+        .annotate(anio=ExtractYear('fecha_hora'))
+        .values_list('anio', flat=True).distinct().order_by('-anio')
+    )
+
+    paginator = Paginator(qs, 30)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'monitoreo/verif_historial.html', {
+        'title': 'Historial — Verificación de Elevadores (Alarma/Intercom.)',
+        'page_obj': page_obj,
+        'total': qs.count(),
+        'anio_sel': anio_sel,
+        'mes_sel':  mes_sel,
+        'anios_disponibles': list(anios_disponibles),
+        'MESES': MESES,
+    })
+
+
+@staff_member_required
+def verif_historial_zip(request):
+    anio = request.GET.get('anio', '')
+    mes  = request.GET.get('mes', '')
+
+    if not anio or not mes:
+        messages.error(request, 'Selecciona mes y año.')
+        return redirect('monitoreo:verif_historial')
+    try:
+        anio_int, mes_int = int(anio), int(mes)
+    except ValueError:
+        messages.error(request, 'Período inválido.')
+        return redirect('monitoreo:verif_historial')
+
+    qs = (ReporteVerificacionAlarma.objects
+          .prefetch_related('filas__elevador', 'fotos')
+          .select_related('responsable', 'creado_por')
+          .filter(fecha_hora__year=anio_int, fecha_hora__month=mes_int)
+          .order_by('fecha_hora'))
+
+    if not qs.exists():
+        messages.warning(request, 'No hay reportes para ese período.')
+        return redirect('monitoreo:verif_historial')
+
+    NOMBRES_MES = dict(MESES)
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for rpt in qs:
+            try:
+                pdf_bytes = _obtener_o_generar_pdf_verif(rpt)
+                zf.writestr(f'Verificacion_{rpt.pk}_{rpt.fecha_hora.strftime("%Y-%m-%d_%H%M")}.pdf', pdf_bytes)
+            except Exception as exc:
+                logger.error('ZIP verif: error en reporte %s: %s', rpt.pk, exc)
+
+    zip_buf.seek(0)
+    nombre_zip = f'Verificacion_Elevadores_{NOMBRES_MES.get(mes_int, mes)}_{anio}.zip'
+    resp = HttpResponse(zip_buf.read(), content_type='application/zip')
+    resp['Content-Disposition'] = f'attachment; filename="{nombre_zip}"'
+    return resp
+
+
+# ─────────────────────────────────────────────────────────────
+# Crear
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def verif_crear(request):
+    elevadores        = Elevador.objects.filter(activo=True).order_by('orden', 'nombre')
+    grupos_elevadores = _agrupar_elevadores(elevadores)
+
+    if request.method == 'POST':
+        try:
+            reporte = _procesar_form_verif(request, instance=None)
+            try:
+                from .tasks import task_generar_verif_pdf
+                task_generar_verif_pdf.delay(reporte.pk)
+            except Exception as exc:
+                logger.warning('No se pudo encolar PDF verif %s: %s', reporte.pk, exc)
+            messages.success(request, f'Verificación #{reporte.pk} creada. El PDF se genera en segundo plano.')
+            return redirect('monitoreo:verif_detalle', pk=reporte.pk)
+        except Exception as exc:
+            logger.exception('Error creando verificación')
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'monitoreo/verif_form.html', {
+        'title': 'Nueva Verificación de Elevadores (Alarma/Intercom.)',
+        'grupos_elevadores': grupos_elevadores,
+        'now': timezone.now(),
+        'modo': 'crear',
+        'filas_dict': {},
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Editar
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def verif_editar(request, pk):
+    reporte           = get_object_or_404(ReporteVerificacionAlarma, pk=pk)
+    elevadores        = Elevador.objects.filter(activo=True).order_by('orden', 'nombre')
+    grupos_elevadores = _agrupar_elevadores(elevadores)
+
+    if request.method == 'POST':
+        try:
+            reporte = _procesar_form_verif(request, instance=reporte)
+            if reporte.pdf_archivo:
+                try: reporte.pdf_archivo.delete(save=False)
+                except Exception: pass
+                reporte.pdf_archivo = None
+                reporte.save(update_fields=['pdf_archivo'])
+            try:
+                from .tasks import task_generar_verif_pdf
+                task_generar_verif_pdf.delay(reporte.pk)
+            except Exception as exc:
+                logger.warning('No se pudo encolar PDF verif: %s', exc)
+            messages.success(request, f'Verificación #{reporte.pk} actualizada.')
+            return redirect('monitoreo:verif_detalle', pk=reporte.pk)
+        except Exception as exc:
+            logger.exception('Error editando verificación')
+            messages.error(request, f'Error: {exc}')
+
+    filas_dict = {f.elevador_id: f for f in reporte.filas.select_related('elevador').order_by('orden')}
+
+    return render(request, 'monitoreo/verif_form.html', {
+        'title': f'Editar Verificación #{reporte.pk}',
+        'reporte': reporte,
+        'grupos_elevadores': grupos_elevadores,
+        'filas_dict': filas_dict,
+        'now': reporte.fecha_hora,
+        'modo': 'editar',
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Detalle
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def verif_detalle(request, pk):
+    reporte = get_object_or_404(
+        ReporteVerificacionAlarma.objects
+            .select_related('responsable', 'creado_por')
+            .prefetch_related('filas__elevador', 'fotos'),
+        pk=pk,
+    )
+    filas = list(reporte.filas.select_related('elevador').order_by('orden'))
+    grupos_filas = _agrupar_filas_verif(filas)
+    con_hallazgos = [f for f in filas if f.tiene_hallazgos]
+
+    return render(request, 'monitoreo/verif_detalle.html', {
+        'title': f'Verificación #{reporte.pk}',
+        'reporte': reporte,
+        'grupos_filas': grupos_filas,
+        'con_hallazgos': con_hallazgos,
+        'pdf_disponible': bool(reporte.pdf_archivo),
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Eliminar
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+@require_POST
+def verif_eliminar(request, pk):
+    reporte = get_object_or_404(ReporteVerificacionAlarma, pk=pk)
+    if reporte.pdf_archivo:
+        try: reporte.pdf_archivo.delete(save=False)
+        except Exception: pass
+    reporte.delete()
+    messages.success(request, 'Verificación eliminada.')
+    return redirect('monitoreo:verif_lista')
+
+
+# ─────────────────────────────────────────────────────────────
+# PDF
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def verif_pdf(request, pk):
+    reporte = get_object_or_404(
+        ReporteVerificacionAlarma.objects
+            .select_related('responsable', 'creado_por')
+            .prefetch_related('filas__elevador', 'fotos'),
+        pk=pk,
+    )
+    try:
+        pdf_bytes = _obtener_o_generar_pdf_verif(reporte)
+        resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+        resp['Content-Disposition'] = f'inline; filename="Verificacion_Elevadores_{reporte.pk}.pdf"'
+        return resp
+    except Exception as exc:
+        logger.exception('Error PDF verificación %s', pk)
+        messages.error(request, f'Error al generar PDF: {exc}')
+        return redirect('monitoreo:verif_detalle', pk=pk)
+
+
+# ─────────────────────────────────────────────────────────────
+# API fotos
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+@require_POST
+def verif_foto_subir(request, pk):
+    reporte  = get_object_or_404(ReporteVerificacionAlarma, pk=pk)
+    imagenes = request.FILES.getlist('imagenes')
+    if not imagenes:
+        return JsonResponse({'success': False, 'error': 'Sin imágenes.'}, status=400)
+    fotos = []
+    for img in imagenes:
+        f = FotoAnexoVerificacionAlarma.objects.create(
+            reporte=reporte, imagen=img,
+            descripcion=request.POST.get('descripcion', ''),
+            subido_por=request.user,
+        )
+        fotos.append({'id': f.pk, 'url': f.imagen.url, 'descripcion': f.descripcion})
+    return JsonResponse({'success': True, 'fotos': fotos})
+
+
+@staff_member_required
+@require_POST
+def verif_foto_eliminar(request, foto_pk):
+    foto = get_object_or_404(FotoAnexoVerificacionAlarma, pk=foto_pk)
+    try: foto.imagen.delete(save=False)
+    except Exception: pass
+    foto.delete()
+    return JsonResponse({'success': True})
+
+
+# ─────────────────────────────────────────────────────────────
+# Helpers internos (verificación)
+# ─────────────────────────────────────────────────────────────
+
+def _obtener_o_generar_pdf_verif(reporte):
+    """Sirve el PDF guardado en storage. Si no existe lo genera y guarda."""
+    if reporte.pdf_archivo:
+        try:
+            reporte.pdf_archivo.open('rb')
+            data = reporte.pdf_archivo.read()
+            reporte.pdf_archivo.close()
+            if data:
+                return data
+        except Exception as exc:
+            logger.warning('PDF verif corrupto %s: %s', reporte.pk, exc)
+            reporte.pdf_archivo = None
+            reporte.save(update_fields=['pdf_archivo'])
+
+    from .pdf_builder_verif import build_verif_pdf_bytes
+    pdf_bytes = build_verif_pdf_bytes(reporte)
+
+    try:
+        nombre = f'Verificacion_Elevadores_{reporte.pk}_{reporte.fecha_hora.strftime("%Y%m%d_%H%M%S")}.pdf'
+        reporte.pdf_archivo.save(nombre, ContentFile(pdf_bytes), save=True)
+        logger.info('PDF verif %s guardado: %s', reporte.pk, nombre)
+    except Exception as exc:
+        logger.error('Error guardando PDF verif %s: %s', reporte.pk, exc)
+
+    return pdf_bytes
+
+
+def _procesar_form_verif(request, instance):
+    """Guarda cabecera + filas del checklist + fotos.
+
+    El formulario envía arrays paralelos:
+      elevador_id[], y por cada campo booleano un array
+      '<campo>[]' con '1' (cumple) o '0' (no cumple), más hallazgos[].
+    """
+    post    = request.POST
+    reporte = instance if instance is not None else ReporteVerificacionAlarma(creado_por=request.user)
+
+    reporte.responsable_id            = None
+    reporte.responsable_nombre_manual = post.get('responsable_manual', '').strip()
+    reporte.elaborado_por             = post.get('elaborado_por', '').strip()
+    reporte.edificio                  = post.get('edificio', '').strip()
+
+    fh = post.get('fecha_hora', '').strip()
+    if fh:
+        dt = parse_datetime(fh)
+        if dt:
+            reporte.fecha_hora = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
+
+    reporte.observaciones_generales = post.get('observaciones_generales', '').strip()
+    reporte.estado = post.get('estado', 'borrador')
+    reporte.save()
+
+    elev_ids  = post.getlist('elevador_id[]')
+    hallazgos = post.getlist('hallazgos[]')
+    # cada campo booleano llega como array paralelo de '1'/'0'
+    campos_val = {c: post.getlist(f'{c}[]') for c in VERIF_CAMPOS}
+
+    def _b(arr, idx):
+        return (arr[idx] if idx < len(arr) else '1') == '1'
+
+    with transaction.atomic():
+        reporte.filas.all().delete()
+        vistos = set()
+        for idx, eid in enumerate(elev_ids):
+            if not eid or eid in vistos:
+                continue
+            vistos.add(eid)
+            FilaVerificacionAlarma.objects.create(
+                reporte=reporte,
+                elevador_id=int(eid),
+                etiqueta_interna=_b(campos_val['etiqueta_interna'], idx),
+                alarma_suena=_b(campos_val['alarma_suena'], idx),
+                luz_enciende=_b(campos_val['luz_enciende'], idx),
+                parlante_suena=_b(campos_val['parlante_suena'], idx),
+                telefono_etiqueta=_b(campos_val['telefono_etiqueta'], idx),
+                telefono_suena=_b(campos_val['telefono_suena'], idx),
+                hallazgos=hallazgos[idx].strip() if idx < len(hallazgos) else '',
+                orden=idx,
+            )
+
+    for img in request.FILES.getlist('fotos_nuevas'):
+        FotoAnexoVerificacionAlarma.objects.create(
+            reporte=reporte, imagen=img, descripcion='', subido_por=request.user,
+        )
+
+    for fid in post.getlist('fotos_eliminar[]'):
+        if not fid:
+            continue
+        try:
+            f = FotoAnexoVerificacionAlarma.objects.get(pk=int(fid), reporte=reporte)
+            try: f.imagen.delete(save=False)
+            except Exception: pass
+            f.delete()
+        except FotoAnexoVerificacionAlarma.DoesNotExist:
             pass
 
     return reporte

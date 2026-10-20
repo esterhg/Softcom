@@ -46,3 +46,33 @@ class MonitoreoService:
         reporte.pdf_archivo.save(filename, ContentFile(pdf_bytes), save=True)
         logger.info('PDF reporte %s guardado como %s', reporte.pk, filename)
         return pdf_bytes
+
+
+    @staticmethod
+    def save_verif_pdf(reporte_id):
+        """
+        Genera el PDF de la verificación de alarma/intercomunicador y lo
+        guarda en el campo pdf_archivo del modelo. Devuelve los bytes.
+        """
+        from .models import ReporteVerificacionAlarma
+        from .pdf_builder_verif import build_verif_pdf_bytes
+
+        reporte = (
+            ReporteVerificacionAlarma.objects
+            .select_related('responsable', 'creado_por')
+            .prefetch_related('filas__elevador', 'fotos')
+            .get(pk=reporte_id)
+        )
+
+        pdf_bytes = build_verif_pdf_bytes(reporte)
+        filename = f'Verificacion_Elevadores_{reporte.pk}.pdf'
+
+        if reporte.pdf_archivo:
+            try:
+                reporte.pdf_archivo.delete(save=False)
+            except Exception:
+                pass
+
+        reporte.pdf_archivo.save(filename, ContentFile(pdf_bytes), save=True)
+        logger.info('PDF verificación %s guardado como %s', reporte.pk, filename)
+        return pdf_bytes

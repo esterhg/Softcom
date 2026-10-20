@@ -177,3 +177,171 @@ class FotoAnexoReporte(models.Model):
 
     def __str__(self):
         return f"Foto #{self.pk} — Reporte #{self.reporte_id}"
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  VERIFICACIÓN DE ELEVADORES — ALARMA E INTERCOMUNICADOR
+#  Checklist OCC-INST-FOR-0X_INSPECCION_ELEVADORES
+#  Cada elemento se verifica por elevador. Todos marcados OK por
+#  defecto; al desmarcar un ítem se registra el motivo en "hallazgos".
+# ═══════════════════════════════════════════════════════════════════
+
+class ReporteVerificacionAlarma(models.Model):
+    """Checklist de verificación de alarma, intercomunicador, luz
+    indicadora y etiquetado de los elevadores (formato OCC)."""
+    ESTADO_CHOICES = [
+        ('borrador', 'Borrador'),
+        ('enviado', 'Enviado'),
+        ('archivado', 'Archivado'),
+    ]
+
+    responsable = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='verif_alarma_responsable',
+        verbose_name="Responsable OCC",
+    )
+    responsable_nombre_manual = models.CharField(
+        max_length=200, blank=True,
+        verbose_name="Responsable OCC (texto libre)",
+        help_text="Usado si el responsable no está en el sistema.",
+    )
+    elaborado_por = models.CharField(
+        max_length=200, blank=True,
+        verbose_name="Elaborado por",
+    )
+    edificio = models.CharField(
+        max_length=200, blank=True,
+        verbose_name="Edificio",
+    )
+    fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y hora del reporte")
+    observaciones_generales = models.TextField(
+        blank=True, verbose_name="Comentarios y observaciones adicionales")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador', verbose_name="Estado")
+    creado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='verif_alarma_creados',
+        verbose_name="Creado por",
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    pdf_archivo = models.FileField(
+        upload_to='monitoreo/verif_alarma/pdfs/',
+        null=True, blank=True,
+        verbose_name="PDF generado",
+    )
+
+    class Meta:
+        verbose_name = "Verificación de Elevadores (Alarma/Intercom.)"
+        verbose_name_plural = "Verificaciones de Elevadores (Alarma/Intercom.)"
+        ordering = ['-fecha_hora']
+
+    def __str__(self):
+        return f"Verificación #{self.pk} — {self.fecha_hora.strftime('%d/%m/%Y %H:%M')}"
+
+    @property
+    def responsable_display(self):
+        if self.responsable:
+            return self.responsable.get_full_name() or self.responsable.username
+        return self.responsable_nombre_manual or "—"
+
+
+class FilaVerificacionAlarma(models.Model):
+    """Una fila del checklist: verificación de un elevador.
+
+    Cada campo booleano representa un elemento de verificación y se marca
+    como True (correcto) por defecto. Si algún elemento está en False se
+    debe registrar el motivo en `hallazgos`.
+    """
+    reporte = models.ForeignKey(
+        ReporteVerificacionAlarma, on_delete=models.CASCADE,
+        related_name='filas',
+        verbose_name="Reporte",
+    )
+    elevador = models.ForeignKey(
+        Elevador, on_delete=models.CASCADE,
+        verbose_name="Elevador",
+    )
+
+    # ── Elementos de verificación (True = correcto / marcado) ──
+    etiqueta_interna = models.BooleanField(
+        default=True, verbose_name="Etiqueta identif. interna")
+    alarma_suena = models.BooleanField(
+        default=True, verbose_name="Alarma suena")
+    luz_enciende = models.BooleanField(
+        default=True, verbose_name="Luz indicadora enciende")
+    parlante_suena = models.BooleanField(
+        default=True, verbose_name="Parlante suena")
+    telefono_etiqueta = models.BooleanField(
+        default=True, verbose_name="Teléfono etiquetado")
+    telefono_suena = models.BooleanField(
+        default=True, verbose_name="Teléfono suena")
+
+    hallazgos = models.TextField(
+        blank=True,
+        verbose_name="Hallazgos",
+        help_text="Motivo / explicación cuando algún elemento no cumple.")
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Fila de verificación"
+        verbose_name_plural = "Filas de verificación"
+        ordering = ['orden', 'elevador__orden']
+        unique_together = [('reporte', 'elevador')]
+
+    def __str__(self):
+        return f"{self.elevador.nombre} — Verificación #{self.reporte_id}"
+
+    # Lista canónica de (atributo, etiqueta) para iterar en plantillas/PDF
+    ELEMENTOS = [
+        ('etiqueta_interna',  'Etiqueta identif. interna'),
+        ('alarma_suena',      'Alarma'),
+        ('luz_enciende',      'Luz indicadora'),
+        ('parlante_suena',    'Parlante'),
+        ('telefono_etiqueta', 'Teléfono (etiqueta)'),
+        ('telefono_suena',    'Teléfono (suena)'),
+    ]
+
+    @property
+    def tiene_hallazgos(self):
+        """True si algún elemento de verificación no cumple."""
+        return not all([
+            self.etiqueta_interna, self.alarma_suena, self.luz_enciende,
+            self.parlante_suena, self.telefono_etiqueta, self.telefono_suena,
+        ])
+
+    @property
+    def elementos_no_cumplen(self):
+        """Lista de etiquetas de los elementos marcados como No."""
+        return [lbl for attr, lbl in self.ELEMENTOS if not getattr(self, attr)]
+
+    @property
+    def total_ok(self):
+        return sum(1 for attr, _ in self.ELEMENTOS if getattr(self, attr))
+
+
+class FotoAnexoVerificacionAlarma(models.Model):
+    """Foto adjunta a un reporte de verificación de alarma/intercom."""
+    reporte = models.ForeignKey(
+        ReporteVerificacionAlarma, on_delete=models.CASCADE,
+        related_name='fotos',
+        verbose_name="Reporte",
+    )
+    imagen = models.ImageField(
+        upload_to='monitoreo/verif_alarma/fotos/',
+        verbose_name="Imagen",
+    )
+    descripcion = models.CharField(max_length=300, blank=True, verbose_name="Descripción")
+    subido_en = models.DateTimeField(auto_now_add=True)
+    subido_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        verbose_name="Subido por",
+    )
+
+    class Meta:
+        verbose_name = "Foto anexa (verificación)"
+        verbose_name_plural = "Fotos anexas (verificación)"
+        ordering = ['subido_en']
+
+    def __str__(self):
+        return f"Foto #{self.pk} — Verificación #{self.reporte_id}"

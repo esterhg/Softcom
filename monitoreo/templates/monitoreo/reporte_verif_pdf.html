@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Checklist Verificación Elevadores — Alarma e Intercomunicador</title>
+  <style>
+    @font-face {
+      font-family: 'Artifakt Element';
+      src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+      font-weight: 400;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Artifakt Element', 'Outfit', 'Segoe UI', Arial, sans-serif;
+      font-size: 8.5pt;
+      color: #1a1a1a;
+      background: #fff;
+    }
+
+    /* ── Header institucional ── */
+    .pdf-header {
+      display: table;
+      width: 100%;
+      border: 1px solid #333;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+    }
+    .pdf-header-logo {
+      display: table-cell;
+      width: 92px;
+      border-right: 1px solid #333;
+      padding: 6px 8px;
+      vertical-align: middle;
+      text-align: center;
+    }
+    .pdf-header-logo img { height: 46px; max-width: 80px; }
+    .pdf-header-body { display: table-cell; vertical-align: top; }
+    .org-name {
+      background: #1f2a37;
+      color: #fff;
+      font-size: 9pt;
+      font-weight: 700;
+      text-align: center;
+      padding: 4px 8px;
+      border-bottom: 1px solid #333;
+    }
+    .meta-table { width: 100%; border-collapse: collapse; }
+    .meta-table td {
+      padding: 3px 7px;
+      border: 1px solid #c9c9c9;
+      font-size: 7.5pt;
+      vertical-align: middle;
+    }
+    .meta-table td .k { font-weight: 700; }
+
+    /* ── Barra de sección ── */
+    .section-bar {
+      background: #1f2a37;
+      color: #fff;
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-align: center;
+      padding: 4px 8px;
+      letter-spacing: .04em;
+    }
+
+    /* ── Datos generales ── */
+    .datos-table { width: 100%; border-collapse: collapse; border: 1px solid #333; margin-bottom: 8px; }
+    .datos-table td { padding: 4px 8px; border: 1px solid #c9c9c9; font-size: 8pt; }
+    .datos-table td.lbl { font-weight: 700; background: #f0f4f8; width: 16%; }
+
+    /* ── Tabla de verificación ── */
+    .verif-table { width: 100%; border-collapse: collapse; border: 1px solid #333; margin-bottom: 10px; }
+    .verif-table th, .verif-table td {
+      border: 1px solid #999;
+      text-align: center;
+      vertical-align: middle;
+      font-size: 7pt;
+      padding: 2px 3px;
+    }
+    .verif-table thead .grp-th {
+      background: #1f2a37; color: #fff; font-weight: 700;
+      font-size: 7.5pt; padding: 4px 3px;
+    }
+    .verif-table thead .sub-th {
+      background: #334054; color: #fff; font-weight: 600;
+      font-size: 6.5pt; padding: 3px 2px;
+    }
+    .verif-table td.equipo { font-weight: 700; text-align: left; padding: 3px 5px; font-size: 7.5pt; }
+    .verif-table td.hallazgo { text-align: left; padding: 3px 5px; font-size: 7pt; color: #991b1b; }
+    .verif-table tr:nth-child(even) td { background: #fafafa; }
+    .chk { font-size: 9pt; line-height: 1; font-family: 'Segoe UI Symbol', 'DejaVu Sans', sans-serif; }
+    .chk-on  { color: #107e3e; font-weight: 700; }
+    .chk-off { color: #bbb; }
+
+    /* ── Comentarios ── */
+    .coment-box {
+      border: 1px solid #333;
+      margin-bottom: 10px;
+    }
+    .coment-body { padding: 8px 10px; font-size: 8pt; min-height: 36px; white-space: pre-wrap; }
+
+    /* ── Fotos ── */
+    .fotos-page { page-break-before: always; }
+    .fotos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    .foto-box { border: 1px solid #ccc; }
+    .foto-box img { width: 100%; height: 200px; object-fit: cover; display: block; }
+    .foto-cap { padding: 3px 7px; font-size: 7pt; background: #f0f4f8; border-top: 1px solid #ddd; }
+
+    /* ── Footer ── */
+    .pdf-footer {
+      margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px;
+      display: flex; justify-content: space-between; font-size: 6.5pt; color: #888;
+    }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+
+{% with fecha=reporte.fecha_hora %}
+
+{# ── Header institucional ── #}
+<div class="pdf-header">
+  <div class="pdf-header-logo">
+    {% if logo_b64 %}<img src="data:image/png;base64,{{ logo_b64 }}" alt="OCC">{% endif %}
+  </div>
+  <div class="pdf-header-body">
+    <div class="org-name">OPERADORA DE INFRAESTRUCTURA DE HONDURAS, S.A. DE C.V.</div>
+    <table class="meta-table">
+      <tr>
+        <td><span class="k">Tipo de Documento:</span> Formato</td>
+        <td><span class="k">Parámetro:</span> Soporte</td>
+        <td><span class="k">Correlativo:</span> VE-{{ fecha|date:"Ymd" }}-{{ fecha|date:"Hi" }}</td>
+      </tr>
+      <tr>
+        <td><span class="k">Título del Documento:</span> Checklist verificación Elevadores Alarma-intercomunicador</td>
+        <td><span class="k">Emitido por el Departamento:</span> Instalación de Mantenimiento</td>
+        <td><span class="k">Fecha:</span> {{ fecha|date:"d/m/Y" }}</td>
+      </tr>
+      <tr>
+        <td><span class="k">Proyecto:</span> Centro Cívico Gubernamental</td>
+        <td><span class="k">Estatus:</span> {{ reporte.get_estado_display }}</td>
+        <td><span class="k">Revisión:</span> 01</td>
+      </tr>
+      <tr>
+        <td><span class="k">Código:</span> OCC-XXX-FOR-XX_InspeccionElevadores</td>
+        <td><span class="k">Elaborado por:</span> {{ reporte.elaborado_por|default:"—" }}</td>
+        <td><span class="k">Versión:</span> 02</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+{# ── Datos generales ── #}
+<div class="section-bar">DATOS GENERALES</div>
+<table class="datos-table">
+  <tr>
+    <td class="lbl">Actividad:</td>
+    <td colspan="3">Verificación de funcionamiento de alarma, intercomunicador, luz indicadora, Etiquetado</td>
+    <td class="lbl">Edificio:</td>
+    <td>{{ reporte.edificio|default:"—" }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Responsable OCC:</td>
+    <td colspan="3">{{ reporte.responsable_display }}</td>
+    <td class="lbl">Fecha:</td>
+    <td>{{ fecha|date:"d/m/Y" }}</td>
+  </tr>
+</table>
+
+{# ── Tabla de elementos de verificación ── #}
+<div class="section-bar">ELEMENTOS DE VERIFICACIÓN</div>
+<table class="verif-table">
+  <thead>
+    <tr>
+      <th class="grp-th" rowspan="2" style="width:12%;">EQUIPO #</th>
+      <th class="grp-th" rowspan="2" style="width:8%;">ETIQUETA IDENTIF. INTERNA</th>
+      <th class="grp-th" colspan="2">ALARMA</th>
+      <th class="grp-th" colspan="2">LUZ INDICADORA</th>
+      <th class="grp-th" colspan="2">PARLANTE</th>
+      <th class="grp-th" colspan="3">TELÉFONO</th>
+      <th class="grp-th" rowspan="2" style="width:22%;">HALLAZGOS</th>
+    </tr>
+    <tr>
+      <th class="sub-th">SUENA</th>
+      <th class="sub-th">NO SUENA</th>
+      <th class="sub-th">ENCIENDE</th>
+      <th class="sub-th">NO ENCIENDE</th>
+      <th class="sub-th">SUENA</th>
+      <th class="sub-th">NO SUENA</th>
+      <th class="sub-th">ETIQUETA</th>
+      <th class="sub-th">SUENA</th>
+      <th class="sub-th">NO SUENA</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr>
+      <td class="equipo">{{ f.elevador.nombre }}</td>
+      {# Etiqueta interna #}
+      <td><span class="chk {% if f.etiqueta_interna %}chk-on{% else %}chk-off{% endif %}">{% if f.etiqueta_interna %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      {# Alarma: suena / no suena #}
+      <td><span class="chk {% if f.alarma_suena %}chk-on{% else %}chk-off{% endif %}">{% if f.alarma_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="chk {% if not f.alarma_suena %}chk-on{% else %}chk-off{% endif %}">{% if not f.alarma_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      {# Luz indicadora: enciende / no enciende #}
+      <td><span class="chk {% if f.luz_enciende %}chk-on{% else %}chk-off{% endif %}">{% if f.luz_enciende %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="chk {% if not f.luz_enciende %}chk-on{% else %}chk-off{% endif %}">{% if not f.luz_enciende %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      {# Parlante: suena / no suena #}
+      <td><span class="chk {% if f.parlante_suena %}chk-on{% else %}chk-off{% endif %}">{% if f.parlante_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="chk {% if not f.parlante_suena %}chk-on{% else %}chk-off{% endif %}">{% if not f.parlante_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      {# Teléfono: etiqueta / suena / no suena #}
+      <td><span class="chk {% if f.telefono_etiqueta %}chk-on{% else %}chk-off{% endif %}">{% if f.telefono_etiqueta %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="chk {% if f.telefono_suena %}chk-on{% else %}chk-off{% endif %}">{% if f.telefono_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td><span class="chk {% if not f.telefono_suena %}chk-on{% else %}chk-off{% endif %}">{% if not f.telefono_suena %}&#9745;{% else %}&#9744;{% endif %}</span></td>
+      <td class="hallazgo">{{ f.hallazgos }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="12" style="padding:12px;color:#888;">Sin equipos registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{# ── Comentarios ── #}
+<div class="coment-box">
+  <div class="section-bar">COMENTARIOS Y OBSERVACIONES ADICIONALES</div>
+  <div class="coment-body">{{ reporte.observaciones_generales|default:"" }}</div>
+</div>
+
+<div class="pdf-footer">
+  <span>OCC-INST-FOR-0X_INSPECCION_ELEVADORES_vr1 — SoftCom CCG</span>
+  <span>Generado el {{ reporte.creado_en|date:"d/m/Y H:i" }} · {{ total_elevadores }} equipo(s) · {{ hallazgos_count }} con hallazgos</span>
+</div>
+
+{# ── Anexos fotográficos ── #}
+{% if fotos_b64 %}
+<div class="fotos-page">
+  <div class="section-bar">ANEXOS FOTOGRÁFICOS</div>
+  <div class="fotos-grid">
+    {% for foto in fotos_b64 %}
+    <div class="foto-box">
+      <img src="data:image/{{ foto.mime }};base64,{{ foto.b64 }}" alt="Anexo {{ forloop.counter }}">
+      <div class="foto-cap">Anexo {{ forloop.counter }}{% if foto.descripcion %} · {{ foto.descripcion }}{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endwith %}
+
+</body>
+</html>

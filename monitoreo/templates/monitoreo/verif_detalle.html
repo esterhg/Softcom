@@ -1,0 +1,119 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
+<style>
+.det-grp { margin-bottom:.75rem; }
+.det-grp-title { font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#0070f2; border-bottom:2px solid #0070f2; padding-bottom:.25rem; margin-bottom:.5rem; }
+.vt-wrap { overflow-x:auto; }
+.vt { width:100%; border-collapse:collapse; font-size:.82rem; min-width:720px; }
+.vt th { background:#1f2a37; color:#fff; font-size:.72rem; font-weight:700; padding:.4rem .5rem; text-align:center; border:1px solid #334054; }
+.vt td { padding:.4rem .5rem; border:1px solid #e0e0e0; text-align:center; vertical-align:middle; }
+.vt td.equipo { text-align:left; font-weight:700; white-space:nowrap; }
+.vt td.hallazgo { text-align:left; color:#991b1b; font-size:.78rem; }
+.vt tr:nth-child(even) td { background:#fafafa; }
+.ok { color:#107e3e; font-weight:700; }
+.no { color:#bb0000; font-weight:700; }
+.row-nov td { background:#fff5f5 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:1.25rem 1.5rem;background:#eff2f5;min-height:calc(100vh - 56px);">
+
+  <div class="mon-breadcrumb">
+    <a href="/"><i class="fas fa-home"></i> Inicio</a> ›
+    <a href="{% url 'monitoreo:verif_lista' %}">Verificación de Elevadores</a> ›
+    <span>#{{ reporte.pk }}</span>
+  </div>
+
+  <div class="mon-page-header">
+    <div>
+      <h1><i class="fas fa-bell" style="color:#0070f2;margin-right:.45rem;"></i>Verificación #{{ reporte.pk }}</h1>
+      <span class="badge-estado badge-{{ reporte.estado }}" style="font-size:.8rem;">{{ reporte.get_estado_display }}</span>
+      {% if pdf_disponible %}<span style="font-size:.78rem;color:#107e3e;margin-left:.6rem;"><i class="fas fa-check-circle"></i> PDF guardado</span>{% endif %}
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a href="{% url 'monitoreo:verif_historial' %}" class="mon-btn mon-btn-secondary" target="_blank"><i class="fas fa-history"></i> Historial</a>
+      <a href="{% url 'monitoreo:verif_pdf' reporte.pk %}" class="mon-btn mon-btn-secondary" target="_blank"><i class="fas fa-file-pdf" style="color:#bb0000;"></i> {% if pdf_disponible %}Ver PDF{% else %}Generar PDF{% endif %}</a>
+      <a href="{% url 'monitoreo:verif_editar' reporte.pk %}" class="mon-btn mon-btn-primary"><i class="fas fa-pencil-alt"></i> Editar</a>
+      <form method="post" action="{% url 'monitoreo:verif_eliminar' reporte.pk %}" style="display:inline;" onsubmit="return confirm('¿Eliminar esta verificación?');">
+        {% csrf_token %}
+        <button type="submit" class="mon-btn mon-btn-danger"><i class="fas fa-trash"></i> Eliminar</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mon-card">
+    <div class="mon-card-header"><h2 class="mon-card-title"><i class="fas fa-info-circle" style="color:#0070f2;margin-right:.4rem;"></i>Datos generales</h2></div>
+    <div class="mon-info-grid">
+      <div class="mon-info-field"><label>Responsable OCC</label><span>{{ reporte.responsable_display }}</span></div>
+      <div class="mon-info-field"><label>Elaborado por</label><span>{{ reporte.elaborado_por|default:"—" }}</span></div>
+      <div class="mon-info-field"><label>Edificio</label><span>{{ reporte.edificio|default:"—" }}</span></div>
+      <div class="mon-info-field"><label>Fecha y hora</label><span>{{ reporte.fecha_hora|date:"d/m/Y H:i" }}</span></div>
+      <div class="mon-info-field"><label>Equipos verificados</label><span>{{ reporte.filas.count }}</span></div>
+      <div class="mon-info-field"><label>Con hallazgos</label>
+        <span style="color:{% if con_hallazgos %}#bb0000{% else %}#107e3e{% endif %};font-weight:700;">{{ con_hallazgos|length }}</span>
+      </div>
+    </div>
+    {% if reporte.observaciones_generales %}
+    <div class="mon-form-group" style="margin:0;">
+      <label>Comentarios y observaciones adicionales</label>
+      <div style="background:#f7f9fc;border:1px solid #e0e0e0;border-radius:4px;padding:.6rem .8rem;font-size:.9rem;white-space:pre-wrap;">{{ reporte.observaciones_generales }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mon-card">
+    <div class="mon-card-header"><h2 class="mon-card-title"><i class="fas fa-clipboard-check" style="color:#0070f2;margin-right:.4rem;"></i>Elementos de verificación</h2></div>
+    {% for grupo, filas in grupos_filas.items %}
+    <div class="det-grp">
+      <div class="det-grp-title">{{ grupo }}</div>
+      <div class="vt-wrap">
+        <table class="vt">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Equipo</th>
+              <th>Etiqueta interna</th><th>Alarma</th><th>Luz indic.</th>
+              <th>Parlante</th><th>Tel. etiqueta</th><th>Tel. suena</th><th style="text-align:left;">Hallazgos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in filas %}
+            <tr class="{% if f.tiene_hallazgos %}row-nov{% endif %}">
+              <td class="equipo">{{ f.elevador.nombre }}</td>
+              <td class="{% if f.etiqueta_interna %}ok{% else %}no{% endif %}">{% if f.etiqueta_interna %}✓{% else %}✗{% endif %}</td>
+              <td class="{% if f.alarma_suena %}ok{% else %}no{% endif %}">{% if f.alarma_suena %}✓{% else %}✗{% endif %}</td>
+              <td class="{% if f.luz_enciende %}ok{% else %}no{% endif %}">{% if f.luz_enciende %}✓{% else %}✗{% endif %}</td>
+              <td class="{% if f.parlante_suena %}ok{% else %}no{% endif %}">{% if f.parlante_suena %}✓{% else %}✗{% endif %}</td>
+              <td class="{% if f.telefono_etiqueta %}ok{% else %}no{% endif %}">{% if f.telefono_etiqueta %}✓{% else %}✗{% endif %}</td>
+              <td class="{% if f.telefono_suena %}ok{% else %}no{% endif %}">{% if f.telefono_suena %}✓{% else %}✗{% endif %}</td>
+              <td class="hallazgo">{{ f.hallazgos|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if reporte.fotos.exists %}
+  <div class="mon-card">
+    <div class="mon-card-header"><h2 class="mon-card-title"><i class="fas fa-images" style="color:#0070f2;margin-right:.4rem;"></i>Fotos anexas ({{ reporte.fotos.count }})</h2></div>
+    <div class="mon-fotos-grid">
+      {% for foto in reporte.fotos.all %}
+      <div class="mon-foto-item">
+        <a href="{{ foto.imagen.url }}" target="_blank"><img src="{{ foto.imagen.url }}" alt=""></a>
+        {% if foto.descripcion %}<div class="mon-foto-desc">{{ foto.descripcion }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

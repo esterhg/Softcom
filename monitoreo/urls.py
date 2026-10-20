@@ -24,4 +24,16 @@ urlpatterns = [
     path('elevadores/<int:pk>/fotos/subir/', views.foto_subir, name='foto_subir'),
     path('elevadores/fotos/<int:foto_pk>/eliminar/', views.foto_eliminar, name='foto_eliminar'),
     path('elevadores/fotos/<int:foto_pk>/descripcion/', views.foto_actualizar_descripcion, name='foto_descripcion'),
+
+    # ── Verificación de Elevadores: Alarma e Intercomunicador ──
+    path('verificacion-alarma/', views.verif_lista, name='verif_lista'),
+    path('verificacion-alarma/historial/', views.verif_historial, name='verif_historial'),
+    path('verificacion-alarma/historial/zip/', views.verif_historial_zip, name='verif_historial_zip'),
+    path('verificacion-alarma/nuevo/', views.verif_crear, name='verif_crear'),
+    path('verificacion-alarma/<int:pk>/', views.verif_detalle, name='verif_detalle'),
+    path('verificacion-alarma/<int:pk>/editar/', views.verif_editar, name='verif_editar'),
+    path('verificacion-alarma/<int:pk>/eliminar/', views.verif_eliminar, name='verif_eliminar'),
+    path('verificacion-alarma/<int:pk>/pdf/', views.verif_pdf, name='verif_pdf'),
+    path('verificacion-alarma/<int:pk>/fotos/subir/', views.verif_foto_subir, name='verif_foto_subir'),
+    path('verificacion-alarma/fotos/<int:foto_pk>/eliminar/', views.verif_foto_eliminar, name='verif_foto_eliminar'),
 ]

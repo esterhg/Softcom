@@ -23,3 +23,20 @@ def task_generar_reporte_pdf(reporte_id):
     except Exception as exc:
         logger.error('Error generando PDF Reporte Elevadores #%s: %s', reporte_id, exc, exc_info=True)
         return {'status': 'error', 'message': str(exc)}
+
+
+@shared_task(name='monitoreo.tasks.task_generar_verif_pdf')
+def task_generar_verif_pdf(reporte_id):
+    """
+    Tarea asíncrona: genera y guarda el PDF de la verificación de
+    alarma/intercomunicador. Se dispara en background al crear/editar.
+    """
+    try:
+        logger.info('Iniciando generación de PDF para Verificación #%s', reporte_id)
+        from .services import MonitoreoService
+        MonitoreoService.save_verif_pdf(reporte_id)
+        logger.info('PDF Verificación #%s generado exitosamente.', reporte_id)
+        return {'status': 'success', 'reporte_id': reporte_id}
+    except Exception as exc:
+        logger.error('Error generando PDF Verificación #%s: %s', reporte_id, exc, exc_info=True)
+        return {'status': 'error', 'message': str(exc)}

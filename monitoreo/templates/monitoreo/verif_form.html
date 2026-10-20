@@ -1,0 +1,403 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Verificación de Elevadores — Alarma e Intercomunicador{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+
+.mon-wrap { padding: .75rem; background: #eff2f5; min-height: calc(100vh - 56px); }
+@media (min-width: 640px) { .mon-wrap { padding: 1.25rem 1.5rem; } }
+
+.mon-page-header { display:flex; flex-direction:column; gap:.5rem; margin-bottom:1rem; }
+@media (min-width: 640px) { .mon-page-header { flex-direction:row; align-items:center; justify-content:space-between; } }
+.mon-page-header h1 { font-size:1.15rem; font-weight:700; color:#32363a; margin:0; }
+@media (min-width: 640px) { .mon-page-header h1 { font-size:1.35rem; } }
+
+.mon-card { background:#fff; border:1px solid #d9d9d9; border-radius:.5rem; padding:.85rem; margin-bottom:.85rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+@media (min-width: 640px) { .mon-card { padding:1.1rem 1.4rem; } }
+.mon-card-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.4rem; margin-bottom:.7rem; padding-bottom:.6rem; border-bottom:1px solid #f0f0f0; }
+.mon-card-title { font-size:.92rem; font-weight:700; color:#32363a; margin:0; }
+
+.form-grid { display:grid; grid-template-columns:1fr; gap:.75rem; }
+@media (min-width: 480px) { .form-grid { grid-template-columns:1fr 1fr; } }
+@media (min-width: 900px) { .form-grid { grid-template-columns:repeat(3,1fr); } }
+.mon-form-group { display:flex; flex-direction:column; gap:.25rem; }
+.mon-form-group label { font-size:.73rem; font-weight:700; color:#6a6d70; text-transform:uppercase; letter-spacing:.03em; }
+.mon-form-control { width:100%; border:1px solid #d9d9d9; border-radius:4px; padding:.5rem .65rem; font-size:.88rem; font-family:inherit; color:#32363a; background:#fff; -webkit-appearance:none; appearance:none; }
+.mon-form-control:focus { outline:none; border-color:#0070f2; box-shadow:0 0 0 2px rgba(0,112,242,.12); }
+
+/* ── Grupo de ubicación ── */
+.grp { background:#fff; border:1px solid #d9d9d9; border-radius:.5rem; margin-bottom:.75rem; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.grp-header { background:#0070f2; color:#fff; padding:.55rem .85rem; font-size:.84rem; font-weight:700; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.35rem; }
+.grp-header .cnt { font-size:.75rem; font-weight:400; }
+.badge-nov { background:rgba(255,80,80,.35); border-radius:10px; padding:1px 8px; }
+
+/* ── Tarjeta elevador ── */
+.evc-grid { padding:.65rem .75rem; display:grid; grid-template-columns:1fr; gap:.6rem; }
+@media (min-width: 760px) { .evc-grid { grid-template-columns:1fr 1fr; } }
+@media (min-width: 1200px) { .evc-grid { grid-template-columns:1fr 1fr 1fr; } }
+
+.evc { border:2px solid #86efac; border-radius:.45rem; background:#f0fdf4; transition:border-color .12s, background .12s; }
+.evc.nov { border-color:#fca5a5; background:#fff5f5; }
+.evc-head { display:flex; align-items:center; gap:.4rem; padding:.5rem .6rem; border-bottom:1px solid rgba(0,0,0,.06); }
+.evc-name { font-weight:700; font-size:.9rem; color:#32363a; flex:1; }
+.evc-badge { font-size:.65rem; font-weight:700; padding:.1rem .45rem; border-radius:8px; }
+.badge-ok { background:#dcfce7; color:#166534; }
+.badge-hallazgo { background:#fee2e2; color:#991b1b; }
+
+/* ── Checks de elementos ── */
+.chk-list { padding:.45rem .6rem .25rem; display:grid; grid-template-columns:1fr 1fr; gap:.3rem .5rem; }
+.chk-row { display:flex; align-items:center; gap:.4rem; font-size:.78rem; color:#32363a; cursor:pointer; user-select:none; padding:.15rem 0; }
+.chk-row input { width:16px; height:16px; accent-color:#0070f2; cursor:pointer; flex-shrink:0; }
+.chk-row span { line-height:1.15; }
+.chk-row input:not(:checked) + span { color:#991b1b; font-weight:600; }
+
+/* ── Campo hallazgos ── */
+.evc-hallazgo { display:none; padding:.1rem .6rem .6rem; }
+.evc.nov .evc-hallazgo { display:block; }
+.evc-hallazgo label { font-size:.67rem; font-weight:700; color:#991b1b; text-transform:uppercase; letter-spacing:.03em; }
+.evc-hallazgo textarea { width:100%; border:1px solid #fca5a5; border-radius:4px; padding:.35rem .5rem; font-size:.8rem; font-family:inherit; min-height:48px; resize:vertical; background:#fff; }
+.evc-hallazgo textarea:focus { outline:none; border-color:#dc2626; box-shadow:0 0 0 2px rgba(220,38,38,.12); }
+
+/* ── Fotos ── */
+#zona-up { border:2px dashed #d9d9d9; border-radius:.5rem; padding:1.25rem .75rem; text-align:center; cursor:pointer; color:#6a6d70; margin-top:.65rem; }
+#zona-up:hover, #zona-up.over { border-color:#0070f2; background:#eff6ff; color:#0070f2; }
+.fp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:.5rem; margin-top:.6rem; }
+.fp-item { border:1px solid #d9d9d9; border-radius:.35rem; overflow:hidden; position:relative; }
+.fp-item img { width:100%; height:80px; object-fit:cover; display:block; }
+.fp-del { position:absolute; top:.25rem; right:.25rem; background:rgba(187,0,0,.85); color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.62rem; }
+
+/* ── Botones ── */
+.mon-btn { display:inline-flex; align-items:center; gap:.35rem; padding:.48rem .9rem; border-radius:4px; border:1px solid transparent; font-size:.84rem; font-weight:600; font-family:inherit; cursor:pointer; text-decoration:none; white-space:nowrap; }
+.mon-btn-primary { background:#0070f2; color:#fff; border-color:#0070f2; }
+.mon-btn-primary:hover { background:#0058c0; }
+.mon-btn-secondary { background:#fff; color:#32363a; border-color:#d9d9d9; }
+.mon-btn-secondary:hover { background:#f5f5f5; }
+.mon-btn-ghost { background:transparent; color:#0070f2; border-color:transparent; }
+.mon-btn-sm { padding:.3rem .65rem; font-size:.78rem; }
+
+.form-actions { display:flex; flex-direction:column; gap:.6rem; padding:.75rem 0 2rem; }
+@media (min-width: 480px) { .form-actions { flex-direction:row; justify-content:space-between; align-items:center; } }
+.form-actions-right { display:flex; gap:.5rem; flex-wrap:wrap; }
+
+#resumen-global { font-size:.8rem; color:#6a6d70; background:#f5f7fa; border:1px solid #e0e4ea; border-radius:20px; padding:.25rem .75rem; display:inline-block; }
+
+#ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center; }
+#ov.show { display:flex; }
+.ov-box { background:#fff; border-radius:.7rem; padding:1.5rem 2rem; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,.22); width:min(90vw,280px); }
+.ov-ring { width:44px; height:44px; border:4px solid #e0e0e0; border-top-color:#0070f2; border-radius:50%; animation:spin .8s linear infinite; margin:0 auto .65rem; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.sec-bar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; margin-bottom:.65rem; }
+.sec-bar h2 { margin:0; font-size:.95rem; font-weight:700; color:#32363a; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mon-wrap">
+
+  <div class="mon-page-header">
+    <div>
+      <h1><i class="fas fa-bell" style="color:#0070f2;margin-right:.4rem;"></i>Verificación de Elevadores — Alarma e Intercomunicador</h1>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+      <span id="resumen-global"></span>
+      <a href="{% url 'monitoreo:verif_historial' %}" class="mon-btn mon-btn-secondary mon-btn-sm" target="_blank">
+        <i class="fas fa-history"></i> Historial
+      </a>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" id="form-verif" novalidate>
+    {% csrf_token %}
+
+    <!-- Datos generales -->
+    <div class="mon-card">
+      <div class="mon-card-header">
+        <h2 class="mon-card-title"><i class="fas fa-info-circle" style="color:#0070f2;margin-right:.35rem;"></i>Datos generales</h2>
+      </div>
+      <div class="form-grid">
+        <div class="mon-form-group">
+          <label>Responsable OCC</label>
+          <input type="text" name="responsable_manual" class="mon-form-control"
+                 value="{{ reporte.responsable_nombre_manual|default:'' }}" placeholder="Nombre del responsable" autocomplete="off">
+        </div>
+        <div class="mon-form-group">
+          <label>Elaborado por</label>
+          <input type="text" name="elaborado_por" class="mon-form-control"
+                 value="{{ reporte.elaborado_por|default:'' }}" placeholder="Nombre" autocomplete="off">
+        </div>
+        <div class="mon-form-group">
+          <label>Edificio</label>
+          <input type="text" name="edificio" class="mon-form-control"
+                 value="{{ reporte.edificio|default:'' }}" placeholder="Edificio / ubicación" autocomplete="off">
+        </div>
+        <div class="mon-form-group">
+          <label>Fecha y hora</label>
+          <input type="datetime-local" name="fecha_hora" class="mon-form-control"
+                 value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}" required>
+        </div>
+        <div class="mon-form-group">
+          <label>Estado</label>
+          <select name="estado" class="mon-form-control">
+            <option value="borrador"  {% if not reporte or reporte.estado == 'borrador' %}selected{% endif %}>Borrador</option>
+            <option value="enviado"   {% if reporte and reporte.estado == 'enviado' %}selected{% endif %}>Enviado</option>
+            <option value="archivado" {% if reporte and reporte.estado == 'archivado' %}selected{% endif %}>Archivado</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Elementos de verificación -->
+    <div class="sec-bar">
+      <h2><i class="fas fa-clipboard-check" style="color:#0070f2;margin-right:.4rem;"></i>Elementos de verificación</h2>
+      <button type="button" class="mon-btn mon-btn-secondary mon-btn-sm" onclick="marcarTodo()">
+        <i class="fas fa-check-double"></i> Marcar todo OK
+      </button>
+    </div>
+
+    <p style="font-size:.8rem;color:#6a6d70;margin-bottom:.6rem;">
+      Todos los elementos están marcados como <strong>correctos</strong> por defecto.
+      Desmarca cualquier casilla que <strong>no cumpla</strong> y describe el hallazgo.
+    </p>
+
+    {% for grupo_nombre, elevs in grupos_elevadores.items %}
+    <div class="grp" data-grp="{{ forloop.counter }}">
+      <div class="grp-header">
+        <span><i class="fas fa-building" style="opacity:.8;margin-right:.35rem;"></i>{{ grupo_nombre }}</span>
+        <div class="cnt"><span class="badge-nov" style="display:none;">⚠ <span class="c-nov">0</span> con hallazgo</span></div>
+      </div>
+      <div class="evc-grid">
+        {% for elev in elevs %}
+        <div class="evc" id="evc-{{ elev.pk }}" data-eid="{{ elev.pk }}" data-grp="{{ forloop.parentloop.counter }}">
+          <input type="hidden" name="elevador_id[]" value="{{ elev.pk }}">
+
+          <div class="evc-head">
+            <span class="evc-name">{{ elev.nombre }}</span>
+            <span class="evc-badge badge-ok" id="bdg-{{ elev.pk }}">OK</span>
+          </div>
+
+          <div class="chk-list">
+            <label class="chk-row"><input type="checkbox" class="ck" data-eid="{{ elev.pk }}" name="etiqueta_interna_cb[]" onchange="onCk({{ elev.pk }})" checked><span>Etiqueta identif. interna</span></label>
+            <label class="chk-row"><input type="checkbox" class="ck" data-eid="{{ elev.pk }}" name="alarma_suena_cb[]" onchange="onCk({{ elev.pk }})" checked><span>Alarma suena</span></label>
+            <label class="chk-row"><input type="checkbox" class="ck" data-eid="{{ elev.pk }}" name="luz_enciende_cb[]" onchange="onCk({{ elev.pk }})" checked><span>Luz indicadora enciende</span></label>
+            <label class="chk-row"><input type="checkbox" class="ck" data-eid="{{ elev.pk }}" name="parlante_suena_cb[]" onchange="onCk({{ elev.pk }})" checked><span>Parlante suena</span></label>
+            <label class="chk-row"><input type="checkbox" class="ck" data-eid="{{ elev.pk }}" name="telefono_etiqueta_cb[]" onchange="onCk({{ elev.pk }})" checked><span>Teléfono etiquetado</span></label>
+            <label class="chk-row"><input type="checkbox" class="ck" data-eid="{{ elev.pk }}" name="telefono_suena_cb[]" onchange="onCk({{ elev.pk }})" checked><span>Teléfono suena</span></label>
+          </div>
+
+          <!-- Hidden paralelos 1/0 que realmente se envían -->
+          <input type="hidden" name="etiqueta_interna[]"  id="h-etiqueta_interna-{{ elev.pk }}"  value="1">
+          <input type="hidden" name="alarma_suena[]"      id="h-alarma_suena-{{ elev.pk }}"      value="1">
+          <input type="hidden" name="luz_enciende[]"      id="h-luz_enciende-{{ elev.pk }}"      value="1">
+          <input type="hidden" name="parlante_suena[]"    id="h-parlante_suena-{{ elev.pk }}"    value="1">
+          <input type="hidden" name="telefono_etiqueta[]" id="h-telefono_etiqueta-{{ elev.pk }}" value="1">
+          <input type="hidden" name="telefono_suena[]"    id="h-telefono_suena-{{ elev.pk }}"    value="1">
+
+          <div class="evc-hallazgo">
+            <label>Hallazgos / motivo</label>
+            <textarea name="hallazgos[]" id="ha-{{ elev.pk }}" placeholder="Describe qué elemento falló y por qué…"></textarea>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <div style="background:#fff;border:1px solid #d9d9d9;border-radius:.5rem;padding:2rem;text-align:center;color:#6a6d70;">
+      <i class="fas fa-elevator" style="font-size:2rem;opacity:.3;display:block;margin-bottom:.5rem;"></i>
+      <p>No hay elevadores activos.</p>
+    </div>
+    {% endfor %}
+
+    <!-- Comentarios / fotos -->
+    <div class="mon-card" style="margin-top:.85rem;">
+      <div class="mon-card-header">
+        <h2 class="mon-card-title"><i class="fas fa-comment-dots" style="color:#0070f2;margin-right:.35rem;"></i>Comentarios y observaciones adicionales</h2>
+      </div>
+      <textarea name="observaciones_generales" class="mon-form-control" rows="3"
+                placeholder="Observaciones generales de la verificación…">{{ reporte.observaciones_generales|default:'' }}</textarea>
+    </div>
+
+    <div class="mon-card">
+      <div class="mon-card-header">
+        <h2 class="mon-card-title"><i class="fas fa-images" style="color:#0070f2;margin-right:.35rem;"></i>Fotos anexas</h2>
+        <button type="button" class="mon-btn mon-btn-ghost mon-btn-sm" onclick="clearAll()"><i class="fas fa-times"></i> Quitar todas</button>
+      </div>
+
+      {% if reporte and reporte.fotos.exists %}
+      <div class="fp-grid" id="fp-ex">
+        {% for foto in reporte.fotos.all %}
+        <div class="fp-item" id="fex-{{ foto.pk }}">
+          <img src="{{ foto.imagen.url }}" alt="">
+          <button type="button" class="fp-del" onclick="delExisting({{ foto.pk }})"><i class="fas fa-times"></i></button>
+          <input type="hidden" name="fotos_eliminar[]" id="fd-{{ foto.pk }}" value="" disabled>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="fp-grid" id="fp-new"></div>
+      <div id="zona-up" onclick="document.getElementById('inp-f').click()"
+           ondragover="event.preventDefault();this.classList.add('over')"
+           ondragleave="this.classList.remove('over')" ondrop="onDrop(event)">
+        <i class="fas fa-cloud-upload-alt" style="font-size:1.8rem;display:block;margin-bottom:.35rem;"></i>
+        <strong style="font-size:.88rem;">+ Agregar imágenes</strong>
+        <p style="margin:.25rem 0 0;font-size:.74rem;">Arrastra aquí o toca para seleccionar</p>
+      </div>
+      <input type="file" id="inp-f" name="fotos_nuevas" multiple accept="image/*" style="display:none;" onchange="addPhotos(this.files)">
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'monitoreo:verif_lista' %}" class="mon-btn mon-btn-secondary"><i class="fas fa-times"></i> Cancelar</a>
+      <div class="form-actions-right">
+        {% if modo == 'editar' %}
+        <a href="{% url 'monitoreo:verif_pdf' reporte.pk %}" class="mon-btn mon-btn-secondary" target="_blank">
+          <i class="fas fa-file-pdf" style="color:#bb0000;"></i> Ver PDF
+        </a>
+        {% endif %}
+        <button type="submit" class="mon-btn mon-btn-primary" onclick="showOv()" style="width:100%;">
+          <i class="fas fa-save"></i> {% if modo == 'editar' %}Guardar cambios{% else %}Crear verificación{% endif %}
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div id="ov"><div class="ov-box"><div class="ov-ring"></div>
+  <div style="font-size:.88rem;font-weight:600;color:#32363a;">Guardando verificación…</div>
+  <div style="font-size:.74rem;color:#6a6d70;margin-top:.3rem;">El PDF se genera en segundo plano.</div>
+</div></div>
+
+{% if modo == 'editar' and filas_dict %}
+<script id="fd" type="application/json">
+{ {% for eid, fila in filas_dict.items %}"{{ eid }}":{"ei":{{ fila.etiqueta_interna|yesno:"1,0" }},"al":{{ fila.alarma_suena|yesno:"1,0" }},"lz":{{ fila.luz_enciende|yesno:"1,0" }},"pa":{{ fila.parlante_suena|yesno:"1,0" }},"te":{{ fila.telefono_etiqueta|yesno:"1,0" }},"ts":{{ fila.telefono_suena|yesno:"1,0" }},"ha":"{{ fila.hallazgos|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %} }
+</script>
+{% endif %}
+
+<script>
+// Mapa checkbox name -> hidden field id prefix
+const CK_MAP = {
+  'etiqueta_interna_cb[]':  'etiqueta_interna',
+  'alarma_suena_cb[]':      'alarma_suena',
+  'luz_enciende_cb[]':      'luz_enciende',
+  'parlante_suena_cb[]':    'parlante_suena',
+  'telefono_etiqueta_cb[]': 'telefono_etiqueta',
+  'telefono_suena_cb[]':    'telefono_suena',
+};
+
+function syncHidden(eid) {
+  const card = document.getElementById('evc-'+eid);
+  let hallazgo = false;
+  card.querySelectorAll('input.ck').forEach(cb => {
+    const field = CK_MAP[cb.name];
+    const h = document.getElementById('h-'+field+'-'+eid);
+    if (h) h.value = cb.checked ? '1' : '0';
+    if (!cb.checked) hallazgo = true;
+  });
+  return hallazgo;
+}
+
+function onCk(eid) {
+  const card = document.getElementById('evc-'+eid);
+  const hallazgo = syncHidden(eid);
+  card.classList.toggle('nov', hallazgo);
+  const bdg = document.getElementById('bdg-'+eid);
+  bdg.textContent = hallazgo ? 'Hallazgo' : 'OK';
+  bdg.className = 'evc-badge ' + (hallazgo ? 'badge-hallazgo' : 'badge-ok');
+  updGrp(card.dataset.grp);
+  updGlobal();
+}
+
+function updGrp(g) {
+  const grp = document.querySelector('.grp[data-grp="'+g+'"]');
+  if (!grp) return;
+  const nov = grp.querySelectorAll('.evc.nov').length;
+  grp.querySelector('.c-nov').textContent = nov;
+  grp.querySelector('.badge-nov').style.display = nov ? 'inline' : 'none';
+}
+
+function updGlobal() {
+  const total = document.querySelectorAll('.evc').length;
+  const nov   = document.querySelectorAll('.evc.nov').length;
+  const el = document.getElementById('resumen-global');
+  if (el) el.textContent = total+' equipos · '+(total-nov)+' OK · '+nov+' con hallazgo';
+}
+
+function marcarTodo() {
+  document.querySelectorAll('.evc').forEach(card => {
+    card.querySelectorAll('input.ck').forEach(cb => cb.checked = true);
+    const ta = card.querySelector('textarea'); if (ta) ta.value = '';
+    onCk(card.dataset.eid);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.evc').forEach(card => syncHidden(card.dataset.eid));
+  document.querySelectorAll('.grp').forEach((_,i) => updGrp(i+1));
+  updGlobal();
+
+  // Rehidratar en modo editar
+  const el = document.getElementById('fd');
+  if (el) {
+    let d = {};
+    try { d = JSON.parse(el.textContent); } catch(e) { d = {}; }
+    const keys = {ei:'etiqueta_interna_cb[]', al:'alarma_suena_cb[]', lz:'luz_enciende_cb[]', pa:'parlante_suena_cb[]', te:'telefono_etiqueta_cb[]', ts:'telefono_suena_cb[]'};
+    Object.entries(d).forEach(([eid, info]) => {
+      const card = document.getElementById('evc-'+eid);
+      if (!card) return;
+      Object.entries(keys).forEach(([k, cbName]) => {
+        const cb = card.querySelector('input[name="'+cbName+'"]');
+        if (cb) cb.checked = info[k] === 1;
+      });
+      const ta = document.getElementById('ha-'+eid);
+      if (ta) ta.value = info.ha || '';
+      onCk(eid);
+    });
+  }
+});
+
+/* ── Fotos ── */
+let dt = new DataTransfer();
+function addPhotos(files) {
+  const grid = document.getElementById('fp-new');
+  Array.from(files).forEach(file => {
+    dt.items.add(file);
+    const idx = dt.files.length - 1;
+    const r = new FileReader();
+    r.onload = e => {
+      const d = document.createElement('div');
+      d.className = 'fp-item';
+      d.innerHTML = `<img src="${e.target.result}" alt="">
+        <button type="button" class="fp-del" onclick="delNew(${idx},this)"><i class="fas fa-times"></i></button>`;
+      grid.appendChild(d);
+    };
+    r.readAsDataURL(file);
+  });
+  document.getElementById('inp-f').files = dt.files;
+}
+function delNew(idx, btn) {
+  const n = new DataTransfer();
+  Array.from(dt.files).forEach((f,i) => { if (i !== idx) n.items.add(f); });
+  dt = n; document.getElementById('inp-f').files = dt.files;
+  btn.closest('.fp-item').remove();
+}
+function clearAll() {
+  document.getElementById('fp-new').innerHTML = '';
+  dt = new DataTransfer(); document.getElementById('inp-f').files = dt.files;
+  document.querySelectorAll('[id^="fex-"]').forEach(el => delExisting(el.id.replace('fex-','')));
+}
+function delExisting(pk) {
+  const el = document.getElementById('fex-'+pk);
+  if (el) { el.style.opacity='.3'; el.style.pointerEvents='none'; }
+  const inp = document.getElementById('fd-'+pk);
+  if (inp) { inp.value = pk; inp.disabled = false; }
+}
+function onDrop(e) { e.preventDefault(); e.currentTarget.classList.remove('over'); addPhotos(e.dataTransfer.files); }
+function showOv() { document.getElementById('ov').classList.add('show'); }
+</script>
+{% endblock %}
