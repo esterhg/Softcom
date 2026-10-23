@@ -749,12 +749,13 @@ def mobile_ot_finalizar(request, pk):
         paso.resultado = resultados_dict.get(paso.id)
         paso.fotos_guardadas = archivos_dict.get(paso.id, [])
 
-    # ¿Es una rutina de ascensores? (para mostrar firmas + cierre estilo TKE)
+    # ¿Es una rutina de ascensores/elevadores? (para mostrar firmas + cierre estilo TKE)
     es_ascensor = False
     if ot.rutina:
         cod = ot.rutina.codigo_rutina or ''
         cat = ot.rutina.categoria_activo
-        es_ascensor = cod.startswith('ASC') or (cat and cat.nombre == 'Ascensores')
+        cat_nombre = (cat.nombre.lower() if cat else '')
+        es_ascensor = cod.startswith('ASC') or cat_nombre in ('ascensores', 'elevadores')
 
     return render(request, 'mantenimiento/mobile_ot_finalizar.html', {
         'ot': ot,
