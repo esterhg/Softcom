@@ -69,4 +69,6 @@ from . import import_procedimientos
 from . import import_categorias
 from . import pdf_views
 from . import avisos_dashboard
+from . import ascensores
+from .ascensores import crear_mantenimiento_ascensor, ascensor_pdf
 

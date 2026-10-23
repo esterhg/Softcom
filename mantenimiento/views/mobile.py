@@ -644,6 +644,51 @@ def mobile_ot_finalizar(request, pk):
                 momento='CIERRE'
             )
         
+        # 4-bis. Campos de reporte de campo (operativo, materiales, comentarios, firmas)
+        campos_reporte = []
+        operativo_raw = request.POST.get('operativo_salida')
+        if operativo_raw in ('si', 'true', '1', 'on'):
+            ot.operativo_salida = True
+            campos_reporte.append('operativo_salida')
+        elif operativo_raw in ('no', 'false', '0'):
+            ot.operativo_salida = False
+            campos_reporte.append('operativo_salida')
+
+        materiales = request.POST.get('materiales_utilizados')
+        if materiales is not None:
+            ot.materiales_utilizados = materiales.strip()
+            campos_reporte.append('materiales_utilizados')
+
+        coment_tec = request.POST.get('comentarios_tecnico')
+        if coment_tec is not None:
+            ot.comentarios_tecnico = coment_tec.strip()
+            campos_reporte.append('comentarios_tecnico')
+
+        coment_cli = request.POST.get('comentarios_cliente')
+        if coment_cli is not None:
+            ot.comentarios_cliente = coment_cli.strip()
+            campos_reporte.append('comentarios_cliente')
+
+        # Firmas dibujadas (data URL base64). Solo se guardan si vienen con contenido.
+        firma_tec = request.POST.get('firma_tecnico')
+        if firma_tec and firma_tec.startswith('data:image'):
+            ot.firma_tecnico = firma_tec
+            ot.firma_tecnico_nombre = (request.POST.get('firma_tecnico_nombre') or '').strip()
+            ot.firma_fecha = timezone.now()
+            campos_reporte += ['firma_tecnico', 'firma_tecnico_nombre', 'firma_fecha']
+
+        firma_cli = request.POST.get('firma_cliente')
+        if firma_cli and firma_cli.startswith('data:image'):
+            ot.firma_cliente = firma_cli
+            ot.firma_cliente_nombre = (request.POST.get('firma_cliente_nombre') or '').strip()
+            if 'firma_fecha' not in campos_reporte:
+                ot.firma_fecha = timezone.now()
+                campos_reporte.append('firma_fecha')
+            campos_reporte += ['firma_cliente', 'firma_cliente_nombre']
+
+        if campos_reporte:
+            ot.save(update_fields=list(set(campos_reporte)))
+
         # 4. Actualizar estado según la acción
         accion = request.POST.get('action')
         comentarios_cierre = request.POST.get('comentarios_cierre', '').strip()
@@ -704,10 +749,18 @@ def mobile_ot_finalizar(request, pk):
         paso.resultado = resultados_dict.get(paso.id)
         paso.fotos_guardadas = archivos_dict.get(paso.id, [])
 
+    # ¿Es una rutina de ascensores? (para mostrar firmas + cierre estilo TKE)
+    es_ascensor = False
+    if ot.rutina:
+        cod = ot.rutina.codigo_rutina or ''
+        cat = ot.rutina.categoria_activo
+        es_ascensor = cod.startswith('ASC') or (cat and cat.nombre == 'Ascensores')
+
     return render(request, 'mantenimiento/mobile_ot_finalizar.html', {
         'ot': ot,
         'pasos': pasos,
         'puntos_medicion': puntos_medicion_extra,
+        'es_ascensor': es_ascensor,
     })
 
 @staff_member_required
