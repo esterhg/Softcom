@@ -126,11 +126,16 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING(f"Protocolo: {path}"))
 
         with transaction.atomic():
-            # 1) Categoría de activo "Ascensores" (reutiliza una existente, sin duplicar)
-            categoria_activo = Categoria.objects.filter(nombre__iexact="Ascensores").first()
+            # 1) Categoría de activo de elevadores/ascensores.
+            #    Reutiliza una existente (ELEVADORES / Ascensores) sin duplicar.
+            categoria_activo = None
+            for nombre in ("ELEVADORES", "Ascensores", "Elevadores", "ASCENSORES"):
+                categoria_activo = Categoria.objects.filter(nombre__iexact=nombre).first()
+                if categoria_activo:
+                    break
             if not categoria_activo:
-                categoria_activo = Categoria.objects.create(nombre="Ascensores")
-                self.stdout.write(self.style.SUCCESS("  ✓ Categoría de activo 'Ascensores' creada."))
+                categoria_activo = Categoria.objects.create(nombre="ELEVADORES")
+                self.stdout.write(self.style.SUCCESS("  ✓ Categoría de activo 'ELEVADORES' creada."))
             else:
                 self.stdout.write(f"  • Categoría de activo existente reutilizada: '{categoria_activo.nombre}' (id={categoria_activo.id}).")
 
