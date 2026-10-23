@@ -1146,6 +1146,19 @@ class OrdenTrabajo(models.Model):
     requiere_permiso = models.BooleanField(default=False, verbose_name="¿Requiere Permiso?", help_text="Si se marca, se exigirá un permiso de trabajo vinculado")
     tipo_permiso = models.ForeignKey('seguridad.TipoPermiso', on_delete=models.SET_NULL, null=True, blank=True, related_name='ordenes_asociadas', verbose_name="Tipo de Permiso Sugerido")
 
+    # Cierre / Reporte de campo (usado por el reporte de ascensores y OTs en general)
+    operativo_salida = models.BooleanField(null=True, blank=True, verbose_name="¿Operativo a la salida del técnico?", help_text="Indica si el equipo quedó operativo al finalizar el mantenimiento")
+    comentarios_tecnico = models.TextField(blank=True, null=True, verbose_name="Comentarios y recomendaciones del técnico")
+    materiales_utilizados = models.TextField(blank=True, null=True, verbose_name="Material utilizado / Repuestos usados")
+    comentarios_cliente = models.TextField(blank=True, null=True, verbose_name="Comentarios del cliente")
+
+    # Firmas dibujadas (data URL base64 PNG) capturadas en la app
+    firma_tecnico = models.TextField(blank=True, null=True, verbose_name="Firma del técnico (imagen)")
+    firma_tecnico_nombre = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nombre del técnico que firma")
+    firma_cliente = models.TextField(blank=True, null=True, verbose_name="Firma del cliente (imagen)")
+    firma_cliente_nombre = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nombre del cliente que firma")
+    firma_fecha = models.DateTimeField(null=True, blank=True, verbose_name="Fecha/hora de firma")
+
     # Búsqueda vectorial semántica
     embedding = VectorField(dimensions=768, null=True, blank=True)
 

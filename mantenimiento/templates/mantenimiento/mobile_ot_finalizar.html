@@ -479,6 +479,76 @@
                     </div>
                 </div>
             </div>
+
+            {% if es_ascensor %}
+            <!-- ======= REPORTE DE ASCENSOR: operativo, materiales, firmas ======= -->
+            <div class="fiori-card" style="margin-top:16px;">
+                <div class="card-header">
+                    <ion-icon name="document-text-outline"></ion-icon>
+                    <h2>Cierre del Reporte (Ascensor)</h2>
+                </div>
+                <div class="card-content">
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <div class="fiori-form-group">
+                            <label class="fiori-label">¿Equipo operativo a la salida del técnico?</label>
+                            <div style="display:flex; gap:10px;">
+                                <label style="display:flex;align-items:center;gap:6px;">
+                                    <input type="radio" name="operativo_salida" value="si"
+                                        {% if ot.operativo_salida == True %}checked{% endif %}> Sí
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;">
+                                    <input type="radio" name="operativo_salida" value="no"
+                                        {% if ot.operativo_salida == False %}checked{% endif %}> No
+                                </label>
+                            </div>
+                        </div>
+                        <div class="fiori-form-group">
+                            <label class="fiori-label">Material utilizado / Repuestos usados</label>
+                            <textarea name="materiales_utilizados" class="fiori-textarea" placeholder="Ej: lubricante de guías, 2 rodos de cabina...">{{ ot.materiales_utilizados|default:'' }}</textarea>
+                        </div>
+                        <div class="fiori-form-group">
+                            <label class="fiori-label">Comentarios y recomendaciones del técnico</label>
+                            <textarea name="comentarios_tecnico" class="fiori-textarea" placeholder="Hallazgos, recomendaciones...">{{ ot.comentarios_tecnico|default:'' }}</textarea>
+                        </div>
+                        <div class="fiori-form-group">
+                            <label class="fiori-label">Comentarios del cliente</label>
+                            <textarea name="comentarios_cliente" class="fiori-textarea" placeholder="N/A">{{ ot.comentarios_cliente|default:'' }}</textarea>
+                        </div>
+
+                        <!-- FIRMAS DIBUJADAS -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                            <div class="fiori-form-group">
+                                <label class="fiori-label">Firma del Técnico</label>
+                                <input type="text" name="firma_tecnico_nombre" class="fiori-input" placeholder="Nombre del técnico"
+                                       value="{{ ot.firma_tecnico_nombre|default:'' }}" style="margin-bottom:6px;">
+                                <canvas class="sig-pad" data-target="firma_tecnico"
+                                        style="border:1px solid #d9d9d9;border-radius:6px;width:100%;height:120px;touch-action:none;background:#fff;"></canvas>
+                                <input type="hidden" name="firma_tecnico" value="{{ ot.firma_tecnico|default:'' }}">
+                                <button type="button" class="fiori-btn fiori-btn-ghost sig-clear" data-target="firma_tecnico" style="margin-top:6px;">
+                                    <ion-icon name="trash-outline"></ion-icon> Limpiar
+                                </button>
+                            </div>
+                            <div class="fiori-form-group">
+                                <label class="fiori-label">Firma del Cliente</label>
+                                <input type="text" name="firma_cliente_nombre" class="fiori-input" placeholder="Nombre del cliente"
+                                       value="{{ ot.firma_cliente_nombre|default:'' }}" style="margin-bottom:6px;">
+                                <canvas class="sig-pad" data-target="firma_cliente"
+                                        style="border:1px solid #d9d9d9;border-radius:6px;width:100%;height:120px;touch-action:none;background:#fff;"></canvas>
+                                <input type="hidden" name="firma_cliente" value="{{ ot.firma_cliente|default:'' }}">
+                                <button type="button" class="fiori-btn fiori-btn-ghost sig-clear" data-target="firma_cliente" style="margin-top:6px;">
+                                    <ion-icon name="trash-outline"></ion-icon> Limpiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <a href="{% url 'mantenimiento:ascensor_pdf' ot.id %}?download=1" target="_blank"
+                           class="fiori-btn fiori-btn-ghost" style="border-color:#107e3e;color:#107e3e;">
+                            <ion-icon name="download-outline"></ion-icon> Descargar PDF del reporte
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </form>
     </div>
 
@@ -610,6 +680,61 @@
 
     setupPhotoArea('inicio', 'photoFileInputInicio', 'photoPreviewGridInicio', 'photoFileInputInicio', 'photoFileInputInicio');
     setupPhotoArea('cierre', 'photoFileInput', 'photoPreviewGrid', 'photoCamInput', 'photoGalInput');
+
+    // ===== Signature pads (firmas dibujadas) =====
+    (function initSignaturePads(){
+        document.querySelectorAll('canvas.sig-pad').forEach(function(canvas){
+            const target = canvas.dataset.target;
+            const hidden = document.querySelector('input[name="' + target + '"]');
+            const ctx = canvas.getContext('2d');
+            let drawing = false, dirty = false;
+
+            // Ajustar resolución real al tamaño en pantalla
+            function fitCanvas(){
+                const rect = canvas.getBoundingClientRect();
+                const ratio = window.devicePixelRatio || 1;
+                canvas.width = rect.width * ratio;
+                canvas.height = rect.height * ratio;
+                ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1f2937';
+                // Restaurar firma existente (al re-editar)
+                if (hidden.value && hidden.value.startsWith('data:image')) {
+                    const img = new Image();
+                    img.onload = function(){ ctx.drawImage(img, 0, 0, rect.width, rect.height); };
+                    img.src = hidden.value;
+                    dirty = true;
+                }
+            }
+            setTimeout(fitCanvas, 50);
+
+            function pos(e){
+                const rect = canvas.getBoundingClientRect();
+                const t = e.touches ? e.touches[0] : e;
+                return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+            }
+            function start(e){ drawing = true; dirty = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+            function move(e){ if(!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
+            function end(){ if(!drawing) return; drawing = false; hidden.value = canvas.toDataURL('image/png'); }
+
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            canvas.addEventListener('touchstart', start, {passive:false});
+            canvas.addEventListener('touchmove', move, {passive:false});
+            canvas.addEventListener('touchend', end);
+        });
+
+        document.querySelectorAll('.sig-clear').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                const target = btn.dataset.target;
+                const canvas = document.querySelector('canvas.sig-pad[data-target="' + target + '"]');
+                const hidden = document.querySelector('input[name="' + target + '"]');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                hidden.value = '';
+            });
+        });
+    })();
     </script>
 </body>
 </html>

@@ -136,6 +136,10 @@ urlpatterns = [
     path('rutina-pdf/<int:ot_id>/', views.pdf_views.generate_rutina_pdf_view, name='rutina_pdf'),
     path('aviso-pdf/<int:aviso_id>/', views.pdf_views.generate_aviso_pdf_view, name='aviso_pdf'),
 
+    # Ascensores
+    path('ascensores/crear/', views.crear_mantenimiento_ascensor, name='ascensor_crear'),
+    path('ascensores/pdf/<int:ot_id>/', views.ascensor_pdf, name='ascensor_pdf'),
+
     # Asistencia
     path('asistencia/estacion/', asistencia.AsistenciaStationView.as_view(), name='asistencia_estacion'),
     path('asistencia/procesar/', asistencia.AsistenciaProcessView.as_view(), name='asistencia_procesar'),

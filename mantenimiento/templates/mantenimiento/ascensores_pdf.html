@@ -1,0 +1,253 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte Mantenimiento Ascensor - {{ ot.codigo_de_orden|default:ot.id }}</title>
+<style>
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+        font-weight: 400; font-style: normal; font-display: swap;
+    }
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
+        font-weight: 700; font-style: normal; font-display: swap;
+    }
+    :root {
+        --fiori-primary: #0070f2;
+        --fiori-text: #32363a;
+        --fiori-text-secondary: #6a6d70;
+        --fiori-border: #d9d9d9;
+        --teal: #176585;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Artifakt Element', 'Outfit', sans-serif;
+        font-size: 9px; color: var(--fiori-text); margin: 0; padding: 0;
+    }
+    h1,h2,h3 { margin: 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { border: 1px solid var(--fiori-border); padding: 3px 6px; vertical-align: middle; }
+    .no-border, .no-border td { border: none; }
+    .text-center { text-align: center; }
+    .bold { font-weight: 700; }
+    .muted { color: var(--fiori-text-secondary); }
+
+    /* Encabezado */
+    .doc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .doc-title { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+    .doc-title small { display:block; font-size: 11px; font-weight: 400; letter-spacing: 0; }
+    .doc-logo img { max-height: 46px; }
+    .doc-logo .fallback { font-weight: 700; font-size: 18px; color: var(--fiori-primary); }
+
+    .meta-grid td { font-size: 8.5px; padding: 3px 6px; }
+    .meta-grid .lbl { background: #f0f4f8; font-weight: 700; width: 18%; }
+
+    .section-band {
+        background: var(--teal); color: #fff; font-weight: 700; text-transform: uppercase;
+        padding: 5px 8px; font-size: 10px; margin-top: 8px; letter-spacing: .5px;
+    }
+
+    /* Checklist */
+    .chk thead th { background: #64748b; color: #fff; text-transform: uppercase; font-size: 8px; }
+    .group-row td { background: var(--teal); color: #fff; font-weight: 700; text-transform: uppercase; }
+    .step td { height: 18px; }
+    .box { display:inline-block; width: 11px; height: 11px; border: 1px solid #000; text-align:center;
+           line-height: 10px; font-weight: 700; margin-right: 3px; vertical-align: middle; font-size: 9px;}
+    .chkopt { display:inline-block; margin-right: 12px; font-size: 8px; }
+    .numbox { display:inline-block; border:1px solid #000; min-width: 42px; padding: 1px 6px; text-align:center; font-weight:700; }
+
+    /* Firmas */
+    .firmas { margin-top: 16px; page-break-inside: avoid; }
+    .firma-cell { width: 50%; text-align: center; vertical-align: bottom; padding: 8px 14px; }
+    .firma-img { max-height: 70px; max-width: 220px; }
+    .firma-line { border-top: 1px solid #000; margin: 4px 20px 2px; }
+
+    /* AST */
+    .ast th { background: #64748b; color: #fff; font-size: 8px; text-transform: uppercase; }
+    .ast td { font-size: 8px; }
+
+    /* Anexos */
+    .foto-cell { border: 1px solid var(--fiori-border); text-align:center; padding: 6px; width: 50%; vertical-align: top; }
+    .foto-cell img { max-width: 100%; max-height: 240px; object-fit: contain; }
+    .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+    <!-- ENCABEZADO -->
+    <div class="doc-head">
+        <div class="doc-title">PARTE<small>Mantenimiento</small></div>
+        <div class="doc-logo">
+            {% if logo_b64 %}
+                <img src="data:image/png;base64,{{ logo_b64 }}" alt="Operadora CC">
+            {% else %}
+                <div class="fallback">OPERADORA CC</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <table class="meta-grid">
+        <tr>
+            <td class="lbl">N° Equipo</td><td>{{ activo_codigo|default:"—" }}</td>
+            <td class="lbl">Nombre del cliente</td><td>{{ empresa_nombre }}</td>
+        </tr>
+        <tr>
+            <td class="lbl">Equipo</td><td>{{ activo_nombre }}</td>
+            <td class="lbl">Supervisor</td><td>{{ supervisor_nombre }}</td>
+        </tr>
+        <tr>
+            <td class="lbl">N° Orden</td><td>{{ ot.codigo_de_orden|default:ot.id }}</td>
+            <td class="lbl">Edificio</td><td>{{ edificio_nombre }}</td>
+        </tr>
+        <tr>
+            <td class="lbl">Dirección</td><td colspan="3">{{ ubicacion_completa }}</td>
+        </tr>
+    </table>
+
+    <div class="section-band">Mantenimiento</div>
+    <table class="meta-grid">
+        <tr>
+            <td class="lbl">Tipo de visita</td>
+            <td>{% if ot.rutina %}{{ ot.rutina.nombre }}{% else %}Mantenimiento de Ascensores{% endif %}</td>
+            <td class="lbl">Operativo a la salida del técnico</td>
+            <td>
+                {% if ot.operativo_salida == True %}Sí{% elif ot.operativo_salida == False %}No{% else %}—{% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="lbl">Fecha programada</td>
+            <td>{{ ot.inicio_programado|date:"d/m/Y H:i" }}</td>
+            <td class="lbl">Fecha de ejecución</td>
+            <td>{{ ot.fecha_ejecucion|date:"d/m/Y H:i"|default:"—" }}</td>
+        </tr>
+    </table>
+
+    <!-- CHECKLIST -->
+    <div class="section-band">Conjunto de tareas</div>
+    <table class="chk">
+        <thead>
+            <tr>
+                <th style="width:5%;">N°</th>
+                <th style="width:60%;">Descripción</th>
+                <th style="width:20%;">Resultado</th>
+                <th style="width:15%;">Observaciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in checklist_items %}
+                {% if item.paso.tipo_respuesta == 'HEADER' %}
+                    <tr class="group-row"><td colspan="4">{{ item.paso.descripcion }}</td></tr>
+                {% elif item.paso.tipo_respuesta == 'INSTRUCCION' %}
+                    <tr class="step"><td class="text-center">{{ forloop.counter }}</td>
+                        <td colspan="3" class="bold">{{ item.paso.descripcion }}</td></tr>
+                {% else %}
+                    <tr class="step">
+                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td>{{ item.paso.descripcion }}</td>
+                        <td>
+                            {% if item.paso.tipo_respuesta == 'CHECK' %}
+                                <span class="chkopt"><span class="box">{% if item.valor_bool == True %}✓{% endif %}</span>Sí</span>
+                                <span class="chkopt"><span class="box">{% if item.valor_bool == False and not item.no_aplica %}✗{% endif %}</span>No</span>
+                                <span class="chkopt"><span class="box">{% if item.no_aplica %}N{% endif %}</span>N/A</span>
+                            {% elif item.paso.tipo_respuesta == 'NUMERICO' or item.paso.tipo_respuesta == 'MEDICION' %}
+                                <span class="numbox">{{ item.valor_numerico|default:"&nbsp;&nbsp;&nbsp;" }}</span>
+                                <span class="muted">{{ item.paso.unidad_medida|default:"mm" }}</span>
+                            {% elif item.paso.tipo_respuesta == 'TEXTO' %}
+                                <span class="muted">{{ item.valor_texto|default:"—" }}</span>
+                            {% elif item.paso.tipo_respuesta == 'FOTO' %}
+                                <span class="muted">Ver anexos</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.comentarios }}</td>
+                    </tr>
+                {% endif %}
+            {% empty %}
+                <tr><td colspan="4" class="text-center muted" style="padding:16px;">La rutina no tiene pasos.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- MATERIALES Y COMENTARIOS -->
+    <div class="section-band">Material utilizado / Comentarios</div>
+    <table class="meta-grid">
+        <tr><td class="lbl" style="width:28%;">Material utilizado / Repuestos</td>
+            <td>{{ ot.materiales_utilizados|default:"—"|linebreaksbr }}</td></tr>
+        <tr><td class="lbl">Comentarios del técnico</td>
+            <td>{{ ot.comentarios_tecnico|default:ot.notas|default:"—"|linebreaksbr }}</td></tr>
+        <tr><td class="lbl">Comentarios del cliente</td>
+            <td>{{ ot.comentarios_cliente|default:"N/A"|linebreaksbr }}</td></tr>
+    </table>
+
+    <!-- FIRMAS -->
+    <div class="firmas">
+        <table class="no-border">
+            <tr>
+                <td class="firma-cell">
+                    <div class="bold" style="text-align:left; margin-bottom:4px;">Firma del Técnico</div>
+                    {% if ot.firma_tecnico %}
+                        <img class="firma-img" src="{{ ot.firma_tecnico }}" alt="firma técnico">
+                    {% endif %}
+                    <div class="firma-line"></div>
+                    <div>{{ ot.firma_tecnico_nombre|default:tecnico_nombre }}</div>
+                    <div class="muted" style="font-size:7px;">
+                        {% if ot.firma_fecha %}{{ ot.firma_fecha|date:"d/m/Y H:i" }}{% endif %}
+                    </div>
+                </td>
+                <td class="firma-cell">
+                    <div class="bold" style="text-align:left; margin-bottom:4px;">Firma del Cliente</div>
+                    {% if ot.firma_cliente %}
+                        <img class="firma-img" src="{{ ot.firma_cliente }}" alt="firma cliente">
+                    {% endif %}
+                    <div class="firma-line"></div>
+                    <div>{{ ot.firma_cliente_nombre|default:"—" }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ANEXOS FOTOGRÁFICOS -->
+    {% if fotos %}
+    <div class="page-break"></div>
+    <div class="section-band">Anexos fotográficos</div>
+    <table class="no-border" style="margin-top:8px;">
+        {% for foto in fotos %}
+            {% if forloop.counter0|divisibleby:2 %}<tr>{% endif %}
+            <td class="foto-cell">
+                <img src="{{ foto.data_uri }}">
+                <div class="bold" style="font-size:8px; margin-top:5px;">{{ foto.nombre }}</div>
+            </td>
+            {% if forloop.counter|divisibleby:2 or forloop.last %}</tr>{% endif %}
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    <!-- AST -->
+    <div class="page-break"></div>
+    <div class="section-band">Protocolo interno para Análisis Seguro de Trabajo (AST) del técnico</div>
+    <table class="ast" style="margin-top:8px;">
+        <thead>
+            <tr>
+                <th style="width:26%;">Riesgos</th>
+                <th style="width:14%;">Nivel de Peligro</th>
+                <th style="width:46%;">Medida de Control</th>
+                <th style="width:14%;">Nivel de Riesgo Controlado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in ast_riesgos %}
+            <tr>
+                <td class="bold">{{ r.riesgo }}</td>
+                <td class="text-center">{{ r.peligro }}</td>
+                <td>
+                    {% for m in r.medidas %}{{ m }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                </td>
+                <td class="text-center">{{ r.controlado }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>
