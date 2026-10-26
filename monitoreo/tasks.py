@@ -40,3 +40,20 @@ def task_generar_verif_pdf(reporte_id):
     except Exception as exc:
         logger.error('Error generando PDF Verificación #%s: %s', reporte_id, exc, exc_info=True)
         return {'status': 'error', 'message': str(exc)}
+
+
+@shared_task(name='monitoreo.tasks.task_generar_acc_pdf')
+def task_generar_acc_pdf(reporte_id):
+    """
+    Tarea asíncrona: genera y guarda el PDF del accionamiento manual
+    mensual. Se dispara en background al crear/editar.
+    """
+    try:
+        logger.info('Iniciando generación de PDF para Accionamiento #%s', reporte_id)
+        from .services import MonitoreoService
+        MonitoreoService.save_acc_pdf(reporte_id)
+        logger.info('PDF Accionamiento #%s generado exitosamente.', reporte_id)
+        return {'status': 'success', 'reporte_id': reporte_id}
+    except Exception as exc:
+        logger.error('Error generando PDF Accionamiento #%s: %s', reporte_id, exc, exc_info=True)
+        return {'status': 'error', 'message': str(exc)}

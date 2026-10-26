@@ -345,3 +345,133 @@ class FotoAnexoVerificacionAlarma(models.Model):
 
     def __str__(self):
         return f"Foto #{self.pk} — Verificación #{self.reporte_id}"
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  ACCIONAMIENTO MANUAL MENSUAL
+#  Reporte mensual del accionamiento manual de los elevadores por
+#  edificio / zona. Cada edificio se marca como "revisado" (accionado)
+#  o no; si no se revisó, se registra el motivo (obligatorio).
+#  Incluye un resultado global ¿Funciona? Sí/No, foto y notas.
+# ═══════════════════════════════════════════════════════════════════
+
+class ReporteAccionamiento(models.Model):
+    """Reporte mensual de accionamiento manual de elevadores."""
+    ESTADO_CHOICES = [
+        ('borrador', 'Borrador'),
+        ('enviado', 'Enviado'),
+        ('archivado', 'Archivado'),
+    ]
+
+    responsable = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='accionamiento_responsable',
+        verbose_name="Responsable",
+    )
+    responsable_nombre_manual = models.CharField(
+        max_length=200, blank=True,
+        verbose_name="Responsable (texto libre)",
+        help_text="Usado si el responsable no está en el sistema.",
+    )
+    fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha del reporte")
+    funciona = models.BooleanField(
+        null=True, blank=True,
+        verbose_name="¿Funciona?",
+        help_text="Resultado global del accionamiento manual.",
+    )
+    observaciones_generales = models.TextField(blank=True, verbose_name="Notas / observaciones")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador', verbose_name="Estado")
+    creado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='accionamiento_creados',
+        verbose_name="Creado por",
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    pdf_archivo = models.FileField(
+        upload_to='monitoreo/accionamiento/pdfs/',
+        null=True, blank=True,
+        verbose_name="PDF generado",
+    )
+
+    class Meta:
+        verbose_name = "Accionamiento Manual Mensual"
+        verbose_name_plural = "Accionamientos Manuales Mensuales"
+        ordering = ['-fecha_hora']
+
+    def __str__(self):
+        return f"Accionamiento #{self.pk} — {self.fecha_hora.strftime('%d/%m/%Y')}"
+
+    @property
+    def responsable_display(self):
+        if self.responsable:
+            return self.responsable.get_full_name() or self.responsable.username
+        return self.responsable_nombre_manual or "—"
+
+    @property
+    def funciona_display(self):
+        if self.funciona is True:
+            return "Sí"
+        if self.funciona is False:
+            return "No"
+        return "Sin indicar"
+
+    @property
+    def total_revisados(self):
+        return sum(1 for f in self.filas.all() if f.revisado)
+
+    @property
+    def total_edificios(self):
+        return self.filas.count()
+
+
+class FilaAccionamiento(models.Model):
+    """Una fila del reporte: estado de accionamiento de un edificio / zona."""
+    reporte = models.ForeignKey(
+        ReporteAccionamiento, on_delete=models.CASCADE,
+        related_name='filas',
+        verbose_name="Reporte",
+    )
+    edificio = models.CharField(max_length=120, verbose_name="Edificio / zona")
+    revisado = models.BooleanField(default=True, verbose_name="Revisado (accionado)")
+    motivo = models.TextField(
+        blank=True,
+        verbose_name="Motivo",
+        help_text="Obligatorio cuando el edificio no se revisó.")
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Fila de accionamiento"
+        verbose_name_plural = "Filas de accionamiento"
+        ordering = ['orden', 'id']
+
+    def __str__(self):
+        return f"{self.edificio} — {'Revisado' if self.revisado else 'No revisado'}"
+
+
+class FotoAnexoAccionamiento(models.Model):
+    """Foto adjunta a un reporte de accionamiento manual mensual."""
+    reporte = models.ForeignKey(
+        ReporteAccionamiento, on_delete=models.CASCADE,
+        related_name='fotos',
+        verbose_name="Reporte",
+    )
+    imagen = models.ImageField(
+        upload_to='monitoreo/accionamiento/fotos/',
+        verbose_name="Imagen",
+    )
+    descripcion = models.CharField(max_length=300, blank=True, verbose_name="Descripción")
+    subido_en = models.DateTimeField(auto_now_add=True)
+    subido_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        verbose_name="Subido por",
+    )
+
+    class Meta:
+        verbose_name = "Foto anexa (accionamiento)"
+        verbose_name_plural = "Fotos anexas (accionamiento)"
+        ordering = ['subido_en']
+
+    def __str__(self):
+        return f"Foto #{self.pk} — Accionamiento #{self.reporte_id}"

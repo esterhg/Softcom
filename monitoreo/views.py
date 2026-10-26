@@ -871,3 +871,397 @@ def _procesar_form_verif(request, instance):
             pass
 
     return reporte
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  ACCIONAMIENTO MANUAL MENSUAL
+#  Reporte mensual por edificio/zona. Mismo patrón que los anteriores.
+# ═══════════════════════════════════════════════════════════════════
+
+# Edificios / zonas por defecto para un reporte nuevo
+ACC_EDIFICIOS_DEFECTO = ['Torre 1', 'Torre 2', 'CBA', 'CBB', 'CBC']
+
+
+# ─────────────────────────────────────────────────────────────
+# Listado
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def acc_lista(request):
+    from .models import ReporteAccionamiento
+    qs = (ReporteAccionamiento.objects
+          .select_related('responsable', 'creado_por')
+          .order_by('-fecha_hora'))
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(
+            Q(responsable_nombre_manual__icontains=q) |
+            Q(observaciones_generales__icontains=q)
+        )
+
+    paginator = Paginator(qs, 20)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'monitoreo/acc_lista.html', {
+        'title': 'Accionamiento Manual Mensual',
+        'page_obj': page_obj,
+        'q': q,
+        'total': qs.count(),
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Historial + ZIP
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def acc_historial(request):
+    from .models import ReporteAccionamiento
+    anio_sel = request.GET.get('anio', '')
+    mes_sel  = request.GET.get('mes', '')
+
+    qs = (ReporteAccionamiento.objects
+          .select_related('responsable', 'creado_por')
+          .order_by('-fecha_hora'))
+
+    if anio_sel:
+        try: qs = qs.filter(fecha_hora__year=int(anio_sel))
+        except ValueError: pass
+    if mes_sel:
+        try: qs = qs.filter(fecha_hora__month=int(mes_sel))
+        except ValueError: pass
+
+    anios_disponibles = (
+        ReporteAccionamiento.objects
+        .annotate(anio=ExtractYear('fecha_hora'))
+        .values_list('anio', flat=True).distinct().order_by('-anio')
+    )
+
+    paginator = Paginator(qs, 30)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'monitoreo/acc_historial.html', {
+        'title': 'Historial — Accionamiento Manual Mensual',
+        'page_obj': page_obj,
+        'total': qs.count(),
+        'anio_sel': anio_sel,
+        'mes_sel':  mes_sel,
+        'anios_disponibles': list(anios_disponibles),
+        'MESES': MESES,
+    })
+
+
+@staff_member_required
+def acc_historial_zip(request):
+    from .models import ReporteAccionamiento
+    anio = request.GET.get('anio', '')
+    mes  = request.GET.get('mes', '')
+
+    if not anio or not mes:
+        messages.error(request, 'Selecciona mes y año.')
+        return redirect('monitoreo:acc_historial')
+    try:
+        anio_int, mes_int = int(anio), int(mes)
+    except ValueError:
+        messages.error(request, 'Período inválido.')
+        return redirect('monitoreo:acc_historial')
+
+    qs = (ReporteAccionamiento.objects
+          .prefetch_related('filas', 'fotos')
+          .select_related('responsable', 'creado_por')
+          .filter(fecha_hora__year=anio_int, fecha_hora__month=mes_int)
+          .order_by('fecha_hora'))
+
+    if not qs.exists():
+        messages.warning(request, 'No hay reportes para ese período.')
+        return redirect('monitoreo:acc_historial')
+
+    NOMBRES_MES = dict(MESES)
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for rpt in qs:
+            try:
+                pdf_bytes = _obtener_o_generar_pdf_acc(rpt)
+                zf.writestr(f'Accionamiento_{rpt.pk}_{rpt.fecha_hora.strftime("%Y-%m-%d")}.pdf', pdf_bytes)
+            except Exception as exc:
+                logger.error('ZIP acc: error en reporte %s: %s', rpt.pk, exc)
+
+    zip_buf.seek(0)
+    nombre_zip = f'Accionamiento_Manual_{NOMBRES_MES.get(mes_int, mes)}_{anio}.zip'
+    resp = HttpResponse(zip_buf.read(), content_type='application/zip')
+    resp['Content-Disposition'] = f'attachment; filename="{nombre_zip}"'
+    return resp
+
+
+# ─────────────────────────────────────────────────────────────
+# Crear
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def acc_crear(request):
+    if request.method == 'POST':
+        try:
+            reporte = _procesar_form_acc(request, instance=None)
+            try:
+                from .tasks import task_generar_acc_pdf
+                task_generar_acc_pdf.delay(reporte.pk)
+            except Exception as exc:
+                logger.warning('No se pudo encolar PDF acc %s: %s', reporte.pk, exc)
+            messages.success(request, f'Accionamiento #{reporte.pk} creado. El PDF se genera en segundo plano.')
+            return redirect(f'/app/?nuevo_reporte=accionamiento&id={reporte.pk}')
+        except Exception as exc:
+            logger.exception('Error creando accionamiento')
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'monitoreo/acc_form.html', {
+        'title': 'Nuevo Accionamiento Manual Mensual',
+        'edificios': ACC_EDIFICIOS_DEFECTO,
+        'now': timezone.now(),
+        'modo': 'crear',
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Editar
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def acc_editar(request, pk):
+    from .models import ReporteAccionamiento
+    reporte = get_object_or_404(ReporteAccionamiento, pk=pk)
+
+    if request.method == 'POST':
+        try:
+            reporte = _procesar_form_acc(request, instance=reporte)
+            if reporte.pdf_archivo:
+                try: reporte.pdf_archivo.delete(save=False)
+                except Exception: pass
+                reporte.pdf_archivo = None
+                reporte.save(update_fields=['pdf_archivo'])
+            try:
+                from .tasks import task_generar_acc_pdf
+                task_generar_acc_pdf.delay(reporte.pk)
+            except Exception as exc:
+                logger.warning('No se pudo encolar PDF acc: %s', exc)
+            messages.success(request, f'Accionamiento #{reporte.pk} actualizado.')
+            return redirect('monitoreo:acc_detalle', pk=reporte.pk)
+        except Exception as exc:
+            logger.exception('Error editando accionamiento')
+            messages.error(request, f'Error: {exc}')
+
+    filas = list(reporte.filas.order_by('orden', 'id'))
+
+    return render(request, 'monitoreo/acc_form.html', {
+        'title': f'Editar Accionamiento #{reporte.pk}',
+        'reporte': reporte,
+        'filas': filas,
+        'edificios': [f.edificio for f in filas] or ACC_EDIFICIOS_DEFECTO,
+        'now': reporte.fecha_hora,
+        'modo': 'editar',
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Detalle
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def acc_detalle(request, pk):
+    from .models import ReporteAccionamiento
+    reporte = get_object_or_404(
+        ReporteAccionamiento.objects
+            .select_related('responsable', 'creado_por')
+            .prefetch_related('filas', 'fotos'),
+        pk=pk,
+    )
+    filas = list(reporte.filas.order_by('orden', 'id'))
+    no_revisados = [f for f in filas if not f.revisado]
+
+    return render(request, 'monitoreo/acc_detalle.html', {
+        'title': f'Accionamiento #{reporte.pk}',
+        'reporte': reporte,
+        'filas': filas,
+        'no_revisados': no_revisados,
+        'pdf_disponible': bool(reporte.pdf_archivo),
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Eliminar
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+@require_POST
+def acc_eliminar(request, pk):
+    from .models import ReporteAccionamiento
+    reporte = get_object_or_404(ReporteAccionamiento, pk=pk)
+    if reporte.pdf_archivo:
+        try: reporte.pdf_archivo.delete(save=False)
+        except Exception: pass
+    reporte.delete()
+    messages.success(request, 'Accionamiento eliminado.')
+    return redirect('monitoreo:acc_lista')
+
+
+# ─────────────────────────────────────────────────────────────
+# PDF
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+def acc_pdf(request, pk):
+    from .models import ReporteAccionamiento
+    reporte = get_object_or_404(
+        ReporteAccionamiento.objects
+            .select_related('responsable', 'creado_por')
+            .prefetch_related('filas', 'fotos'),
+        pk=pk,
+    )
+    try:
+        pdf_bytes = _obtener_o_generar_pdf_acc(reporte)
+        resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+        resp['Content-Disposition'] = f'inline; filename="Accionamiento_Manual_{reporte.pk}.pdf"'
+        return resp
+    except Exception as exc:
+        logger.exception('Error PDF accionamiento %s', pk)
+        messages.error(request, f'Error al generar PDF: {exc}')
+        return redirect('monitoreo:acc_detalle', pk=pk)
+
+
+# ─────────────────────────────────────────────────────────────
+# API fotos
+# ─────────────────────────────────────────────────────────────
+
+@staff_member_required
+@require_POST
+def acc_foto_subir(request, pk):
+    from .models import ReporteAccionamiento, FotoAnexoAccionamiento
+    reporte  = get_object_or_404(ReporteAccionamiento, pk=pk)
+    imagenes = request.FILES.getlist('imagenes')
+    if not imagenes:
+        return JsonResponse({'success': False, 'error': 'Sin imágenes.'}, status=400)
+    fotos = []
+    for img in imagenes:
+        f = FotoAnexoAccionamiento.objects.create(
+            reporte=reporte, imagen=img,
+            descripcion=request.POST.get('descripcion', ''),
+            subido_por=request.user,
+        )
+        fotos.append({'id': f.pk, 'url': f.imagen.url, 'descripcion': f.descripcion})
+    return JsonResponse({'success': True, 'fotos': fotos})
+
+
+@staff_member_required
+@require_POST
+def acc_foto_eliminar(request, foto_pk):
+    from .models import FotoAnexoAccionamiento
+    foto = get_object_or_404(FotoAnexoAccionamiento, pk=foto_pk)
+    try: foto.imagen.delete(save=False)
+    except Exception: pass
+    foto.delete()
+    return JsonResponse({'success': True})
+
+
+# ─────────────────────────────────────────────────────────────
+# Helpers internos (accionamiento)
+# ─────────────────────────────────────────────────────────────
+
+def _obtener_o_generar_pdf_acc(reporte):
+    """Sirve el PDF guardado en storage. Si no existe lo genera y guarda."""
+    if reporte.pdf_archivo:
+        try:
+            reporte.pdf_archivo.open('rb')
+            data = reporte.pdf_archivo.read()
+            reporte.pdf_archivo.close()
+            if data:
+                return data
+        except Exception as exc:
+            logger.warning('PDF acc corrupto %s: %s', reporte.pk, exc)
+            reporte.pdf_archivo = None
+            reporte.save(update_fields=['pdf_archivo'])
+
+    from .pdf_builder_acc import build_acc_pdf_bytes
+    pdf_bytes = build_acc_pdf_bytes(reporte)
+
+    try:
+        nombre = f'Accionamiento_Manual_{reporte.pk}_{reporte.fecha_hora.strftime("%Y%m%d_%H%M%S")}.pdf'
+        reporte.pdf_archivo.save(nombre, ContentFile(pdf_bytes), save=True)
+        logger.info('PDF acc %s guardado: %s', reporte.pk, nombre)
+    except Exception as exc:
+        logger.error('Error guardando PDF acc %s: %s', reporte.pk, exc)
+
+    return pdf_bytes
+
+
+def _procesar_form_acc(request, instance):
+    """Guarda cabecera + filas (edificios) + fotos.
+
+    El formulario envía arrays paralelos:
+      edificio[], revisado[] ('1'/'0'), motivo[]
+    """
+    from .models import ReporteAccionamiento, FilaAccionamiento, FotoAnexoAccionamiento
+    post     = request.POST
+    es_nuevo = instance is None
+    reporte  = instance if instance is not None else ReporteAccionamiento(creado_por=request.user)
+
+    reporte.responsable_id            = None
+    reporte.responsable_nombre_manual = post.get('responsable_manual', '').strip()
+
+    fh = post.get('fecha_hora', '').strip()
+    if fh:
+        dt = parse_datetime(fh)
+        if dt is None:
+            # Puede venir solo como fecha (YYYY-MM-DD)
+            from django.utils.dateparse import parse_date
+            d = parse_date(fh)
+            if d:
+                dt = timezone.datetime(d.year, d.month, d.day)
+        if dt:
+            reporte.fecha_hora = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
+
+    funciona_raw = post.get('funciona', '').strip()
+    reporte.funciona = True if funciona_raw == '1' else (False if funciona_raw == '0' else None)
+
+    reporte.observaciones_generales = post.get('observaciones_generales', '').strip()
+    if 'estado' in post:
+        reporte.estado = post.get('estado', 'enviado')
+    elif es_nuevo:
+        reporte.estado = 'enviado'
+    reporte.save()
+
+    edificios = post.getlist('edificio[]')
+    revisados = post.getlist('revisado[]')
+    motivos   = post.getlist('motivo[]')
+
+    with transaction.atomic():
+        reporte.filas.all().delete()
+        for idx, nombre in enumerate(edificios):
+            nombre = (nombre or '').strip()
+            if not nombre:
+                continue
+            rev = (revisados[idx] if idx < len(revisados) else '1') == '1'
+            FilaAccionamiento.objects.create(
+                reporte=reporte,
+                edificio=nombre,
+                revisado=rev,
+                motivo=(motivos[idx].strip() if idx < len(motivos) else '') if not rev else '',
+                orden=idx,
+            )
+
+    for img in request.FILES.getlist('fotos_nuevas'):
+        FotoAnexoAccionamiento.objects.create(
+            reporte=reporte, imagen=img, descripcion='', subido_por=request.user,
+        )
+
+    for fid in post.getlist('fotos_eliminar[]'):
+        if not fid:
+            continue
+        try:
+            f = FotoAnexoAccionamiento.objects.get(pk=int(fid), reporte=reporte)
+            try: f.imagen.delete(save=False)
+            except Exception: pass
+            f.delete()
+        except FotoAnexoAccionamiento.DoesNotExist:
+            pass
+
+    return reporte

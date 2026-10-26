@@ -18,11 +18,18 @@ from activos.models import Activo, Categoria, Ubicacion
 from ..models import OrdenTrabajo, Rutina, TecnicoPuesto
 
 
-CATEGORIA_ASCENSORES = "Ascensores"
+# Nombres aceptados para la categoría de activo de ascensores/elevadores.
+# El primero es el preferido; se buscan todos (case-insensitive) por si la
+# instalación los nombró distinto.
+CATEGORIAS_ASCENSORES = ["ELEVADORES", "Ascensores", "Elevadores", "ASCENSORES"]
 
 
 def _categoria_ascensores():
-    return Categoria.objects.filter(nombre__iexact=CATEGORIA_ASCENSORES).first()
+    for nombre in CATEGORIAS_ASCENSORES:
+        cat = Categoria.objects.filter(nombre__iexact=nombre).first()
+        if cat:
+            return cat
+    return None
 
 
 def _activos_ascensores(cat):
