@@ -1,0 +1,148 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Accionamiento Manual Mensual{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
+<style>
+.mon-wrap { padding:.75rem; background:#eff2f5; min-height:calc(100vh - 56px); }
+@media (min-width:640px){ .mon-wrap{ padding:1.25rem 1.5rem; } }
+.mon-page-header { display:flex; flex-direction:column; gap:.6rem; margin-bottom:1rem; }
+@media (min-width:560px){ .mon-page-header{ flex-direction:row; align-items:center; justify-content:space-between; } }
+.mon-page-header h1 { font-size:1.15rem; font-weight:700; color:#32363a; margin:0; }
+@media (min-width:640px){ .mon-page-header h1{ font-size:1.35rem; } }
+.header-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+.mon-btn { display:inline-flex; align-items:center; gap:.35rem; padding:.45rem .9rem; border-radius:4px; border:1px solid transparent; font-size:.84rem; font-weight:600; font-family:inherit; cursor:pointer; text-decoration:none; white-space:nowrap; }
+.mon-btn-primary { background:#0070f2; color:#fff; border-color:#0070f2; }
+.mon-btn-primary:hover { background:#0058c0; color:#fff; }
+.mon-btn-secondary { background:#fff; color:#32363a; border-color:#d9d9d9; }
+.mon-btn-secondary:hover { background:#f5f5f5; color:#32363a; }
+.mon-btn-danger { background:#bb0000; color:#fff; border-color:#bb0000; }
+.mon-btn-danger:hover { background:#950000; color:#fff; }
+.mon-btn-ghost { background:transparent; color:#0070f2; border-color:transparent; }
+.mon-btn-sm { padding:.3rem .6rem; font-size:.78rem; }
+.mon-toolbar { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:.85rem; }
+.mon-search { flex:1; min-width:180px; max-width:360px; position:relative; }
+.mon-search i { position:absolute; left:.6rem; top:50%; transform:translateY(-50%); color:#aaa; font-size:.8rem; pointer-events:none; }
+.mon-form-control { width:100%; border:1px solid #d9d9d9; border-radius:4px; padding:.46rem .65rem; font-size:.87rem; font-family:inherit; color:#32363a; background:#fff; }
+.mon-form-control:focus { outline:none; border-color:#0070f2; box-shadow:0 0 0 2px rgba(0,112,242,.12); }
+.mon-search .mon-form-control { padding-left:2rem; }
+.mon-card { background:#fff; border:1px solid #d9d9d9; border-radius:.5rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.table-scroll { overflow-x:auto; }
+.mon-table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:620px; }
+.mon-table th { background:#f0f4f8; color:#32363a; font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; padding:.55rem .8rem; border-bottom:2px solid #d9d9d9; white-space:nowrap; text-align:left; }
+.mon-table td { padding:.5rem .8rem; border-bottom:1px solid #f0f0f0; vertical-align:middle; color:#32363a; }
+.mon-table tr:last-child td { border-bottom:none; }
+.mon-table tr:hover td { background:#f7f9fc; }
+.badge-estado { display:inline-block; padding:.18em .6em; border-radius:3px; font-size:.76rem; font-weight:600; white-space:nowrap; }
+.badge-borrador { background:#f1f5f9; color:#475569; }
+.badge-enviado { background:#eff6ff; color:#1d4ed8; }
+.badge-archivado { background:#dcfce7; color:#166534; }
+.badge-si { background:#dcfce7; color:#166534; }
+.badge-no { background:#fee2e2; color:#991b1b; }
+.badge-sin { background:#f1f5f9; color:#475569; }
+.row-actions { display:flex; gap:.3rem; flex-wrap:nowrap; }
+.pager { display:flex; align-items:center; justify-content:center; gap:.5rem; padding:.75rem 1rem; border-top:1px solid #f0f0f0; flex-wrap:wrap; }
+.pager span { font-size:.82rem; color:#6a6d70; }
+.mon-empty { text-align:center; padding:3rem 1rem; color:#6a6d70; }
+.mon-empty i { font-size:2.2rem; opacity:.3; display:block; margin-bottom:.65rem; }
+
+@media (max-width: 680px) {
+  .table-scroll { overflow-x: visible; }
+  .mon-table { min-width: 0; display: block; }
+  .mon-table thead { display: none; }
+  .mon-table tbody { display: block; }
+  .mon-table tr { display: block; border: 1px solid #d9d9d9; border-radius: .5rem; padding: .6rem .75rem; margin-bottom: .7rem; background: #fff; }
+  .mon-table td { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .3rem 0; border: none; text-align: right; }
+  .mon-table td::before { content: attr(data-label); font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: #6a6d70; text-align: left; flex-shrink: 0; }
+  .mon-table td[data-label="Acciones"] { border-top: 1px solid #f0f0f0; margin-top: .35rem; padding-top: .55rem; justify-content: flex-end; }
+  .mon-table td[data-label="Acciones"]::before { display: none; }
+  .row-actions { flex-wrap: wrap; justify-content: flex-end; }
+}
+[data-theme="dark"] .mon-table tr { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .mon-table td::before { color: #94a3b8; }
+[data-theme="dark"] .mon-table td[data-label="Acciones"] { border-top-color: #2a3a50; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mon-wrap">
+  <div class="mon-page-header">
+    <h1><i class="fas fa-hand-pointer" style="color:#0070f2;margin-right:.4rem;"></i>Accionamiento Manual Mensual</h1>
+    <div class="header-actions">
+      <a href="{% url 'monitoreo:acc_historial' %}" class="mon-btn mon-btn-secondary"><i class="fas fa-history"></i> Historial</a>
+      <a href="{% url 'monitoreo:acc_crear' %}" class="mon-btn mon-btn-primary"><i class="fas fa-plus"></i> <span style="color:#fff;">Nuevo Accionamiento</span></a>
+    </div>
+  </div>
+
+  <form method="get" class="mon-toolbar">
+    <div class="mon-search">
+      <i class="fas fa-search"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="Buscar…" class="mon-form-control">
+    </div>
+    <button type="submit" class="mon-btn mon-btn-secondary"><i class="fas fa-filter"></i> Filtrar</button>
+    {% if q %}<a href="{% url 'monitoreo:acc_lista' %}" class="mon-btn mon-btn-ghost"><i class="fas fa-times"></i> Limpiar</a>{% endif %}
+    <span style="margin-left:auto;font-size:.81rem;color:#6a6d70;">{{ total }} reporte{{ total|pluralize }}</span>
+  </form>
+
+  <div class="mon-card">
+    {% if page_obj.object_list %}
+    <div class="table-scroll">
+      <table class="mon-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Fecha</th><th>Responsable</th>
+            <th>Revisados</th><th>¿Funciona?</th><th>Estado</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rpt in page_obj %}
+          <tr>
+            <td data-label="#"><strong style="color:#0070f2;">#{{ rpt.pk }}</strong></td>
+            <td data-label="Fecha" style="white-space:nowrap;">
+              <span style="font-weight:600;">{{ rpt.fecha_hora|date:"d/m/Y" }}</span>
+            </td>
+            <td data-label="Responsable">{{ rpt.responsable_display }}</td>
+            <td data-label="Revisados"><span style="font-size:.82rem;color:#6a6d70;">{{ rpt.total_revisados }} / {{ rpt.total_edificios }}</span></td>
+            <td data-label="¿Funciona?">
+              {% if rpt.funciona == True %}<span class="badge-estado badge-si">Sí</span>
+              {% elif rpt.funciona == False %}<span class="badge-estado badge-no">No</span>
+              {% else %}<span class="badge-estado badge-sin">Sin indicar</span>{% endif %}
+            </td>
+            <td data-label="Estado"><span class="badge-estado badge-{{ rpt.estado }}">{{ rpt.get_estado_display }}</span></td>
+            <td data-label="Acciones">
+              <div class="row-actions">
+                <a href="{% url 'monitoreo:acc_detalle' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Ver detalle"><i class="fas fa-eye"></i></a>
+                <a href="{% url 'monitoreo:acc_pdf' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="PDF" target="_blank"><i class="fas fa-file-pdf" style="color:#bb0000;"></i></a>
+                <a href="{% url 'monitoreo:acc_editar' rpt.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Editar"><i class="fas fa-pencil-alt" style="color:#0070f2;"></i></a>
+                <form method="post" action="{% url 'monitoreo:acc_eliminar' rpt.pk %}" style="display:inline;" onsubmit="return confirm('¿Eliminar este accionamiento?');">
+                  {% csrf_token %}
+                  <button type="submit" class="mon-btn mon-btn-danger mon-btn-sm" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="pager">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="mon-btn mon-btn-secondary mon-btn-sm"><i class="fas fa-chevron-left"></i></a>{% endif %}
+      <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="mon-btn mon-btn-secondary mon-btn-sm"><i class="fas fa-chevron-right"></i></a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="mon-empty">
+      <i class="fas fa-hand-pointer"></i>
+      <p>No hay accionamientos{% if q %} para "<strong>{{ q }}</strong>"{% endif %}.</p>
+      <a href="{% url 'monitoreo:acc_crear' %}" class="mon-btn mon-btn-primary" style="margin-top:.5rem;"><i class="fas fa-plus"></i> Crear primer accionamiento</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
+<style>
+.vt-wrap { overflow-x:auto; }
+.vt { width:100%; border-collapse:collapse; font-size:.86rem; min-width:480px; }
+.vt th { background:#1f2a37; color:#fff; font-size:.74rem; font-weight:700; padding:.45rem .7rem; text-align:left; border:1px solid #334054; }
+.vt td { padding:.45rem .7rem; border:1px solid #e0e0e0; vertical-align:middle; }
+.vt td.edificio { font-weight:700; white-space:nowrap; }
+.vt td.motivo { color:#991b1b; font-size:.82rem; }
+.vt tr:nth-child(even) td { background:#fafafa; }
+.row-no td { background:#fff5f5 !important; }
+.ok { color:#107e3e; font-weight:700; }
+.no { color:#bb0000; font-weight:700; }
+.badge-estado { display:inline-block; padding:.18em .6em; border-radius:3px; font-size:.76rem; font-weight:600; white-space:nowrap; }
+.badge-borrador { background:#f1f5f9; color:#475569; }
+.badge-enviado { background:#eff6ff; color:#1d4ed8; }
+.badge-archivado { background:#dcfce7; color:#166534; }
+.badge-si { background:#dcfce7; color:#166534; }
+.badge-no { background:#fee2e2; color:#991b1b; }
+.badge-sin { background:#f1f5f9; color:#475569; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:1.25rem 1.5rem;background:#eff2f5;min-height:calc(100vh - 56px);">
+
+  <div class="mon-breadcrumb">
+    <a href="/"><i class="fas fa-home"></i> Inicio</a> ›
+    <a href="{% url 'monitoreo:acc_lista' %}">Accionamiento Manual Mensual</a> ›
+    <span>#{{ reporte.pk }}</span>
+  </div>
+
+  <div class="mon-page-header">
+    <div>
+      <h1><i class="fas fa-hand-pointer" style="color:#0070f2;margin-right:.45rem;"></i>Accionamiento #{{ reporte.pk }}</h1>
+      <span class="badge-estado badge-{{ reporte.estado }}" style="font-size:.8rem;">{{ reporte.get_estado_display }}</span>
+      {% if pdf_disponible %}<span style="font-size:.78rem;color:#107e3e;margin-left:.6rem;"><i class="fas fa-check-circle"></i> PDF guardado</span>{% endif %}
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a href="{% url 'monitoreo:acc_historial' %}" class="mon-btn mon-btn-secondary" target="_blank"><i class="fas fa-history"></i> Historial</a>
+      <a href="{% url 'monitoreo:acc_pdf' reporte.pk %}" class="mon-btn mon-btn-secondary" target="_blank"><i class="fas fa-file-pdf" style="color:#bb0000;"></i> {% if pdf_disponible %}Ver PDF{% else %}Generar PDF{% endif %}</a>
+      <a href="{% url 'monitoreo:acc_editar' reporte.pk %}" class="mon-btn mon-btn-primary"><i class="fas fa-pencil-alt"></i> Editar</a>
+      <form method="post" action="{% url 'monitoreo:acc_eliminar' reporte.pk %}" style="display:inline;" onsubmit="return confirm('¿Eliminar este accionamiento?');">
+        {% csrf_token %}
+        <button type="submit" class="mon-btn mon-btn-danger"><i class="fas fa-trash"></i> Eliminar</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mon-card">
+    <div class="mon-card-header"><h2 class="mon-card-title"><i class="fas fa-info-circle" style="color:#0070f2;margin-right:.4rem;"></i>Datos del reporte</h2></div>
+    <div class="mon-info-grid">
+      <div class="mon-info-field"><label>Responsable</label><span>{{ reporte.responsable_display }}</span></div>
+      <div class="mon-info-field"><label>Fecha</label><span>{{ reporte.fecha_hora|date:"d/m/Y" }}</span></div>
+      <div class="mon-info-field"><label>Edificios revisados</label><span>{{ reporte.total_revisados }} / {{ reporte.total_edificios }}</span></div>
+      <div class="mon-info-field"><label>¿Funciona?</label>
+        <span>
+          {% if reporte.funciona == True %}<span class="badge-estado badge-si">Sí</span>
+          {% elif reporte.funciona == False %}<span class="badge-estado badge-no">No</span>
+          {% else %}<span class="badge-estado badge-sin">Sin indicar</span>{% endif %}
+        </span>
+      </div>
+    </div>
+    {% if reporte.observaciones_generales %}
+    <div class="mon-form-group" style="margin:0;">
+      <label>Notas / observaciones</label>
+      <div style="background:#f7f9fc;border:1px solid #e0e0e0;border-radius:4px;padding:.6rem .8rem;font-size:.9rem;white-space:pre-wrap;">{{ reporte.observaciones_generales }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mon-card">
+    <div class="mon-card-header"><h2 class="mon-card-title"><i class="fas fa-building" style="color:#0070f2;margin-right:.4rem;"></i>Edificios</h2></div>
+    <div class="vt-wrap">
+      <table class="vt">
+        <thead>
+          <tr><th style="width:40%;">Edificio</th><th style="width:16%;">Revisado</th><th>Motivo</th></tr>
+        </thead>
+        <tbody>
+          {% for f in filas %}
+          <tr class="{% if not f.revisado %}row-no{% endif %}">
+            <td class="edificio">{{ f.edificio }}</td>
+            <td class="{% if f.revisado %}ok{% else %}no{% endif %}">{% if f.revisado %}✓ Sí{% else %}✗ No{% endif %}</td>
+            <td class="motivo">{% if f.revisado %}—{% else %}{{ f.motivo|default:"—" }}{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" style="color:#888;padding:1rem;">Sin edificios registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if reporte.fotos.exists %}
+  <div class="mon-card">
+    <div class="mon-card-header"><h2 class="mon-card-title"><i class="fas fa-images" style="color:#0070f2;margin-right:.4rem;"></i>Fotos anexas ({{ reporte.fotos.count }})</h2></div>
+    <div class="mon-fotos-grid">
+      {% for foto in reporte.fotos.all %}
+      <div class="mon-foto-item">
+        <a href="{{ foto.imagen.url }}" target="_blank"><img src="{{ foto.imagen.url }}" alt=""></a>
+        {% if foto.descripcion %}<div class="mon-foto-desc">{{ foto.descripcion }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,340 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Accionamiento Manual Mensual{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'monitoreo/css/monitoreo.css' %}">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+
+.mon-wrap { padding:.75rem; background:#eff2f5; min-height:calc(100vh - 56px); }
+@media (min-width:640px){ .mon-wrap{ padding:1.25rem 1.5rem; } }
+
+.mon-page-header { display:flex; flex-direction:column; gap:.5rem; margin-bottom:1rem; }
+@media (min-width:640px){ .mon-page-header{ flex-direction:row; align-items:center; justify-content:space-between; } }
+.mon-page-header h1 { font-size:1.15rem; font-weight:700; color:#32363a; margin:0; }
+@media (min-width:640px){ .mon-page-header h1{ font-size:1.35rem; } }
+
+.mon-card { background:#fff; border:1px solid #d9d9d9; border-radius:.5rem; padding:.85rem; margin-bottom:.85rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+@media (min-width:640px){ .mon-card{ padding:1.1rem 1.4rem; } }
+.mon-card-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.4rem; margin-bottom:.7rem; padding-bottom:.6rem; border-bottom:1px solid #f0f0f0; }
+.mon-card-title { font-size:.92rem; font-weight:700; color:#32363a; margin:0; }
+
+.form-grid { display:grid; grid-template-columns:1fr; gap:.75rem; }
+@media (min-width:480px){ .form-grid{ grid-template-columns:1fr 1fr; } }
+.mon-form-group { display:flex; flex-direction:column; gap:.25rem; }
+.mon-form-group label { font-size:.73rem; font-weight:700; color:#6a6d70; text-transform:uppercase; letter-spacing:.03em; }
+.mon-form-control { width:100%; border:1px solid #d9d9d9; border-radius:4px; padding:.5rem .65rem; font-size:.88rem; font-family:inherit; color:#32363a; background:#fff; -webkit-appearance:none; appearance:none; }
+.mon-form-control:focus { outline:none; border-color:#0070f2; box-shadow:0 0 0 2px rgba(0,112,242,.12); }
+
+/* ── Progreso ── */
+.prog-wrap { font-size:.8rem; color:#6a6d70; }
+.prog { height:8px; background:#e2e8f0; border-radius:6px; overflow:hidden; margin-top:.5rem; }
+.prog i { display:block; height:100%; width:0; background:#107e3e; transition:width .25s; }
+
+/* ── Edificios ── */
+.ed-row { padding:.75rem 0; border-top:1px solid #f0f0f0; }
+.ed-row:first-of-type { border-top:0; padding-top:0; }
+.ed-head { display:flex; align-items:center; gap:.7rem; }
+.ed-head input[type=checkbox] { width:24px; height:24px; accent-color:#107e3e; flex:none; cursor:pointer; }
+.ed-head .ed-name { font-size:1rem; font-weight:700; color:#32363a; flex:1; }
+.ed-tag { font-size:.72rem; font-weight:600; padding:.18rem .6rem; border-radius:20px; background:#dcfce7; color:#166534; white-space:nowrap; }
+.ed-tag.no { background:#fee2e2; color:#991b1b; }
+.ed-motivo { display:none; margin-top:.6rem; }
+.ed-row.no .ed-motivo { display:block; }
+.ed-motivo label { display:block; font-size:.72rem; font-weight:700; color:#991b1b; text-transform:uppercase; letter-spacing:.03em; margin-bottom:.25rem; }
+.ed-motivo textarea { width:100%; border:1px solid #fca5a5; border-radius:4px; padding:.4rem .55rem; font-size:.85rem; font-family:inherit; min-height:50px; resize:vertical; background:#fff; }
+.ed-motivo textarea:focus { outline:none; border-color:#dc2626; box-shadow:0 0 0 2px rgba(220,38,38,.12); }
+
+/* ── Segmentado Sí/No ── */
+.seg { display:flex; gap:.6rem; }
+.seg button { flex:1; padding:.7rem; border:1.5px solid #d9d9d9; background:#fff; color:#32363a; border-radius:6px; font:inherit; font-weight:700; cursor:pointer; }
+.seg button.on.si { background:#dcfce7; border-color:#107e3e; color:#166534; }
+.seg button.on.no { background:#fee2e2; border-color:#bb0000; color:#991b1b; }
+
+/* ── Botones ── */
+.mon-btn { display:inline-flex; align-items:center; gap:.35rem; padding:.48rem .9rem; border-radius:4px; border:1px solid transparent; font-size:.84rem; font-weight:600; font-family:inherit; cursor:pointer; text-decoration:none; white-space:nowrap; }
+.mon-btn-primary { background:#0070f2; color:#fff; border-color:#0070f2; }
+.mon-btn-primary:hover { background:#0058c0; }
+.mon-btn-secondary { background:#fff; color:#32363a; border-color:#d9d9d9; }
+.mon-btn-secondary:hover { background:#f5f5f5; }
+.mon-btn-ghost { background:transparent; color:#0070f2; border-color:transparent; }
+.mon-btn-sm { padding:.3rem .65rem; font-size:.78rem; }
+
+.form-actions { display:flex; flex-direction:column; gap:.6rem; padding:.75rem 0 2rem; }
+@media (min-width:480px){ .form-actions{ flex-direction:row; justify-content:space-between; align-items:center; } }
+.form-actions-right { display:flex; gap:.5rem; flex-wrap:wrap; }
+
+/* ── Fotos ── */
+#zona-up { border:2px dashed #d9d9d9; border-radius:.5rem; padding:1.25rem .75rem; text-align:center; cursor:pointer; color:#6a6d70; margin-top:.65rem; }
+#zona-up:hover, #zona-up.over { border-color:#0070f2; background:#eff6ff; color:#0070f2; }
+.fp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:.5rem; margin-top:.6rem; }
+.fp-item { border:1px solid #d9d9d9; border-radius:.35rem; overflow:hidden; position:relative; }
+.fp-item img { width:100%; height:80px; object-fit:cover; display:block; }
+.fp-del { position:absolute; top:.25rem; right:.25rem; background:rgba(187,0,0,.85); color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.62rem; }
+
+#ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center; }
+#ov.show { display:flex; }
+.ov-box { background:#fff; border-radius:.7rem; padding:1.5rem 2rem; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,.22); width:min(90vw,280px); }
+.ov-ring { width:44px; height:44px; border:4px solid #e0e0e0; border-top-color:#0070f2; border-radius:50%; animation:spin .8s linear infinite; margin:0 auto .65rem; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mon-wrap">
+
+  <div class="mon-page-header">
+    <h1><i class="fas fa-hand-pointer" style="color:#0070f2;margin-right:.4rem;"></i>Accionamiento Manual Mensual</h1>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+      <a href="{% url 'monitoreo:acc_historial' %}" class="mon-btn mon-btn-secondary mon-btn-sm" target="_blank">
+        <i class="fas fa-history"></i> Historial
+      </a>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" id="form-acc" novalidate>
+    {% csrf_token %}
+
+    <!-- Datos del reporte -->
+    <div class="mon-card">
+      <div class="mon-card-header">
+        <h2 class="mon-card-title"><i class="fas fa-info-circle" style="color:#0070f2;margin-right:.35rem;"></i>Datos del reporte</h2>
+      </div>
+      <div class="form-grid">
+        <div class="mon-form-group">
+          <label>Responsable</label>
+          <input type="text" name="responsable_manual" class="mon-form-control"
+                 value="{{ reporte.responsable_nombre_manual|default:'' }}" placeholder="Nombre del responsable" autocomplete="off">
+        </div>
+        <div class="mon-form-group">
+          <label>Fecha</label>
+          <input type="datetime-local" name="fecha_hora" class="mon-form-control"
+                 value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}" required>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edificios -->
+    <div class="mon-card">
+      <div class="mon-card-header">
+        <h2 class="mon-card-title"><i class="fas fa-building" style="color:#0070f2;margin-right:.35rem;"></i>Edificios</h2>
+        <button type="button" class="mon-btn mon-btn-secondary mon-btn-sm" onclick="marcarTodo()"><i class="fas fa-check-double"></i> Marcar todo</button>
+      </div>
+
+      <div id="list">
+        {% for ed in filas %}
+        <div class="ed-row {% if not ed.revisado %}no{% endif %}" data-i="{{ forloop.counter0 }}">
+          <input type="hidden" name="edificio[]" value="{{ ed.edificio }}">
+          <input type="hidden" name="revisado[]" class="h-rev" value="{% if ed.revisado %}1{% else %}0{% endif %}">
+          <div class="ed-head">
+            <input type="checkbox" class="ck" {% if ed.revisado %}checked{% endif %} onchange="onCk({{ forloop.counter0 }})">
+            <span class="ed-name">{{ ed.edificio }}</span>
+            <span class="ed-tag {% if not ed.revisado %}no{% endif %}">{% if ed.revisado %}Revisado{% else %}No revisado{% endif %}</span>
+          </div>
+          <div class="ed-motivo">
+            <label>¿Por qué no se revisó? (obligatorio)</label>
+            <textarea name="motivo[]" placeholder="Indica el motivo…">{{ ed.motivo }}</textarea>
+          </div>
+        </div>
+        {% empty %}
+        {% for ed in edificios %}
+        <div class="ed-row" data-i="{{ forloop.counter0 }}">
+          <input type="hidden" name="edificio[]" value="{{ ed }}">
+          <input type="hidden" name="revisado[]" class="h-rev" value="1">
+          <div class="ed-head">
+            <input type="checkbox" class="ck" checked onchange="onCk({{ forloop.counter0 }})">
+            <span class="ed-name">{{ ed }}</span>
+            <span class="ed-tag">Revisado</span>
+          </div>
+          <div class="ed-motivo">
+            <label>¿Por qué no se revisó? (obligatorio)</label>
+            <textarea name="motivo[]" placeholder="Indica el motivo…"></textarea>
+          </div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+      </div>
+
+      <div class="prog-wrap" style="margin-top:.85rem;">
+        <span id="pt"></span>
+        <div class="prog"><i id="pb"></i></div>
+      </div>
+    </div>
+
+    <!-- Resultado -->
+    <div class="mon-card">
+      <div class="mon-card-header">
+        <h2 class="mon-card-title"><i class="fas fa-clipboard-check" style="color:#0070f2;margin-right:.35rem;"></i>Resultado</h2>
+      </div>
+      <div class="mon-form-group" style="margin-bottom:1rem;">
+        <label>¿Funciona?</label>
+        <div class="seg">
+          <button type="button" class="si" id="bsi" onclick="setFunc(1)">Sí</button>
+          <button type="button" class="no" id="bno" onclick="setFunc(0)">No</button>
+        </div>
+        <input type="hidden" name="funciona" id="funciona"
+               value="{% if reporte.funciona == True %}1{% elif reporte.funciona == False %}0{% endif %}">
+      </div>
+      <div class="mon-form-group">
+        <label>Notas / observaciones</label>
+        <textarea name="observaciones_generales" class="mon-form-control" rows="3"
+                  placeholder="Observaciones…">{{ reporte.observaciones_generales|default:'' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Fotos -->
+    <div class="mon-card">
+      <div class="mon-card-header">
+        <h2 class="mon-card-title"><i class="fas fa-images" style="color:#0070f2;margin-right:.35rem;"></i>Fotos anexas</h2>
+        <button type="button" class="mon-btn mon-btn-ghost mon-btn-sm" onclick="clearAll()"><i class="fas fa-times"></i> Quitar todas</button>
+      </div>
+
+      {% if reporte and reporte.fotos.exists %}
+      <div class="fp-grid" id="fp-ex">
+        {% for foto in reporte.fotos.all %}
+        <div class="fp-item" id="fex-{{ foto.pk }}">
+          <img src="{{ foto.imagen.url }}" alt="">
+          <button type="button" class="fp-del" onclick="delExisting({{ foto.pk }})"><i class="fas fa-times"></i></button>
+          <input type="hidden" name="fotos_eliminar[]" id="fd-{{ foto.pk }}" value="" disabled>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="fp-grid" id="fp-new"></div>
+      <div id="zona-up" onclick="document.getElementById('inp-f').click()"
+           ondragover="event.preventDefault();this.classList.add('over')"
+           ondragleave="this.classList.remove('over')" ondrop="onDrop(event)">
+        <i class="fas fa-cloud-upload-alt" style="font-size:1.8rem;display:block;margin-bottom:.35rem;"></i>
+        <strong style="font-size:.88rem;">📷 Tomar o subir foto</strong>
+        <p style="margin:.25rem 0 0;font-size:.74rem;">Arrastra aquí o toca para seleccionar</p>
+      </div>
+      <input type="file" id="inp-f" name="fotos_nuevas" multiple accept="image/*" capture="environment" style="display:none;" onchange="addPhotos(this.files)">
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'monitoreo:acc_lista' %}" class="mon-btn mon-btn-secondary"><i class="fas fa-times"></i> Cancelar</a>
+      <div class="form-actions-right">
+        {% if modo == 'editar' %}
+        <a href="{% url 'monitoreo:acc_pdf' reporte.pk %}" class="mon-btn mon-btn-secondary" target="_blank">
+          <i class="fas fa-file-pdf" style="color:#bb0000;"></i> Ver PDF
+        </a>
+        {% endif %}
+        <button type="submit" class="mon-btn mon-btn-primary" style="width:100%;">
+          <i class="fas fa-save"></i> {% if modo == 'editar' %}Guardar cambios{% else %}Generar reporte{% endif %}
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div id="ov"><div class="ov-box"><div class="ov-ring"></div>
+  <div style="font-size:.88rem;font-weight:600;color:#32363a;">Guardando reporte…</div>
+  <div style="font-size:.74rem;color:#6a6d70;margin-top:.3rem;">El PDF se genera en segundo plano.</div>
+</div></div>
+
+<script>
+function row(i){ return document.querySelector('.ed-row[data-i="'+i+'"]'); }
+
+function onCk(i){
+  const r = row(i); if(!r) return;
+  const cb = r.querySelector('.ck');
+  const rev = cb.checked;
+  r.querySelector('.h-rev').value = rev ? '1' : '0';
+  r.classList.toggle('no', !rev);
+  const tag = r.querySelector('.ed-tag');
+  tag.textContent = rev ? 'Revisado' : 'No revisado';
+  tag.classList.toggle('no', !rev);
+  updProg();
+}
+
+function updProg(){
+  const rows = document.querySelectorAll('.ed-row');
+  const total = rows.length;
+  let n = 0;
+  rows.forEach(r => { if(r.querySelector('.ck').checked) n++; });
+  document.getElementById('pt').textContent = n + ' de ' + total + ' edificios revisados';
+  document.getElementById('pb').style.width = (total ? (n*100/total) : 0) + '%';
+}
+
+function marcarTodo(){
+  document.querySelectorAll('.ed-row').forEach(r => {
+    r.querySelector('.ck').checked = true;
+    const ta = r.querySelector('textarea'); if(ta) ta.value = '';
+    onCk(r.dataset.i);
+  });
+}
+
+function setFunc(v){
+  document.getElementById('funciona').value = String(v);
+  document.getElementById('bsi').className = 'si' + (v===1 ? ' on' : '');
+  document.getElementById('bno').className = 'no' + (v===0 ? ' on' : '');
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  updProg();
+  const f = document.getElementById('funciona').value;
+  if(f === '1') setFunc(1); else if(f === '0') setFunc(0);
+});
+
+/* Validación: motivo obligatorio si no revisado */
+document.getElementById('form-acc').addEventListener('submit', function(e){
+  const faltan = [];
+  document.querySelectorAll('.ed-row').forEach(r => {
+    const rev = r.querySelector('.ck').checked;
+    const ta = r.querySelector('textarea');
+    if(!rev && !(ta.value||'').trim()){
+      faltan.push(r.querySelector('.ed-name').textContent.trim());
+    }
+  });
+  if(faltan.length){
+    e.preventDefault();
+    alert('Falta indicar el motivo en: ' + faltan.join(', '));
+    return false;
+  }
+  document.getElementById('ov').classList.add('show');
+});
+
+/* ── Fotos ── */
+let dt = new DataTransfer();
+function addPhotos(files){
+  const grid = document.getElementById('fp-new');
+  Array.from(files).forEach(file => {
+    dt.items.add(file);
+    const idx = dt.files.length - 1;
+    const r = new FileReader();
+    r.onload = e => {
+      const d = document.createElement('div');
+      d.className = 'fp-item';
+      d.innerHTML = `<img src="${e.target.result}" alt="">
+        <button type="button" class="fp-del" onclick="delNew(${idx},this)"><i class="fas fa-times"></i></button>`;
+      grid.appendChild(d);
+    };
+    r.readAsDataURL(file);
+  });
+  document.getElementById('inp-f').files = dt.files;
+}
+function delNew(idx, btn){
+  const n = new DataTransfer();
+  Array.from(dt.files).forEach((f,i) => { if(i !== idx) n.items.add(f); });
+  dt = n; document.getElementById('inp-f').files = dt.files;
+  btn.closest('.fp-item').remove();
+}
+function clearAll(){
+  document.getElementById('fp-new').innerHTML = '';
+  dt = new DataTransfer(); document.getElementById('inp-f').files = dt.files;
+  document.querySelectorAll('[id^="fex-"]').forEach(el => delExisting(el.id.replace('fex-','')));
+}
+function delExisting(pk){
+  const el = document.getElementById('fex-'+pk);
+  if(el){ el.style.opacity='.3'; el.style.pointerEvents='none'; }
+  const inp = document.getElementById('fd-'+pk);
+  if(inp){ inp.value = pk; inp.disabled = false; }
+}
+function onDrop(e){ e.preventDefault(); e.currentTarget.classList.remove('over'); addPhotos(e.dataTransfer.files); }
+</script>
+{% endblock %}

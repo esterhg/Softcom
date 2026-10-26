@@ -756,6 +756,44 @@
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
             </a>
+
+            <!-- Accionamiento Manual Mensual -->
+            <div style="font-size:12px;font-weight:700;color:#6a6d70;text-transform:uppercase;letter-spacing:.04em;margin:18px 0 10px;">
+                Accionamiento Manual Mensual
+            </div>
+            <a href="/monitoreo/accionamiento/nuevo/" class="fiori-card"
+               style="display:flex;align-items:center;gap:16px;padding:20px;text-decoration:none;border-left:4px solid #107e3e;margin-bottom:12px;">
+                <div style="width:44px;height:44px;background:#f0fdf4;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <ion-icon name="hand-left-outline" style="font-size:24px;color:#107e3e;"></ion-icon>
+                </div>
+                <div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Nuevo Accionamiento Manual</div>
+                    <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Revisión mensual por edificio</div>
+                </div>
+                <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
+            </a>
+            <a href="/monitoreo/accionamiento/" class="fiori-card"
+               style="display:flex;align-items:center;gap:16px;padding:20px;text-decoration:none;margin-bottom:12px;">
+                <div style="width:44px;height:44px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <ion-icon name="list-outline" style="font-size:24px;color:#0070f2;"></ion-icon>
+                </div>
+                <div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Accionamientos Recientes</div>
+                    <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Ver reportes de accionamiento manual</div>
+                </div>
+                <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
+            </a>
+            <a href="/monitoreo/accionamiento/historial/" class="fiori-card"
+               style="display:flex;align-items:center;gap:16px;padding:20px;text-decoration:none;">
+                <div style="width:44px;height:44px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <ion-icon name="time-outline" style="font-size:24px;color:#d97706;"></ion-icon>
+                </div>
+                <div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Historial de Accionamientos</div>
+                    <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Filtrar por mes y descargar PDF</div>
+                </div>
+                <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
+            </a>
         </div>
 
         <div style="height: 60px;"></div>
@@ -987,8 +1025,9 @@
         if (!nuevo) return;
 
         const MENSAJES = {
-            'verificacion': 'Verificación de elevadores creada',
-            'elevadores':   'Reporte de elevadores creado',
+            'verificacion':   'Verificación de elevadores creada',
+            'elevadores':     'Reporte de elevadores creado',
+            'accionamiento':  'Accionamiento manual mensual creado',
         };
         const texto = MENSAJES[nuevo] || 'Reporte creado';
 

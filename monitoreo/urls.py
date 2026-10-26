@@ -36,4 +36,16 @@ urlpatterns = [
     path('verificacion-alarma/<int:pk>/pdf/', views.verif_pdf, name='verif_pdf'),
     path('verificacion-alarma/<int:pk>/fotos/subir/', views.verif_foto_subir, name='verif_foto_subir'),
     path('verificacion-alarma/fotos/<int:foto_pk>/eliminar/', views.verif_foto_eliminar, name='verif_foto_eliminar'),
+
+    # ── Accionamiento Manual Mensual ──
+    path('accionamiento/', views.acc_lista, name='acc_lista'),
+    path('accionamiento/historial/', views.acc_historial, name='acc_historial'),
+    path('accionamiento/historial/zip/', views.acc_historial_zip, name='acc_historial_zip'),
+    path('accionamiento/nuevo/', views.acc_crear, name='acc_crear'),
+    path('accionamiento/<int:pk>/', views.acc_detalle, name='acc_detalle'),
+    path('accionamiento/<int:pk>/editar/', views.acc_editar, name='acc_editar'),
+    path('accionamiento/<int:pk>/eliminar/', views.acc_eliminar, name='acc_eliminar'),
+    path('accionamiento/<int:pk>/pdf/', views.acc_pdf, name='acc_pdf'),
+    path('accionamiento/<int:pk>/fotos/subir/', views.acc_foto_subir, name='acc_foto_subir'),
+    path('accionamiento/fotos/<int:foto_pk>/eliminar/', views.acc_foto_eliminar, name='acc_foto_eliminar'),
 ]

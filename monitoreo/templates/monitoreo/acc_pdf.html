@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Accionamiento Manual Mensual</title>
+  <style>
+    @font-face {
+      font-family: 'Artifakt Element';
+      src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+      font-weight: 400;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Artifakt Element', 'Outfit', 'Segoe UI', Arial, sans-serif;
+      font-size: 9pt; color: #1a1a1a; background: #fff;
+    }
+    .pdf-header { display: table; width: 100%; border: 1px solid #333; border-collapse: collapse; margin-bottom: 10px; }
+    .pdf-header-logo { display: table-cell; width: 92px; border-right: 1px solid #333; padding: 6px 8px; vertical-align: middle; text-align: center; }
+    .pdf-header-logo img { height: 46px; max-width: 80px; }
+    .pdf-header-body { display: table-cell; vertical-align: top; }
+    .org-name { background: #1f2a37; color: #fff; font-size: 9.5pt; font-weight: 700; text-align: center; padding: 5px 8px; border-bottom: 1px solid #333; }
+    .meta-table { width: 100%; border-collapse: collapse; }
+    .meta-table td { padding: 3px 7px; border: 1px solid #c9c9c9; font-size: 7.5pt; vertical-align: middle; }
+    .meta-table td .k { font-weight: 700; }
+
+    .section-bar { background: #1f2a37; color: #fff; font-size: 9pt; font-weight: 700; text-align: center; padding: 5px 8px; letter-spacing: .04em; }
+
+    .datos-table { width: 100%; border-collapse: collapse; border: 1px solid #333; margin-bottom: 10px; }
+    .datos-table td { padding: 5px 9px; border: 1px solid #c9c9c9; font-size: 8.5pt; }
+    .datos-table td.lbl { font-weight: 700; background: #f0f4f8; width: 20%; }
+
+    .ed-table { width: 100%; border-collapse: collapse; border: 1px solid #333; margin-bottom: 12px; }
+    .ed-table th { background: #1f2a37; color: #fff; font-size: 8pt; font-weight: 700; padding: 5px 8px; text-align: left; border: 1px solid #334054; }
+    .ed-table td { border: 1px solid #999; font-size: 8.5pt; padding: 4px 8px; vertical-align: middle; }
+    .ed-table td.edificio { font-weight: 700; }
+    .ed-table td.center { text-align: center; }
+    .ed-table td.motivo { color: #991b1b; font-size: 8pt; }
+    .ed-table tr:nth-child(even) td { background: #fafafa; }
+    .ok { color: #107e3e; font-weight: 700; }
+    .no { color: #bb0000; font-weight: 700; }
+
+    .result-box { display: table; width: 100%; margin-bottom: 12px; }
+    .result-cell { display: table-cell; width: 33%; border: 1px solid #333; padding: 6px 10px; font-size: 8.5pt; }
+    .result-cell .k { font-weight: 700; display: block; color: #6a6d70; font-size: 7.5pt; text-transform: uppercase; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-weight: 700; font-size: 8.5pt; }
+    .pill.si { background: #dcfce7; color: #166534; }
+    .pill.no { background: #fee2e2; color: #991b1b; }
+    .pill.sin { background: #f1f5f9; color: #475569; }
+
+    .coment-box { border: 1px solid #333; margin-bottom: 12px; }
+    .coment-body { padding: 8px 10px; font-size: 8.5pt; min-height: 40px; white-space: pre-wrap; }
+
+    .fotos-page { page-break-before: always; }
+    .fotos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    .foto-box { border: 1px solid #ccc; }
+    .foto-box img { width: 100%; height: 220px; object-fit: cover; display: block; }
+    .foto-cap { padding: 3px 7px; font-size: 7.5pt; background: #f0f4f8; border-top: 1px solid #ddd; }
+
+    .pdf-footer { margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 6.5pt; color: #888; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+
+{% with fecha=reporte.fecha_hora %}
+
+<div class="pdf-header">
+  <div class="pdf-header-logo">
+    {% if logo_b64 %}<img src="data:image/png;base64,{{ logo_b64 }}" alt="OCC">{% endif %}
+  </div>
+  <div class="pdf-header-body">
+    <div class="org-name">OPERADORA DE INFRAESTRUCTURA DE HONDURAS, S.A. DE C.V.</div>
+    <table class="meta-table">
+      <tr>
+        <td><span class="k">Tipo de Documento:</span> Formato</td>
+        <td><span class="k">Parámetro:</span> Soporte</td>
+        <td><span class="k">Correlativo:</span> AM-{{ fecha|date:"Ymd" }}-{{ reporte.pk }}</td>
+      </tr>
+      <tr>
+        <td><span class="k">Título del Documento:</span> Accionamiento Manual Mensual de Elevadores</td>
+        <td><span class="k">Emitido por el Departamento:</span> Monitoreo / OCC</td>
+        <td><span class="k">Fecha:</span> {{ fecha|date:"d/m/Y" }}</td>
+      </tr>
+      <tr>
+        <td><span class="k">Proyecto:</span> Centro Cívico Gubernamental</td>
+        <td><span class="k">Estatus:</span> {{ reporte.get_estado_display }}</td>
+        <td><span class="k">Revisión:</span> 01</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<div class="section-bar">DATOS DEL REPORTE</div>
+<table class="datos-table">
+  <tr>
+    <td class="lbl">Actividad:</td>
+    <td colspan="3">Accionamiento manual mensual de elevadores</td>
+  </tr>
+  <tr>
+    <td class="lbl">Responsable:</td>
+    <td>{{ reporte.responsable_display }}</td>
+    <td class="lbl">Fecha:</td>
+    <td>{{ fecha|date:"d/m/Y" }}</td>
+  </tr>
+</table>
+
+<div class="section-bar">EDIFICIOS</div>
+<table class="ed-table">
+  <thead>
+    <tr><th style="width:42%;">Edificio</th><th style="width:16%;text-align:center;">Revisado</th><th>Motivo</th></tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr>
+      <td class="edificio">{{ f.edificio }}</td>
+      <td class="center {% if f.revisado %}ok{% else %}no{% endif %}">{% if f.revisado %}SÍ{% else %}NO{% endif %}</td>
+      <td class="motivo">{% if f.revisado %}—{% else %}{{ f.motivo|default:"—" }}{% endif %}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3" style="padding:12px;color:#888;">Sin edificios registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="section-bar">RESULTADO</div>
+<div class="result-box">
+  <div class="result-cell">
+    <span class="k">¿Funciona?</span>
+    {% if reporte.funciona == True %}<span class="pill si">Sí</span>
+    {% elif reporte.funciona == False %}<span class="pill no">No</span>
+    {% else %}<span class="pill sin">Sin indicar</span>{% endif %}
+  </div>
+  <div class="result-cell">
+    <span class="k">Edificios revisados</span>
+    {{ reporte.total_revisados }} / {{ total }}{% if nr_count %} · {{ nr_count }} no revisado(s){% endif %}
+  </div>
+  <div class="result-cell">
+    <span class="k">Fotos anexas</span>
+    {{ fotos_b64|length }}
+  </div>
+</div>
+
+<div class="coment-box">
+  <div class="section-bar">NOTAS / OBSERVACIONES</div>
+  <div class="coment-body">{{ reporte.observaciones_generales|default:"" }}</div>
+</div>
+
+<div class="pdf-footer">
+  <span>Accionamiento Manual Mensual — SoftCom CCG</span>
+  <span>Generado el {{ reporte.creado_en|date:"d/m/Y H:i" }} · {{ total }} edificio(s) · {{ nr_count }} no revisado(s)</span>
+</div>
+
+{% if fotos_b64 %}
+<div class="fotos-page">
+  <div class="section-bar">ANEXOS FOTOGRÁFICOS</div>
+  <div class="fotos-grid">
+    {% for foto in fotos_b64 %}
+    <div class="foto-box">
+      <img src="data:image/{{ foto.mime }};base64,{{ foto.b64 }}" alt="Anexo {{ forloop.counter }}">
+      <div class="foto-cap">Anexo {{ forloop.counter }}{% if foto.descripcion %} · {{ foto.descripcion }}{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endwith %}
+
+</body>
+</html>

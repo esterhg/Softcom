@@ -76,3 +76,33 @@ class MonitoreoService:
         reporte.pdf_archivo.save(filename, ContentFile(pdf_bytes), save=True)
         logger.info('PDF verificación %s guardado como %s', reporte.pk, filename)
         return pdf_bytes
+
+
+    @staticmethod
+    def save_acc_pdf(reporte_id):
+        """
+        Genera el PDF del accionamiento manual mensual y lo guarda en el
+        campo pdf_archivo del modelo. Devuelve los bytes.
+        """
+        from .models import ReporteAccionamiento
+        from .pdf_builder_acc import build_acc_pdf_bytes
+
+        reporte = (
+            ReporteAccionamiento.objects
+            .select_related('responsable', 'creado_por')
+            .prefetch_related('filas', 'fotos')
+            .get(pk=reporte_id)
+        )
+
+        pdf_bytes = build_acc_pdf_bytes(reporte)
+        filename = f'Accionamiento_Manual_{reporte.pk}.pdf'
+
+        if reporte.pdf_archivo:
+            try:
+                reporte.pdf_archivo.delete(save=False)
+            except Exception:
+                pass
+
+        reporte.pdf_archivo.save(filename, ContentFile(pdf_bytes), save=True)
+        logger.info('PDF accionamiento %s guardado como %s', reporte.pk, filename)
+        return pdf_bytes

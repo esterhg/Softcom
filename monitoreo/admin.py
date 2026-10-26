@@ -4,6 +4,7 @@ from django.utils.html import format_html
 from .models import (
     Elevador, ReporteElevador, FilaReporteElevador, FotoAnexoReporte,
     ReporteVerificacionAlarma, FilaVerificacionAlarma, FotoAnexoVerificacionAlarma,
+    ReporteAccionamiento, FilaAccionamiento, FotoAnexoAccionamiento,
 )
 
 
@@ -168,6 +169,60 @@ class ReporteVerificacionAlarmaAdmin(admin.ModelAdmin):
             return format_html('<span style="color:#bb0000;font-weight:600;">{} con hallazgos</span>', n)
         return format_html('<span style="color:#107e3e;">Sin hallazgos</span>')
     conteo_hallazgos.short_description = 'Hallazgos'
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.creado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  ACCIONAMIENTO MANUAL MENSUAL
+# ═══════════════════════════════════════════════════════════════════
+
+class FilaAccionamientoInline(admin.TabularInline):
+    model = FilaAccionamiento
+    extra = 0
+    fields = ('edificio', 'revisado', 'motivo', 'orden')
+    ordering = ('orden',)
+
+
+class FotoAccionamientoInline(admin.TabularInline):
+    model = FotoAnexoAccionamiento
+    extra = 0
+    fields = ('imagen', 'descripcion', 'subido_en')
+    readonly_fields = ('subido_en',)
+
+
+@admin.register(ReporteAccionamiento)
+class ReporteAccionamientoAdmin(admin.ModelAdmin):
+    list_display = (
+        'pk', 'fecha_hora', 'responsable_display', 'conteo_edificios',
+        'funciona_display', 'estado', 'creado_en',
+    )
+    list_filter = ('estado', 'funciona', 'fecha_hora')
+    search_fields = (
+        'responsable__first_name', 'responsable__last_name',
+        'responsable_nombre_manual', 'observaciones_generales',
+    )
+    readonly_fields = ('creado_por', 'creado_en', 'actualizado_en')
+    inlines = [FilaAccionamientoInline, FotoAccionamientoInline]
+    date_hierarchy = 'fecha_hora'
+    ordering = ('-fecha_hora',)
+
+    def responsable_display(self, obj):
+        return obj.responsable_display
+    responsable_display.short_description = 'Responsable'
+
+    def funciona_display(self, obj):
+        return obj.funciona_display
+    funciona_display.short_description = '¿Funciona?'
+
+    def conteo_edificios(self, obj):
+        rev = obj.total_revisados
+        tot = obj.total_edificios
+        return format_html('<span>{} / {} revisados</span>', rev, tot)
+    conteo_edificios.short_description = 'Edificios'
 
     def save_model(self, request, obj, form, change):
         if not obj.pk:
