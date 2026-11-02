@@ -482,13 +482,21 @@ class WorkOrderService:
         """
         Generates the PDF for an OT and saves it as an attachment.
         Used by background tasks.
+
+        NOTA: el campo `nombre` del ArchivoOrdenTrabajo se mantiene como la clave
+        técnica "OT_{id}.pdf" (muchas vistas buscan por ese nombre exacto). El
+        nombre DESCRIPTIVO (mantenimiento + activo) se usa para el archivo físico
+        que se almacena/descarga.
         """
         ot = OrdenTrabajo.objects.get(pk=ot_id)
-        
-        # Check if it already exists to avoid duplicates (with the same name)
+
+        # Clave técnica interna (NO cambiar: se usa como lookup en varias vistas)
         filename = f"OT_{ot.id}.pdf"
         existing = ArchivoOrdenTrabajo.objects.filter(orden_trabajo=ot, nombre=filename).first()
-        
+
+        # Nombre descriptivo para el archivo físico: "<mantenimiento> - <activo>.pdf"
+        descriptive_name = WorkOrderService._build_pdf_descriptive_name(ot)
+
         # Calcular URL del PDF (existente o futura)
         pdf_url = None
         if existing and existing.archivo:
@@ -497,9 +505,9 @@ class WorkOrderService:
             pdf_url = f"{settings.SITE_URL}/media/mantenimiento/ot/{filename}"
 
         pdf_bytes = generate_ot_pdf_bytes(ot, pdf_url=pdf_url)
-        
+
         if existing:
-            existing.archivo.save(filename, ContentFile(pdf_bytes), save=True)
+            existing.archivo.save(descriptive_name, ContentFile(pdf_bytes), save=True)
             return existing
         else:
             nuevo_archivo = ArchivoOrdenTrabajo(
@@ -507,5 +515,32 @@ class WorkOrderService:
                 nombre=filename,
                 tipo='DOCUMENTO'
             )
-            nuevo_archivo.archivo.save(filename, ContentFile(pdf_bytes), save=True)
+            nuevo_archivo.archivo.save(descriptive_name, ContentFile(pdf_bytes), save=True)
             return nuevo_archivo
+
+    @staticmethod
+    def _build_pdf_descriptive_name(ot):
+        """
+        Construye un nombre de archivo descriptivo y seguro para el PDF de una OT,
+        combinando el nombre del mantenimiento (rutina) y el activo vinculado.
+        Ej: "RUTINA GENERAL DE ELEVADORES - L-41.pdf"
+        """
+        import re
+
+        mantenimiento = (ot.rutina.nombre if ot.rutina else None) or ot.descripcion_corta or f"OT-{ot.id}"
+
+        activo = ot.activos.first()
+        if activo:
+            activo_label = activo.codigo_interno or activo.nombre or ""
+        else:
+            activo_label = ot.ubicacion.nombre if ot.ubicacion else ""
+
+        base = f"{mantenimiento} - {activo_label}".strip(" -") if activo_label else mantenimiento
+
+        # Sanitizar: quitar caracteres inválidos para nombres de archivo
+        base = re.sub(r'[\\/:*?"<>|]+', ' ', base)
+        base = re.sub(r'\s+', ' ', base).strip()
+        # Limitar longitud para evitar problemas de ruta
+        base = base[:120] or f"OT-{ot.id}"
+
+        return f"{base}.pdf"

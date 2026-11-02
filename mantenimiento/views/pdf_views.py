@@ -43,8 +43,10 @@ def generate_rutina_pdf_view(request, ot_id):
     # 2. Si no existe o falló, generar en caliente (síncrono)
     try:
         pdf_bytes = generate_ot_pdf_bytes(ot, request=request)
-        file_name = f'Reporte_OT_{ot.id}.pdf'
-        
+        # Nombre descriptivo: "<mantenimiento> - <activo>.pdf"
+        from ..services import WorkOrderService
+        file_name = WorkOrderService._build_pdf_descriptive_name(ot)
+
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="{file_name}"'
         return response
