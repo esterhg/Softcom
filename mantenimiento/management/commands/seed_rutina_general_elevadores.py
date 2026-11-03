@@ -17,6 +17,7 @@ from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Q
 
 
 CODIGO_RUTINA = "ASC-GENERAL"
@@ -151,6 +152,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true", help="No escribe en la BD; solo muestra el resumen.")
+        parser.add_argument(
+            "--aplicar-a-vacias", action="store_true",
+            help="Ademas de crear ASC-GENERAL, carga este mismo checklist en TODAS "
+                 "las rutinas de elevadores (tipo Ascensores) que NO tengan pasos. "
+                 "Util para que las OTs ya generadas con rutinas vacias muestren el checklist."
+        )
 
     def handle(self, *args, **opts):
         dry = opts["dry_run"]
@@ -233,6 +240,37 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f"  ✓ Rutina '{NOMBRE_RUTINA}' ({CODIGO_RUTINA}) {estado} con {len(pasos_bulk)} pasos."
             ))
+
+            # 7) OPCIONAL: cargar el checklist en otras rutinas de elevadores VACÍAS
+            #    (ej: "ACTIVIDADES MENSUAL - SISTEMA DE ELEVADORES" que usan las OTs ya generadas)
+            if opts.get("aplicar_a_vacias"):
+                tipos_ascensor_ids = list(
+                    tipo_root.get_descendants(include_self=True).values_list("id", flat=True)
+                ) if hasattr(tipo_root, "get_descendants") else [tipo_root.id]
+
+                # Rutinas de elevadores: por tipo (Ascensores y descendientes) o por categoria_activo
+                candidatas = Rutina.objects.filter(
+                    Q(tipo_id__in=tipos_ascensor_ids) | Q(categoria_activo=categoria_activo)
+                ).exclude(codigo_rutina=CODIGO_RUTINA).distinct()
+
+                aplicadas = 0
+                for rut in candidatas:
+                    if rut.pasos.count() > 0:
+                        self.stdout.write(f"    - '{rut.nombre}' ya tiene pasos, se omite.")
+                        continue
+                    nuevos = [
+                        PasoRutina(rutina=rut, orden=o, descripcion=txt, tipo_respuesta=tr)
+                        for o, (tr, txt) in enumerate(CHECKLIST)
+                    ]
+                    PasoRutina.objects.bulk_create(nuevos)
+                    aplicadas += 1
+                    self.stdout.write(self.style.SUCCESS(
+                        f"    + Checklist cargado en '{rut.nombre}' ({rut.codigo_rutina or 's/c'}): {len(nuevos)} pasos."
+                    ))
+
+                self.stdout.write(self.style.SUCCESS(
+                    f"  OK Checklist aplicado a {aplicadas} rutina(s) de elevadores vacia(s)."
+                ))
 
         self.stdout.write(self.style.MIGRATE_HEADING(
             f"\nListo. Código de rutina: {CODIGO_RUTINA}  |  Úsalo en la columna 'rutina_codigo' del Excel de OTs."
