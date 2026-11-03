@@ -64,10 +64,17 @@ def generate_ascensor_pdf_bytes(ot, request=None):
     results = {r.paso_id: r for r in ValorPasoOrden.objects.filter(orden_trabajo=ot).select_related("paso")}
 
     checklist_items = []
+    numero = 0  # contador que solo avanza en pasos numerables (no HEADER)
     for paso in pasos:
         res = results.get(paso.id)
+        if paso.tipo_respuesta == "HEADER":
+            numero_item = None
+        else:
+            numero += 1
+            numero_item = numero
         checklist_items.append({
             "paso": paso,
+            "numero": numero_item,
             "valor_bool": getattr(res, "valor_bool", None),
             "valor_numerico": getattr(res, "valor_numerico", None),
             "valor_texto": getattr(res, "valor_texto", None),
@@ -121,6 +128,7 @@ def generate_ascensor_pdf_bytes(ot, request=None):
         "activo": activo,
         "activo_nombre": activo.nombre if activo else "N/A",
         "activo_codigo": (activo.codigo_interno if activo else "") or "",
+        "activo_serie": (getattr(activo, "serie", "") if activo else "") or "—",
         "supervisor_nombre": supervisor_nombre or "N/A",
         "tecnico_nombre": tecnico_nombre,
         "fotos": fotos,

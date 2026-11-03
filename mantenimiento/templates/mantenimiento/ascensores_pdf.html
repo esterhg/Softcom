@@ -90,19 +90,16 @@
 
     <table class="meta-grid">
         <tr>
-            <td class="lbl">N° Equipo</td><td>{{ activo_codigo|default:"—" }}</td>
-            <td class="lbl">Nombre del cliente</td><td>{{ empresa_nombre }}</td>
-        </tr>
-        <tr>
+            <td class="lbl">N° Equipo</td><td>{{ activo_serie|default:"—" }}</td>
             <td class="lbl">Equipo</td><td>{{ activo_nombre }}</td>
-            <td class="lbl">Supervisor</td><td>{{ supervisor_nombre }}</td>
         </tr>
         <tr>
             <td class="lbl">N° Orden</td><td>{{ ot.codigo_de_orden|default:ot.id }}</td>
-            <td class="lbl">Edificio</td><td>{{ edificio_nombre }}</td>
+            <td class="lbl">Supervisor</td><td>{{ supervisor_nombre }}</td>
         </tr>
         <tr>
-            <td class="lbl">Dirección</td><td colspan="3">{{ ubicacion_completa }}</td>
+            <td class="lbl">Edificio</td><td>{{ edificio_nombre }}</td>
+            <td class="lbl">Dirección</td><td>{{ ubicacion_completa }}</td>
         </tr>
     </table>
 
@@ -140,11 +137,11 @@
                 {% if item.paso.tipo_respuesta == 'HEADER' %}
                     <tr class="group-row"><td colspan="4">{{ item.paso.descripcion }}</td></tr>
                 {% elif item.paso.tipo_respuesta == 'INSTRUCCION' %}
-                    <tr class="step"><td class="text-center">{{ forloop.counter }}</td>
+                    <tr class="step"><td class="text-center">{{ item.numero }}</td>
                         <td colspan="3" class="bold">{{ item.paso.descripcion }}</td></tr>
                 {% else %}
                     <tr class="step">
-                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td class="text-center">{{ item.numero }}</td>
                         <td>{{ item.paso.descripcion }}</td>
                         <td>
                             {% if item.paso.tipo_respuesta == 'CHECK' %}
@@ -176,8 +173,6 @@
             <td>{{ ot.materiales_utilizados|default:"—"|linebreaksbr }}</td></tr>
         <tr><td class="lbl">Comentarios del técnico</td>
             <td>{{ ot.comentarios_tecnico|default:ot.notas|default:"—"|linebreaksbr }}</td></tr>
-        <tr><td class="lbl">Comentarios del cliente</td>
-            <td>{{ ot.comentarios_cliente|default:"N/A"|linebreaksbr }}</td></tr>
     </table>
 
     <!-- FIRMAS -->
@@ -194,14 +189,6 @@
                     <div class="muted" style="font-size:7px;">
                         {% if ot.firma_fecha %}{{ ot.firma_fecha|date:"d/m/Y H:i" }}{% endif %}
                     </div>
-                </td>
-                <td class="firma-cell">
-                    <div class="bold" style="text-align:left; margin-bottom:4px;">Firma del Cliente</div>
-                    {% if ot.firma_cliente %}
-                        <img class="firma-img" src="{{ ot.firma_cliente }}" alt="firma cliente">
-                    {% endif %}
-                    <div class="firma-line"></div>
-                    <div>{{ ot.firma_cliente_nombre|default:"—" }}</div>
                 </td>
             </tr>
         </table>
