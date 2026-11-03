@@ -873,22 +873,12 @@ def mobile_mis_ordenes(request):
     estado_filter = request.GET.get('estado', '')
     prioridad_filter = request.GET.get('prioridad', '')
     
+    # Mostrar TODAS las OTs del usuario (abiertas y realizadas). Las realizadas
+    # NO desaparecen al finalizar: quedan visibles con su estado "Realizada".
+    # Solo se ocultan las canceladas.
     ordenes = OrdenTrabajo.objects.filter(user_q).exclude(
         estado='CANCELADA'
     )
-
-    # Comportamiento por defecto (sin filtro de estado):
-    # Mostrar las OTs ABIERTAS + las REALIZADAS del mes en curso, para que una OT
-    # recién finalizada NO desaparezca de la lista; queda visible con estado
-    # "Realizada" hasta que avance el mes (y lleguen las nuevas del periodo).
-    if not estado_filter:
-        hoy = timezone.now()
-        ordenes = ordenes.exclude(
-            Q(estado='REALIZADA') & ~Q(
-                inicio_programado__year=hoy.year,
-                inicio_programado__month=hoy.month,
-            )
-        )
 
     if search_query:
         ordenes = ordenes.filter(
