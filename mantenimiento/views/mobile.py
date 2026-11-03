@@ -21,10 +21,10 @@ from webpush import send_user_notification
 @mobile_permission_required('tareas_hoy')
 def mobile_cronograma(request):
     query = request.GET.get('q', '').strip()
-    user_filter = Q()
-    if not request.user.is_superuser:
-        user_filter = Q(ordenes__tecnico=request.user) | Q(ordenes__equipo__in=request.user.groups.all())
-    
+    # El usuario SOLO ve programaciones con OTs asignadas a él (o a su equipo).
+    # Aplica a todos, incluidos superusuarios (para ver todo se usa el admin).
+    user_filter = Q(ordenes__tecnico=request.user) | Q(ordenes__equipo__in=request.user.groups.all())
+
     progs = Programacion.objects.select_related('rutina__frecuencia', 'rutina__tipo', 'rutina__puesto_trabajo')
     
     if query:
@@ -34,13 +34,12 @@ def mobile_cronograma(request):
             Q(ordenes__activos__codigo_interno__icontains=query)
         )
 
-    if not request.user.is_superuser: 
-        progs = progs.filter(user_filter)
+    progs = progs.filter(user_filter)
 
     progs = progs.annotate(
-        total_ots=Count('ordenes', filter=user_filter if not request.user.is_superuser else None), 
-        completas_ots=Count('ordenes', filter=(Q(ordenes__estado='REALIZADA') & user_filter) if not request.user.is_superuser else Q(ordenes__estado='REALIZADA')), 
-        proxima_ot=Min('ordenes__inicio_programado', filter=(Q(ordenes__inicio_programado__gte=timezone.now()) & user_filter) if not request.user.is_superuser else Q(ordenes__inicio_programado__gte=timezone.now()))
+        total_ots=Count('ordenes', filter=user_filter),
+        completas_ots=Count('ordenes', filter=Q(ordenes__estado='REALIZADA') & user_filter),
+        proxima_ot=Min('ordenes__inicio_programado', filter=Q(ordenes__inicio_programado__gte=timezone.now()) & user_filter)
     ).distinct().order_by('rutina__nombre')
     
     for p in progs: 
@@ -55,8 +54,10 @@ def mobile_cronograma(request):
 @mobile_permission_required('tareas_hoy')
 def mobile_programacion_detalle(request, pk):
     prog = get_object_or_404(Programacion, pk=pk)
-    ots_q = prog.ordenes.all()
-    if not request.user.is_superuser: ots_q = ots_q.filter(Q(tecnico=request.user) | Q(equipo__in=request.user.groups.all())).distinct()
+    # Solo las OTs asignadas al usuario (o a su equipo), para todos.
+    ots_q = prog.ordenes.filter(
+        Q(tecnico=request.user) | Q(equipo__in=request.user.groups.all())
+    ).distinct()
     ots = ots_q.order_by('inicio_programado'); m_dict = collections.defaultdict(list)
     for ot in ots: m_dict[ot.inicio_programado.strftime('%m-%Y')].append(ot)
     m_data = []

@@ -832,15 +832,13 @@ def mobile_dashboard(request):
         inicio_programado__date__range=[tomorrow, next_week]
     ).exclude(estado='REALIZADA').select_related('rutina', 'ubicacion').order_by('inicio_programado')
 
-    # Si el usuario es técnico, filtrar por sus tareas (directas o por equipo)
-    if not request.user.is_superuser:
-        user_groups = request.user.groups.all()
-        ots_hoy = ots_hoy.filter(
-            Q(tecnico=request.user) | Q(equipo__in=user_groups)
-        ).distinct()
-        ots_proximas = ots_proximas.filter(
-            Q(tecnico=request.user) | Q(equipo__in=user_groups)
-        ).distinct()
+    # En la app móvil cada usuario ve SOLO las OTs asignadas a él (técnico) o a
+    # su equipo/grupo. Esto aplica a TODOS, incluidos superusuarios: para ver
+    # todas las órdenes se usa el panel de administración, no /app/.
+    user_groups = request.user.groups.all()
+    asignadas_q = Q(tecnico=request.user) | Q(equipo__in=user_groups)
+    ots_hoy = ots_hoy.filter(asignadas_q).distinct()
+    ots_proximas = ots_proximas.filter(asignadas_q).distinct()
 
     # Aplicar el recorte de seguridad al final para evitar crashes de memoria en móvil
     ots_hoy = ots_hoy[:10]
