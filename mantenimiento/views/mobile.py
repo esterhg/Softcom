@@ -54,10 +54,10 @@ def mobile_cronograma(request):
 @mobile_permission_required('tareas_hoy')
 def mobile_programacion_detalle(request, pk):
     prog = get_object_or_404(Programacion, pk=pk)
-    # Solo las OTs asignadas al usuario (o a su equipo), para todos.
+    # Solo las OTs asignadas al usuario (o a su equipo), para todos. Se excluyen OTNP.
     ots_q = prog.ordenes.filter(
         Q(tecnico=request.user) | Q(equipo__in=request.user.groups.all())
-    ).distinct()
+    ).exclude(tipo='NO_PROGRAMADA').distinct()
     ots = ots_q.order_by('inicio_programado'); m_dict = collections.defaultdict(list)
     for ot in ots: m_dict[ot.inicio_programado.strftime('%m-%Y')].append(ot)
     m_data = []
@@ -876,11 +876,14 @@ def mobile_mis_ordenes(request):
     
     # Mostrar TODAS las OTs del usuario (abiertas y realizadas). Las realizadas
     # NO desaparecen al finalizar: quedan visibles con su estado "Realizada".
-    # Solo se ocultan las canceladas.
+    # Solo se ocultan las canceladas y las OTNP (No Programadas): el técnico solo
+    # ve órdenes de trabajo normales, no las OTNP.
     # NOTA: user_q ya limita a las OTs ASIGNADAS al técnico (o a su equipo),
     # por lo que cada técnico solo ve sus propias órdenes.
     ordenes = OrdenTrabajo.objects.filter(user_q).exclude(
         estado='CANCELADA'
+    ).exclude(
+        tipo='NO_PROGRAMADA'
     )
 
     if search_query:

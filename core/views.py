@@ -820,17 +820,17 @@ def mobile_dashboard(request):
     """
     today = timezone.now().date()
     
-    # OTs del día o en ejecución
+    # OTs del día o en ejecución (se excluyen las OTNP / No Programadas)
     ots_hoy = OrdenTrabajo.objects.filter(
         Q(inicio_programado__date=today) | Q(estado='EJECUCION')
-    ).exclude(estado='REALIZADA').select_related('rutina', 'ubicacion').order_by('inicio_programado')
+    ).exclude(estado='REALIZADA').exclude(tipo='NO_PROGRAMADA').select_related('rutina', 'ubicacion').order_by('inicio_programado')
     
     # OTs próximas (Siguientes 7 días)
     tomorrow = today + timedelta(days=1)
     next_week = today + timedelta(days=8)
     ots_proximas = OrdenTrabajo.objects.filter(
         inicio_programado__date__range=[tomorrow, next_week]
-    ).exclude(estado='REALIZADA').select_related('rutina', 'ubicacion').order_by('inicio_programado')
+    ).exclude(estado='REALIZADA').exclude(tipo='NO_PROGRAMADA').select_related('rutina', 'ubicacion').order_by('inicio_programado')
 
     # En la app móvil cada usuario ve SOLO las OTs asignadas a él (técnico) o a
     # su equipo/grupo. Esto aplica a TODOS, incluidos superusuarios: para ver
