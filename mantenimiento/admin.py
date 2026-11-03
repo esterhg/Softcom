@@ -1839,13 +1839,13 @@ class OrdenTrabajoAdmin(admin.ModelAdmin):
     list_per_page = 50
     change_list_template = "admin/mantenimiento/ordentrabajo/change_list.html"
     list_display = ('codigo_de_orden', 'visualizar_fiori_link', 'tipo', 'prioridad', 'descripcion_corta', 'get_ubicacion_jerarquia', 'get_activos_format', 'creado_en', 'inicio_programado', 'estado', 'registrar_salida_link', 'ver_pdf_link')
-    list_filter = ('tipo', 'prioridad', 'estado', 'creado_en', 'inicio_programado', 'tecnico', 'supervisor', 'equipo')
+    list_filter = ('tipo', 'prioridad', 'estado', 'inicio_programado', 'tecnico', 'supervisor', 'equipo')
     readonly_fields = ('registrar_salida_link', 'ver_pdf_link', 'visualizar_fiori_link', 'creado_en')
     list_select_related = ('rutina', 'aviso', 'tecnico', 'supervisor', 'equipo', 'ubicacion', 'programacion')
     search_fields = ('id', 'codigo_de_orden', 'descripcion_corta', 'descripcion_detallada', 'rutina__nombre', 'aviso__descripcion', 'ubicacion__nombre', 'activos__nombre', 'activos__codigo_interno', 'activos__serie', 'notas')
     autocomplete_fields = ('rutina', 'aviso', 'tecnico', 'equipo', 'ubicacion', 'programacion', 'activos', 'proyecto')
-    ordering = ('-creado_en',)
-    date_hierarchy = 'creado_en'
+    ordering = ('-inicio_programado',)
+    date_hierarchy = 'inicio_programado'
     actions = ['generar_permiso_action', 'exportar_seleccionadas_action', 'generar_pdf_masivo_action', 'generar_checklist_action']
     inlines = [CierreOrdenTrabajoInline, ValorPasoOrdenInline, MaterialUtilizadoOTInline, MovimientoInventarioInline, PermisosTrabajoInline]
 
