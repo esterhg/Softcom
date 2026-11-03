@@ -1,4 +1,4 @@
-{% load static %}
+{% load static l10n %}
 {% comment %}
    CHECKLIST DE ACTIVIDADES - partial incluido en mobile_ot_detalle.html
    Variables de contexto requeridas:
@@ -372,7 +372,7 @@
 
 <script>
 (function() {
-    const OT_ID       = {{ ot.id }};
+    const OT_ID       = {{ ot.id|unlocalize }};
     const CSRF        = '{{ csrf_token }}';
     const IS_SUP      = {{ is_supervisor|yesno:"true,false" }};
     const OT_ESTADO   = '{{ ot.estado }}';
