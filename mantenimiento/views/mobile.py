@@ -863,12 +863,21 @@ def mobile_mis_ordenes(request):
     prioridad_filter = request.GET.get('prioridad', '')
     
     ordenes = OrdenTrabajo.objects.filter(user_q).exclude(
-        estado__in=['CANCELADA'] # Permitir ver Realizadas si se filtra? No, el usuario pidió "Abiertas" generalmente.
+        estado='CANCELADA'
     )
 
-    # Si no hay filtros de estado específicos, excluir REALIZADA
+    # Comportamiento por defecto (sin filtro de estado):
+    # Mostrar las OTs ABIERTAS + las REALIZADAS del mes en curso, para que una OT
+    # recién finalizada NO desaparezca de la lista; queda visible con estado
+    # "Realizada" hasta que avance el mes (y lleguen las nuevas del periodo).
     if not estado_filter:
-        ordenes = ordenes.exclude(estado='REALIZADA')
+        hoy = timezone.now()
+        ordenes = ordenes.exclude(
+            Q(estado='REALIZADA') & ~Q(
+                inicio_programado__year=hoy.year,
+                inicio_programado__month=hoy.month,
+            )
+        )
 
     if search_query:
         ordenes = ordenes.filter(
@@ -885,13 +894,22 @@ def mobile_mis_ordenes(request):
     if prioridad_filter:
         ordenes = ordenes.filter(prioridad=prioridad_filter)
 
+    # Ordenar: primero las NO realizadas (pendientes/en ejecución), luego las
+    # realizadas; dentro de cada grupo, por fecha programada.
+    from django.db.models import Case, When, IntegerField
     ordenes = ordenes.select_related(
         'rutina', 'ubicacion', 'tecnico', 'aviso'
-    ).prefetch_related('activos').distinct().order_by('-estado', 'inicio_programado')
-    
+    ).prefetch_related('activos').distinct().annotate(
+        _realizada=Case(
+            When(estado='REALIZADA', then=1),
+            default=0,
+            output_field=IntegerField(),
+        )
+    ).order_by('_realizada', 'inicio_programado')
+
     # Limitar para rendimiento móvil si no hay búsqueda
     if not search_query and not estado_filter:
-        ordenes = ordenes[:50]
+        ordenes = ordenes[:80]
 
     return render(request, 'mantenimiento/mobile_mis_ordenes.html', {
         'ordenes': ordenes,
