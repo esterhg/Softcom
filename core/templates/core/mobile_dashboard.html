@@ -637,7 +637,7 @@
                     </div>
                     <div class="routine-list">
                         {% for r in cat.all_rutinas %}
-                        <div class="fiori-list-item" onclick="window.showRoutinePreview('{{ r.id }}')" style="border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--sap-border-color);">
+                        <div class="fiori-list-item" onclick="window.showRoutinePreview('{{ r.id|unlocalize }}')" style="border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--sap-border-color);">
                             <div class="item-icon" style="background: var(--sap-bg-color); width: 32px; height: 32px; font-size: 18px;">
                                 <ion-icon name="document-text-outline"></ion-icon>
                             </div>
