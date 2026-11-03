@@ -36,7 +36,7 @@ def mobile_cronograma(request):
 
     if not request.user.is_superuser: 
         progs = progs.filter(user_filter)
-    
+
     progs = progs.annotate(
         total_ots=Count('ordenes', filter=user_filter if not request.user.is_superuser else None), 
         completas_ots=Count('ordenes', filter=(Q(ordenes__estado='REALIZADA') & user_filter) if not request.user.is_superuser else Q(ordenes__estado='REALIZADA')), 
@@ -876,6 +876,8 @@ def mobile_mis_ordenes(request):
     # Mostrar TODAS las OTs del usuario (abiertas y realizadas). Las realizadas
     # NO desaparecen al finalizar: quedan visibles con su estado "Realizada".
     # Solo se ocultan las canceladas.
+    # NOTA: user_q ya limita a las OTs ASIGNADAS al técnico (o a su equipo),
+    # por lo que cada técnico solo ve sus propias órdenes.
     ordenes = OrdenTrabajo.objects.filter(user_q).exclude(
         estado='CANCELADA'
     )
