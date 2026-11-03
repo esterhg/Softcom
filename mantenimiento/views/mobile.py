@@ -694,8 +694,19 @@ def mobile_ot_finalizar(request, pk):
         comentarios_cierre = request.POST.get('comentarios_cierre', '').strip()
         
         is_gerente = request.user.groups.filter(name='Gerentes').exists() or request.user.is_superuser
-        
-        if ot.estado == 'REALIZADA' and not is_gerente:
+
+        # El técnico asignado (líder, colaborador o por puesto) también puede
+        # editar/finalizar SU propia OT aunque ya esté REALIZADA.
+        is_tecnico_asignado = (
+            request.user == ot.tecnico
+            or ot.tecnicos.filter(pk=request.user.pk).exists()
+            or (hasattr(request.user, 'perfil_tecnico')
+                and ot.tecnico_puesto_id
+                and request.user.perfil_tecnico.pk == ot.tecnico_puesto_id)
+            or (ot.equipo_id and request.user.groups.filter(pk=ot.equipo_id).exists())
+        )
+
+        if ot.estado == 'REALIZADA' and not (is_gerente or is_tecnico_asignado):
              return JsonResponse({'status': 'error', 'message': 'No tienes permiso para editar un reporte finalizado'}, status=403)
 
         if comentarios_cierre:
