@@ -204,6 +204,20 @@ class Command(BaseCommand):
                 f"  Checklist: {n_hdr} secciones, {n_act} actividades, {len(CHECKLIST)} pasos totales."
             )
 
+            # Previsualización de rutinas de elevadores vacías que recibirían el checklist
+            if opts.get("aplicar_a_vacias"):
+                tipos_ascensor_ids = list(
+                    tipo_root.get_descendants(include_self=True).values_list("id", flat=True)
+                ) if hasattr(tipo_root, "get_descendants") else [tipo_root.id]
+                preview = Rutina.objects.filter(
+                    Q(tipo_id__in=tipos_ascensor_ids) | Q(categoria_activo=categoria_activo)
+                ).exclude(codigo_rutina=CODIGO_RUTINA).distinct()
+                self.stdout.write("  Rutinas de elevadores candidatas:")
+                for rut in preview:
+                    npasos = rut.pasos.count()
+                    marca = "se OMITE (ya tiene pasos)" if npasos > 0 else "RECIBIRÁ checklist"
+                    self.stdout.write(f"    - '{rut.nombre}' ({rut.codigo_rutina or 's/c'}) pasos={npasos} -> {marca}")
+
             if dry:
                 self.stdout.write(self.style.WARNING("DRY-RUN: no se escribió nada en la base de datos."))
                 transaction.set_rollback(True)
