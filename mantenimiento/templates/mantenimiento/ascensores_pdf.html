@@ -108,10 +108,8 @@
         <tr>
             <td class="lbl">Tipo de visita</td>
             <td>{% if ot.rutina %}{{ ot.rutina.nombre }}{% else %}Mantenimiento de Ascensores{% endif %}</td>
-            <td class="lbl">Operativo a la salida del técnico</td>
-            <td>
-                {% if ot.operativo_salida == True %}Sí{% elif ot.operativo_salida == False %}No{% else %}—{% endif %}
-            </td>
+            <td class="lbl">Hora de finalización</td>
+            <td>{{ ot.fecha_ejecucion|date:"d/m/Y H:i"|default:"—" }}</td>
         </tr>
         <tr>
             <td class="lbl">Fecha programada</td>
