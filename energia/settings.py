@@ -260,8 +260,14 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'core.middleware.ImpersonateMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'core.middleware.AppOnlyUsersMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Usuarios "solo app": los miembros de estos grupos (que no sean superusuarios)
+# son enviados a /app/ y no pueden entrar a /admin/. Se compara sin importar
+# mayúsculas ni acentos. Agrega aquí más nombres de grupo si hace falta.
+APP_ONLY_GROUPS = ["Técnicos App"]
 
 CORS_ALLOW_ALL_ORIGINS = True
 

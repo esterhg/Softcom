@@ -1,6 +1,70 @@
+import unicodedata
+
+from django.conf import settings
 from django.contrib.auth.models import User
+from django.http import HttpResponseRedirect
 from django.utils.deprecation import MiddlewareMixin
 from django.shortcuts import redirect
+
+
+def _norm(text):
+    """Minúsculas y sin acentos, para comparar nombres de grupo sin errores de tipeo."""
+    text = unicodedata.normalize('NFD', str(text))
+    return ''.join(c for c in text if unicodedata.category(c) != 'Mn').casefold().strip()
+
+
+class AppOnlyUsersMiddleware:
+    """
+    Usuarios "solo app" (p.ej. técnicos): su único destino es /app/.
+
+    - Cualquier intento de entrar a /admin/ los redirige a /app/.
+    - Si caen en la landing (/) o en /inicio/, también van a /app/.
+
+    Un usuario es "solo app" si NO es superusuario y pertenece a alguno de los
+    grupos listados en settings.APP_ONLY_GROUPS. Si la lista está vacía, no se
+    bloquea a nadie.
+
+    Quedan exentas las rutas de login, logout y recuperación de contraseña, para
+    que puedan iniciar y cerrar sesión (el login de la app usa /admin/login/).
+    """
+    APP_URL = '/app/'
+    LANDING_PATHS = ('/', '/inicio/')
+    ADMIN_PREFIX = '/admin/'
+    ADMIN_PUBLIC_PREFIXES = (
+        '/admin/login/',
+        '/admin/logout/',
+        '/admin/password_reset/',
+        '/admin/reset/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if self._should_redirect(request):
+            return HttpResponseRedirect(self.APP_URL)
+        return self.get_response(request)
+
+    def _should_redirect(self, request):
+        path = request.path
+        in_admin = path == '/admin' or path.startswith(self.ADMIN_PREFIX)
+        if in_admin:
+            if path.startswith(self.ADMIN_PUBLIC_PREFIXES):
+                return False
+        elif path not in self.LANDING_PATHS:
+            return False
+        # Solo ahora (ruta relevante) se consulta al usuario y sus grupos.
+        return self._is_app_only(request.user)
+
+    @staticmethod
+    def _is_app_only(user):
+        if not user.is_authenticated or user.is_superuser:
+            return False
+        configured = {_norm(n) for n in getattr(settings, 'APP_ONLY_GROUPS', [])}
+        if not configured:
+            return False
+        user_groups = user.groups.values_list('name', flat=True)
+        return any(_norm(name) in configured for name in user_groups)
 
 
 class ImpersonateMiddleware(MiddlewareMixin):
