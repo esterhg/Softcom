@@ -374,10 +374,35 @@
     <div class="fiori-scroll-content">
         <div class="results-info">
             <span>Resultados: {{ ordenes.count }}</span>
-            {% if q or estado_filter or prioridad_filter %}
-                <a href="{% url 'mantenimiento:mobile_mis_ordenes' %}" style="color: var(--sap-brand-color); text-decoration: none; font-size: 11px; font-weight: 700;">LIMPIAR</a>
-            {% endif %}
+            <div style="display: flex; align-items: center; gap: 14px;">
+                {% if q or estado_filter or prioridad_filter %}
+                    <a href="{% url 'mantenimiento:mobile_mis_ordenes' %}" style="color: var(--sap-brand-color); text-decoration: none; font-size: 11px; font-weight: 700;">LIMPIAR</a>
+                {% endif %}
+                <a id="btnReporteOts"
+                   href="{% url 'mantenimiento:mobile_mis_ordenes_pdf' %}?q={{ q|urlencode }}&estado={{ estado_filter|urlencode }}&prioridad={{ prioridad_filter|urlencode }}"
+                   onclick="marcarGenerandoReporte(this)"
+                   aria-label="Descargar reporte PDF de mis órdenes de trabajo"
+                   style="display: inline-flex; align-items: center; gap: 4px; color: #1F497D; text-decoration: none; font-size: 11px; font-weight: 700;">
+                    <ion-icon name="download-outline" aria-hidden="true"></ion-icon> <span>REPORTE PDF</span>
+                </a>
+            </div>
         </div>
+        <script>
+            function marcarGenerandoReporte(el) {
+                const label = el.querySelector('span');
+                if (!label) return;
+                const original = label.textContent;
+                label.textContent = 'GENERANDO…';
+                el.style.pointerEvents = 'none';
+                el.style.opacity = '0.6';
+                // El PDF se descarga como adjunto (la página no navega): restaurar el botón.
+                setTimeout(() => {
+                    label.textContent = original;
+                    el.style.pointerEvents = '';
+                    el.style.opacity = '';
+                }, 8000);
+            }
+        </script>
 
         {% for ot in ordenes %}
         <a href="{% url 'mantenimiento:mobile_ot_detalle' ot.id %}" class="fiori-card">

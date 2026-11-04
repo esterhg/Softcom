@@ -62,6 +62,7 @@ urlpatterns = [
     path('app/aviso/<int:pk>/', views.mobile_aviso_detalle, name='mobile_aviso_detalle'),
     path('app/avisos/', views.mobile_mis_avisos, name='mobile_mis_avisos'),
     path('app/ordenes/', views.mobile_mis_ordenes, name='mobile_mis_ordenes'),
+    path('app/ordenes/reporte-pdf/', views.mobile_mis_ordenes_pdf, name='mobile_mis_ordenes_pdf'),
     path('app/crear-ot-rutina/<int:rutina_id>/', views.mobile_crear_ot_rutina, name='mobile_crear_ot_rutina'),
     path('app/ot/crear-desde-puesto/', views.mobile_crear_ot_desde_puesto, name='mobile_crear_ot_desde_puesto'),
     path('app/medicion/<int:pk>/crear/', views.mobile_crear_medicion, name='mobile_crear_medicion'),

@@ -1,0 +1,126 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte de Órdenes de Trabajo - {{ tecnico_nombre }}</title>
+<style>
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+        font-weight: 400; font-style: normal; font-display: swap;
+    }
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
+        font-weight: 700; font-style: normal; font-display: swap;
+    }
+    :root {
+        --azul: #1F497D;
+        --texto: #32363a;
+        --texto-sec: #6a6d70;
+        --borde: #d9d9d9;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Artifakt Element', 'Outfit', sans-serif;
+        font-size: 9px; color: var(--texto); margin: 0; padding: 0;
+    }
+
+    /* Encabezado */
+    .doc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .doc-title { font-size: 18px; font-weight: 700; color: var(--azul); }
+    .doc-title small { display: block; font-size: 10px; font-weight: 400; color: var(--texto-sec); }
+    .doc-logo img { max-height: 40px; }
+    .doc-logo .fallback { font-weight: 700; font-size: 16px; color: var(--azul); }
+
+    .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; font-size: 9px; }
+    .meta b { color: var(--azul); }
+
+    /* Tabla */
+    table { width: 100%; border-collapse: collapse; }
+    thead { display: table-header-group; } /* repetir encabezado en cada página */
+    tr { page-break-inside: avoid; }
+    th {
+        background: var(--azul); color: #fff; text-transform: uppercase;
+        font-size: 8px; font-weight: 700; text-align: left;
+        padding: 5px 6px; border: 1px solid var(--azul);
+    }
+    td { border: 1px solid var(--borde); padding: 4px 6px; vertical-align: top; }
+    tbody tr:nth-child(even) td { background: #f7f9fb; }
+    .nowrap { white-space: nowrap; }
+    .codigo { font-weight: 700; color: var(--azul); }
+
+    /* Badges de estado (guía de diseño) */
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 8px; white-space: nowrap; }
+    .st-ESPERA     { background: #f1f5f9; color: #475569; }
+    .st-PROGRAMADA { background: #eff6ff; color: #1d4ed8; }
+    .st-EJECUCION  { background: #fef3c7; color: #92400e; }
+    .st-REALIZADA  { background: #dcfce7; color: #166534; }
+    .st-CANCELADA  { background: #fee2e2; color: #991b1b; }
+
+    .empty { text-align: center; padding: 24px; color: var(--texto-sec); }
+    .nota { margin-top: 6px; font-size: 8px; color: var(--texto-sec); }
+</style>
+</head>
+<body>
+
+    <div class="doc-head">
+        <div class="doc-title">
+            Reporte de Órdenes de Trabajo
+            <small>Listado de órdenes asignadas</small>
+        </div>
+        <div class="doc-logo">
+            {% if logo_b64 %}
+                <img src="data:image/png;base64,{{ logo_b64 }}" alt="Operadora CC">
+            {% else %}
+                <div class="fallback">OPERADORA CC</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="meta">
+        <div><b>Técnico:</b> {{ tecnico_nombre }}</div>
+        <div><b>Generado:</b> {{ generado_en|date:"DATETIME_FORMAT" }}</div>
+        <div><b>Total de órdenes:</b> {{ total }}</div>
+        {% if filtros %}<div><b>Filtros:</b> {{ filtros|join:" · " }}</div>{% endif %}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:11%;">Código de Orden</th>
+                <th style="width:7%;">Tipo</th>
+                <th style="width:6%;">Prioridad</th>
+                <th style="width:18%;">Descripción Corta</th>
+                <th style="width:14%;">Ubicación</th>
+                <th style="width:10%;">Activos</th>
+                <th style="width:12%;">Creado en</th>
+                <th style="width:12%;">Inicio programado</th>
+                <th style="width:10%;">Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in filas %}
+            <tr>
+                <td class="codigo nowrap">{{ f.codigo }}</td>
+                <td>{{ f.tipo }}</td>
+                <td>{{ f.prioridad }}</td>
+                <td>{{ f.descripcion|default:"—" }}</td>
+                <td>{{ f.ubicacion|default:"—" }}</td>
+                <td>{{ f.activos|default:"—" }}</td>
+                <td>{{ f.creado_en|date:"DATETIME_FORMAT" }}</td>
+                <td>{{ f.inicio_programado|date:"DATETIME_FORMAT" }}</td>
+                <td><span class="badge st-{{ f.estado_raw }}">{{ f.estado }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" class="empty">No hay órdenes de trabajo para los filtros seleccionados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if recortado %}
+    <div class="nota">Se muestran las primeras {{ max_filas }} órdenes. Aplica filtros para acotar el reporte.</div>
+    {% endif %}
+
+</body>
+</html>

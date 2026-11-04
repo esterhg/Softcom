@@ -47,6 +47,7 @@ from .mobile import (
     mobile_crear_ot_rutina,
     mobile_mis_avisos,
     mobile_mis_ordenes,
+    mobile_mis_ordenes_pdf,
     mobile_aviso_detalle, aviso_fiori_view,
     mobile_ot_upload_file,
     mobile_ot_delete_file,

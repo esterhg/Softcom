@@ -895,22 +895,22 @@ def mobile_crear_ot_rutina(request, rutina_id):
             'message': 'Orden de trabajo creada con éxito.'
         })
 
-@staff_member_required
-@mobile_permission_required('tareas_hoy')
-def mobile_mis_ordenes(request):
+
+def _mis_ordenes_queryset(request):
     """
-    Muestra las órdenes de trabajo abiertas del usuario (por técnico o equipo)
-    con soporte para búsqueda y filtrado.
+    Consulta compartida por la lista "Mis OTs" y su reporte PDF, para que ambos
+    muestren exactamente las mismas órdenes con los mismos filtros.
+    Devuelve (queryset_sin_recortar, search_query, estado_filter, prioridad_filter).
     """
     user_q = Q(tecnico=request.user) | Q(equipo__in=request.user.groups.all())
-    
+
     # Búsqueda
     search_query = request.GET.get('q', '')
-    
+
     # Filtros
     estado_filter = request.GET.get('estado', '')
     prioridad_filter = request.GET.get('prioridad', '')
-    
+
     # Mostrar TODAS las OTs del usuario (abiertas y realizadas). Las realizadas
     # NO desaparecen al finalizar: quedan visibles con su estado "Realizada".
     # Solo se ocultan las canceladas y las OTNP (No Programadas): el técnico solo
@@ -951,6 +951,18 @@ def mobile_mis_ordenes(request):
         )
     ).order_by('_realizada', 'inicio_programado')
 
+    return ordenes, search_query, estado_filter, prioridad_filter
+
+
+@staff_member_required
+@mobile_permission_required('tareas_hoy')
+def mobile_mis_ordenes(request):
+    """
+    Muestra las órdenes de trabajo abiertas del usuario (por técnico o equipo)
+    con soporte para búsqueda y filtrado.
+    """
+    ordenes, search_query, estado_filter, prioridad_filter = _mis_ordenes_queryset(request)
+
     # Limitar para rendimiento móvil si no hay búsqueda
     if not search_query and not estado_filter:
         ordenes = ordenes[:80]
@@ -961,6 +973,86 @@ def mobile_mis_ordenes(request):
         'estado_filter': estado_filter,
         'prioridad_filter': prioridad_filter,
     })
+
+
+@staff_member_required
+@mobile_permission_required('tareas_hoy')
+def mobile_mis_ordenes_pdf(request):
+    """
+    Reporte PDF tipo listado de las OTs del técnico (mismas OTs y filtros que
+    "Mis OTs"). Columnas: Código, Tipo, Prioridad, Descripción corta, Ubicación,
+    Activos, Creado en, Inicio programado, Estado.
+    """
+    import logging
+    from django.http import HttpResponse
+    from django.template.loader import render_to_string
+    from playwright.sync_api import sync_playwright
+    from ..utils.pdf_ascensores import _logo_b64
+
+    ordenes, search_query, estado_filter, prioridad_filter = _mis_ordenes_queryset(request)
+    # Tope de seguridad: Playwright con miles de filas sería muy lento.
+    MAX_FILAS = 1000
+    ordenes = list(ordenes[:MAX_FILAS])
+
+    filas = []
+    for ot in ordenes:
+        activos = [a.nombre for a in ot.activos.all() if a.nombre]
+        filas.append({
+            'codigo': ot.codigo_de_orden or f"OT-{ot.id}",
+            'tipo': ot.get_tipo_display(),
+            'prioridad': ot.get_prioridad_display(),
+            'prioridad_raw': ot.prioridad,
+            'descripcion': ot.descripcion_corta or (ot.rutina.nombre if ot.rutina else ''),
+            'ubicacion': ot.ubicacion.get_ruta_completa() if ot.ubicacion else '',
+            'activos': ', '.join(activos),
+            'creado_en': ot.creado_en,
+            'inicio_programado': ot.inicio_programado,
+            'estado': ot.get_estado_display(),
+            'estado_raw': ot.estado,
+        })
+
+    filtros = []
+    if search_query:
+        filtros.append(f'Búsqueda: "{search_query}"')
+    if estado_filter:
+        filtros.append(f'Estado: {dict(OrdenTrabajo.ESTADO_CHOICES).get(estado_filter, estado_filter)}')
+    if prioridad_filter:
+        filtros.append(f'Prioridad: {dict(OrdenTrabajo.PRIORIDAD_CHOICES).get(prioridad_filter, prioridad_filter)}')
+
+    tecnico_nombre = request.user.get_full_name() or request.user.username
+    html = render_to_string('mantenimiento/mis_ordenes_pdf.html', {
+        'filas': filas,
+        'total': len(filas),
+        'recortado': len(filas) >= MAX_FILAS,
+        'max_filas': MAX_FILAS,
+        'filtros': filtros,
+        'tecnico_nombre': tecnico_nombre,
+        'generado_en': timezone.now(),
+        'logo_b64': _logo_b64(),
+    }, request=request)
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu",
+                      "--disable-dev-shm-usage", "--single-process"],
+            )
+            page = browser.new_page()
+            page.set_content(html, wait_until="load")
+            pdf_bytes = page.pdf(
+                format="A4", landscape=True, print_background=True,
+                margin={"top": "0.8cm", "bottom": "0.8cm", "left": "0.6cm", "right": "0.6cm"},
+            )
+            browser.close()
+    except Exception as e:
+        logging.getLogger(__name__).error("Error generando reporte de Mis OTs: %s", e, exc_info=True)
+        return JsonResponse({'status': 'error', 'message': f'No se pudo generar el reporte: {e}'}, status=500)
+
+    filename = f"Reporte_OTs_{request.user.username}_{timezone.localtime().strftime('%Y%m%d_%H%M')}.pdf"
+    resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return resp
 
 @staff_member_required
 @mobile_permission_required('mis_avisos')
