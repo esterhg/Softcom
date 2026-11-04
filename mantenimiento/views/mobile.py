@@ -92,7 +92,15 @@ def mobile_ot_detalle(request, pk):
     ubicaciones = None
     if not ot.ubicacion:
         ubicaciones = Ubicacion.objects.filter(padre__isnull=True).order_by('nombre')
-    
+
+    # ¿Es OT de ascensores/elevadores? (para mostrar el bloque de firma del técnico)
+    es_ascensor = False
+    if ot.rutina:
+        cod = ot.rutina.codigo_rutina or ''
+        cat = ot.rutina.categoria_activo
+        cat_nombre = (cat.nombre.lower() if cat else '')
+        es_ascensor = cod.startswith('ASC') or cat_nombre in ('ascensores', 'elevadores')
+
     context = {
         'ot': ot,
         'supervisores': supervisores,
@@ -101,6 +109,7 @@ def mobile_ot_detalle(request, pk):
         'is_gerente': is_gerente,
         'is_supervisor': is_supervisor_checklist,
         'ubicaciones': ubicaciones,
+        'es_ascensor': es_ascensor,
         'resultados': ot.resultados_checklist.select_related('paso').order_by('paso__orden'),
         'colaboradores_ids': list(ot.colaboradores_puesto.values_list('id', flat=True)),
     }
@@ -114,6 +123,18 @@ def mobile_ot_update_ajax(request, pk):
     
     ot = get_object_or_404(OrdenTrabajo, pk=pk)
     is_gerente = request.user.groups.filter(name='Gerentes').exists() or request.user.is_superuser
+
+    # ── ACCIÓN GUARDAR FIRMA ──────────────────────────────────────────────
+    # Guarda solo la firma dibujada del técnico, sin tocar ningún otro campo.
+    if request.POST.get('action') == 'firma':
+        firma = request.POST.get('firma_tecnico')
+        if firma and firma.startswith('data:image'):
+            ot.firma_tecnico = firma
+            ot.firma_tecnico_nombre = (request.POST.get('firma_tecnico_nombre') or '').strip()
+            ot.firma_fecha = timezone.now()
+            ot.save(update_fields=['firma_tecnico', 'firma_tecnico_nombre', 'firma_fecha'])
+            return JsonResponse({'status': 'success', 'message': 'Firma guardada'})
+        return JsonResponse({'status': 'error', 'message': 'Firma inválida'}, status=400)
 
     # ── ACCIÓN FINALIZAR ──────────────────────────────────────────────────
     # Solo cambia el estado a REALIZADA y dispara el PDF. NO toca la asignación
