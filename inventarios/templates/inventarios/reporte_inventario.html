@@ -1,0 +1,270 @@
+{% extends "inventarios/base_inventarios.html" %}
+{% load i18n static %}
+
+{% block title %}Reportes de Inventario{% endblock %}
+
+{% block extrahead %}
+<style>
+    .reportes-wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 40px;
+        box-sizing: border-box;
+    }
+
+    .rep-hero {
+        margin-bottom: 28px;
+    }
+    .rep-hero h1 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+    .rep-hero p {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        margin-top: 4px;
+    }
+
+    .rep-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 20px;
+    }
+
+    .rep-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--primary);
+        box-shadow: var(--shadow);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .rep-card-head {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+    .rep-card-icon {
+        width: 46px;
+        height: 46px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    .icon-mov { background: #fef3c7; color: #92400e; }
+    .icon-stock { background: #dcfce7; color: #166534; }
+
+    .rep-card-head h2 {
+        font-size: 1.02rem;
+        font-weight: 650;
+        color: var(--text);
+        margin: 0;
+    }
+    .rep-card-head p {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin: 2px 0 0 0;
+    }
+
+    .rep-field {
+        margin-bottom: 14px;
+    }
+    .rep-field label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .rep-control {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 0.9rem;
+        background: var(--surface);
+        color: var(--text);
+        font-family: inherit;
+    }
+    .rep-control:focus {
+        border-color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(10,110,209,0.1);
+    }
+
+    .rep-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .rep-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: var(--text);
+        margin-bottom: 14px;
+    }
+    .rep-check input { width: 16px; height: 16px; }
+
+    .rep-btn {
+        margin-top: auto;
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        padding: 11px 18px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: background 0.15s;
+        text-decoration: none;
+    }
+    .rep-btn:hover { background: var(--primary-hover); }
+    .rep-btn.success { background: #107e3e; }
+    .rep-btn.success:hover { background: #0c6a34; }
+    .rep-btn ion-icon { font-size: 1.15rem; }
+
+    @media (max-width: 768px) {
+        .reportes-wrap { padding: 20px 16px; }
+        .rep-grid { grid-template-columns: 1fr; }
+        .rep-row { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block inventarios_content %}
+<div class="reportes-wrap">
+    <div class="rep-hero">
+        <h1>Reportes de Inventario</h1>
+        <p>Descarga en Excel los movimientos de inventario y el estado actual de existencias.</p>
+    </div>
+
+    <div class="rep-grid">
+        <!-- Movimientos de Inventario -->
+        <div class="rep-card">
+            <div class="rep-card-head">
+                <div class="rep-card-icon icon-mov"><ion-icon name="swap-horizontal-outline"></ion-icon></div>
+                <div>
+                    <h2>Movimientos de Inventario</h2>
+                    <p>Entradas, salidas, ajustes y traslados con sus vínculos a OT y activos.</p>
+                </div>
+            </div>
+
+            <form method="get" action="{% url 'inventarios:export_movimientos_excel' %}" target="_blank">
+                <div class="rep-row">
+                    <div class="rep-field">
+                        <label>Desde</label>
+                        <input type="date" name="desde" class="rep-control">
+                    </div>
+                    <div class="rep-field">
+                        <label>Hasta</label>
+                        <input type="date" name="hasta" class="rep-control">
+                    </div>
+                </div>
+
+                <div class="rep-field">
+                    <label>Tipo de Movimiento</label>
+                    <select name="tipo" class="rep-control">
+                        <option value="">Todos</option>
+                        {% for val, label in tipos_movimiento %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="rep-field">
+                    <label>Estado</label>
+                    <select name="estado" class="rep-control">
+                        <option value="">Todos</option>
+                        {% for val, label in estados_movimiento %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="rep-field">
+                    <label>Ubicación (origen o destino)</label>
+                    <select name="ubicacion" class="rep-control">
+                        <option value="">Todas</option>
+                        {% for u in ubicaciones %}
+                        <option value="{{ u.id }}">{{ u.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="rep-field">
+                    <label>Categoría</label>
+                    <select name="categoria" class="rep-control">
+                        <option value="">Todas</option>
+                        {% for c in categorias %}
+                        <option value="{{ c.id }}">{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="rep-btn">
+                    <ion-icon name="download-outline"></ion-icon> Descargar Movimientos (Excel)
+                </button>
+            </form>
+        </div>
+
+        <!-- Inventario Actual -->
+        <div class="rep-card">
+            <div class="rep-card-head">
+                <div class="rep-card-icon icon-stock"><ion-icon name="cube-outline"></ion-icon></div>
+                <div>
+                    <h2>Inventario Actual</h2>
+                    <p>Existencias por ubicación, lote, valor y stock mínimo.</p>
+                </div>
+            </div>
+
+            <form method="get" action="{% url 'inventarios:export_inventario_actual_excel' %}" target="_blank">
+                <div class="rep-field">
+                    <label>Ubicación</label>
+                    <select name="ubicacion" class="rep-control">
+                        <option value="">Todas</option>
+                        {% for u in ubicaciones %}
+                        <option value="{{ u.id }}">{{ u.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="rep-field">
+                    <label>Categoría</label>
+                    <select name="categoria" class="rep-control">
+                        <option value="">Todas</option>
+                        {% for c in categorias %}
+                        <option value="{{ c.id }}">{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <label class="rep-check">
+                    <input type="checkbox" name="con_stock" value="1" checked>
+                    Solo mostrar materiales con existencias
+                </label>
+
+                <button type="submit" class="rep-btn success">
+                    <ion-icon name="download-outline"></ion-icon> Descargar Inventario (Excel)
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
