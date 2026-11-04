@@ -175,7 +175,7 @@ def ascensor_pdf(request, ot_id):
         logging.getLogger(__name__).error("Error generando PDF ascensor OT %s: %s", ot_id, e, exc_info=True)
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
-    filename = f"Reporte_Ascensor_{ot.codigo_de_orden or ot.id}.pdf"
+    filename = f"Reporte Mantenimiento elevador - {ot.codigo_de_orden or ot.id}.pdf"
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
     disp = "attachment" if request.GET.get("download") else "inline"
     resp["Content-Disposition"] = f'{disp}; filename="{filename}"'

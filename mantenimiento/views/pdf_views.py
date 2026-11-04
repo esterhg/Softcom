@@ -41,8 +41,13 @@ def generate_rutina_pdf_view(request, ot_id):
             pdf_bytes = generate_ascensor_pdf_bytes(ot, request=request)
         else:
             pdf_bytes = generate_ot_pdf_bytes(ot, request=request)
-        # Nombre descriptivo: "<mantenimiento> - <activo>.pdf"
-        file_name = WorkOrderService._build_pdf_descriptive_name(ot)
+        # Nombre del archivo:
+        #  - Elevadores: "Reporte Mantenimiento elevador - <código>.pdf"
+        #  - Resto: "<mantenimiento> - <activo>.pdf"
+        if es_ascensor:
+            file_name = f"Reporte Mantenimiento elevador - {ot.codigo_de_orden or ot.id}.pdf"
+        else:
+            file_name = WorkOrderService._build_pdf_descriptive_name(ot)
 
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="{file_name}"'
