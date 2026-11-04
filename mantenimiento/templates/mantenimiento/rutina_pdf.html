@@ -309,7 +309,7 @@
     <div style="margin-top: 20px;">
         <table style="border: none;">
             <tr>
-                <td style="border: none; width: 33%; text-align: center; padding-top: 40px; vertical-align: bottom;">
+                <td style="border: none; width: 100%; text-align: center; padding-top: 40px; vertical-align: bottom;">
                     {% if ot.tipo == 'NO_PROGRAMADA' and signature_qr_b64 %}
                         <img src="data:image/png;base64,{{ signature_qr_b64 }}" style="max-height: 80px; margin-bottom: 5px;"><br>
                     {% else %}
@@ -327,11 +327,6 @@
                             Técnico No Asignado
                         </div>
                     {% endfor %}
-                </td>
-                <td style="border: none; width: 33%;"></td>
-                <td style="border: none; width: 33%; text-align: center; padding-top: 40px;">
-                    <div style="border-top: 1px solid black; width: 80%; margin: 0 auto;"></div>
-                    <div style="font-size: 8px;">Vto. Bno. Supervisor</div>
                 </td>
             </tr>
         </table>
