@@ -858,8 +858,11 @@
                 const result = await response.json();
                 if (result.status === 'success') {
                     toast.textContent = "¡Orden finalizada!";
-                    // Recargar para reflejar estado REALIZADA y mostrar botón de PDF
-                    setTimeout(() => window.location.reload(), 800);
+                    // Ir al inicio (/app/) y mostrar notificación de OT finalizada.
+                    const codigo = "{{ ot.codigo_de_orden|default:ot.id|escapejs }}";
+                    setTimeout(() => {
+                        window.location.href = "{% url 'core:mobile_dashboard' %}?finalizada=" + encodeURIComponent(codigo);
+                    }, 600);
                 } else {
                     alert("Error: " + (result.message || "No se pudo finalizar"));
                     btn.innerHTML = original;
