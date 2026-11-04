@@ -143,21 +143,21 @@ def mobile_ot_update_ajax(request, pk):
     descripcion = request.POST.get('descripcion_detallada')
     
     try:
-        if tecnico_id:
-            if tecnico_id == 'none':
-                ot.tecnico_puesto = None
-                ot.tecnico = None
-            else:
-                tp = TecnicoPuesto.objects.filter(pk=tecnico_id).first()
-                if tp:
-                    ot.tecnico_puesto = tp
-                    ot.tecnico = tp.user
+        # Responsable Líder (Personal Responsable / TecnicoPuesto).
+        # Un valor 'none' o vacío significa "no cambiar", NO "quitar". Antes, un
+        # dropdown vacío borraba al técnico ya asignado (p.ej. al finalizar la OT).
+        # Solo se actualiza si viene un ID real de TecnicoPuesto.
+        if tecnico_id and tecnico_id != 'none':
+            tp = TecnicoPuesto.objects.filter(pk=tecnico_id).first()
+            if tp:
+                ot.tecnico_puesto = tp
+                ot.tecnico = tp.user
         
-        if tecnicos_ids:
-            # Sincronizar Colaboradores (Personal)
-            valid_ids = [tid for tid in tecnicos_ids if tid != 'none']
+        # Colaboradores (Personal). Solo se sincroniza si viene al menos un ID real,
+        # para no borrar los colaboradores existentes con un envío vacío.
+        valid_ids = [tid for tid in tecnicos_ids if tid and tid != 'none']
+        if valid_ids:
             ot.colaboradores_puesto.set(valid_ids)
-            
             # Sincronizar Usuarios (para acceso al sistema de los que tengan cuenta)
             personales_equipo = TecnicoPuesto.objects.filter(id__in=valid_ids).exclude(user__isnull=True)
             user_ids = [p.user_id for p in personales_equipo]
