@@ -108,12 +108,14 @@
         <tr>
             <td class="lbl">Tipo de visita</td>
             <td>{% if ot.rutina %}{{ ot.rutina.nombre }}{% else %}Mantenimiento de Ascensores{% endif %}</td>
-            <td class="lbl">Hora de finalización</td>
-            <td>{{ ot.fecha_ejecucion|date:"d/m/Y H:i"|default:"—" }}</td>
+            {# Hora en que el técnico finalizó la tarea #}
+            <td class="lbl">Operativo a la salida del técnico</td>
+            <td>{{ ot.fecha_finalizacion|date:"d/m/Y H:i"|default:"—" }}</td>
         </tr>
         <tr>
             <td class="lbl">Fecha programada</td>
             <td>{{ ot.inicio_programado|date:"d/m/Y H:i" }}</td>
+            {# Hora en que el técnico inició la tarea ("Iniciar Tarea") #}
             <td class="lbl">Fecha de ejecución</td>
             <td>{{ ot.fecha_ejecucion|date:"d/m/Y H:i"|default:"—" }}</td>
         </tr>

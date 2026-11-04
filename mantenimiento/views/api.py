@@ -910,7 +910,10 @@ def api_guardar_cierre(request, pk):
 
             if ot.estado != 'REALIZADA':
                 ot.estado = 'REALIZADA'
-                ot.fecha_ejecucion = fecha_cierre
+                ot.fecha_finalizacion = fecha_cierre
+                # fecha_ejecucion = hora de inicio; solo se completa si nunca se inició.
+                if not ot.fecha_ejecucion:
+                    ot.fecha_ejecucion = fecha_cierre
             ot.save()
 
             if not hasattr(ot, 'cierre') or not ot.cierre:

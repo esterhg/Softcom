@@ -107,6 +107,7 @@ class Command(BaseCommand):
                 ot.materiales_utilizados = None
                 ot.comentarios_cliente = None
                 ot.fecha_ejecucion = None
+                ot.fecha_finalizacion = None
 
                 # 5. Volver al estado inicial (NO toca técnico, rutina, activos, fechas programadas)
                 ot.estado = estado_final

@@ -1129,7 +1129,10 @@ class OrdenTrabajo(models.Model):
     inicio_programado = models.DateTimeField(help_text="Fecha y hora de inicio prevista", db_index=True)
     fin_programado = models.DateTimeField(help_text="Fecha y hora de fin prevista")
     
+    # Hora en que el técnico inicia la tarea ("Iniciar Tarea").
     fecha_ejecucion = models.DateTimeField(null=True, blank=True)
+    # Hora en que el técnico finaliza la tarea ("Finalizar").
+    fecha_finalizacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de finalización")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ESPERA', db_index=True)
     
     descripcion_corta = models.CharField(max_length=200, blank=True, null=True, verbose_name="Descripción Corta")
@@ -1287,9 +1290,13 @@ class CierreOrdenTrabajo(models.Model):
         super().save(*args, **kwargs)
         # Al guardar el cierre, la orden debe pasar a REALIZADA
         if self.orden_trabajo.estado != 'REALIZADA':
-            self.orden_trabajo.estado = 'REALIZADA'
-            self.orden_trabajo.fecha_ejecucion = self.fecha_fin_real
-            self.orden_trabajo.save(update_fields=['estado', 'fecha_ejecucion'])
+            ot = self.orden_trabajo
+            ot.estado = 'REALIZADA'
+            ot.fecha_finalizacion = self.fecha_fin_real
+            # fecha_ejecucion = hora de inicio; solo se completa si nunca se inició.
+            if not ot.fecha_ejecucion:
+                ot.fecha_ejecucion = self.fecha_inicio_real
+            ot.save(update_fields=['estado', 'fecha_finalizacion', 'fecha_ejecucion'])
 
 import os
 from core.image_utils import compress_image

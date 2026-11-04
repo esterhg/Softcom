@@ -141,9 +141,13 @@ def mobile_ot_update_ajax(request, pk):
     # de técnico ni ningún otro campo (antes borraba el técnico al finalizar).
     if request.POST.get('action') == 'finalize':
         if ot.estado != 'REALIZADA':
+            ahora = timezone.now()
             ot.estado = 'REALIZADA'
-            ot.fecha_ejecucion = timezone.now()
-            ot.save(update_fields=['estado', 'fecha_ejecucion'])
+            ot.fecha_finalizacion = ahora
+            # fecha_ejecucion = hora de inicio; solo se completa si nunca se inició.
+            if not ot.fecha_ejecucion:
+                ot.fecha_ejecucion = ahora
+            ot.save(update_fields=['estado', 'fecha_finalizacion', 'fecha_ejecucion'])
         # No se genera un PDF adjunto: el reporte se ve en /mantenimiento/rutina-pdf/<id>/
         # (generado al momento). Así no se duplican PDFs en la OT.
         return JsonResponse({'status': 'success', 'message': 'Orden finalizada correctamente'})
@@ -758,15 +762,18 @@ def mobile_ot_finalizar(request, pk):
             if ot.estado != 'REALIZADA':
                 ot.estado = 'REALIZADA'
                 
-                # Capturar fecha de cierre manual si existe
+                # Capturar fecha de cierre manual si existe -> hora de finalización
+                fecha_cierre = timezone.now()
                 fecha_cierre_str = request.POST.get('fecha_cierre')
                 if fecha_cierre_str:
                     try:
-                        ot.fecha_ejecucion = timezone.make_aware(datetime.fromisoformat(fecha_cierre_str))
-                    except:
-                        ot.fecha_ejecucion = timezone.now()
-                else:
-                    ot.fecha_ejecucion = timezone.now()
+                        fecha_cierre = timezone.make_aware(datetime.fromisoformat(fecha_cierre_str))
+                    except Exception:
+                        pass
+                ot.fecha_finalizacion = fecha_cierre
+                # fecha_ejecucion = hora de inicio; solo se completa si nunca se inició.
+                if not ot.fecha_ejecucion:
+                    ot.fecha_ejecucion = fecha_cierre
             
             ot.save()
 
