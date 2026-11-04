@@ -27,24 +27,31 @@ def generate_rutina_pdf_view(request, ot_id):
     except OrdenTrabajo.DoesNotExist:
         raise Http404("Orden de Trabajo no encontrada")
 
-    # 1. Intentar servir el archivo adjunto si ya existe (Cache/Background result)
-    filename = f"OT_{ot.id}.pdf"
-    archivo_adjunto = ArchivoOrdenTrabajo.objects.filter(orden_trabajo=ot, nombre=filename).first()
-    
-    if archivo_adjunto:
-        try:
-            # Si el archivo está en MinIO/S3, redirigir o servir el contenido
-            # Por simplicidad y consistencia, redirigimos a la URL firmada
-            from django.shortcuts import redirect
-            return redirect(archivo_adjunto.archivo.url)
-        except Exception as e:
-            logger.warning(f"Error sirviendo adjunto existente para OT {ot.id}: {e}")
+    from ..services import WorkOrderService
+    es_ascensor = WorkOrderService._es_ot_ascensor(ot)
 
-    # 2. Si no existe o falló, generar en caliente (síncrono)
+    # 1. Servir el PDF adjunto si ya existe (cache/resultado de tarea en background).
+    #    Para elevadores NO reutilizamos el adjunto: siempre regeneramos en caliente
+    #    con el formato de ascensores (evita servir PDFs viejos con formato genérico).
+    filename = f"OT_{ot.id}.pdf"
+    if not es_ascensor:
+        archivo_adjunto = ArchivoOrdenTrabajo.objects.filter(orden_trabajo=ot, nombre=filename).first()
+        if archivo_adjunto:
+            try:
+                from django.shortcuts import redirect
+                return redirect(archivo_adjunto.archivo.url)
+            except Exception as e:
+                logger.warning(f"Error sirviendo adjunto existente para OT {ot.id}: {e}")
+
+    # 2. Generar en caliente (síncrono)
     try:
-        pdf_bytes = generate_ot_pdf_bytes(ot, request=request)
+        # Elevadores -> formato TKE de ascensores. Resto -> PDF genérico.
+        if es_ascensor:
+            from ..utils.pdf_ascensores import generate_ascensor_pdf_bytes
+            pdf_bytes = generate_ascensor_pdf_bytes(ot, request=request)
+        else:
+            pdf_bytes = generate_ot_pdf_bytes(ot, request=request)
         # Nombre descriptivo: "<mantenimiento> - <activo>.pdf"
-        from ..services import WorkOrderService
         file_name = WorkOrderService._build_pdf_descriptive_name(ot)
 
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
