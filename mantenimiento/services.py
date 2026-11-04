@@ -504,7 +504,14 @@ class WorkOrderService:
         else:
             pdf_url = f"{settings.SITE_URL}/media/mantenimiento/ot/{filename}"
 
-        pdf_bytes = generate_ot_pdf_bytes(ot, pdf_url=pdf_url)
+        # Elegir el generador de PDF según el tipo de OT:
+        #  - Ascensores/Elevadores -> formato TKE con firma del técnico y AST.
+        #  - Resto -> PDF genérico de rutina.
+        if WorkOrderService._es_ot_ascensor(ot):
+            from .utils.pdf_ascensores import generate_ascensor_pdf_bytes
+            pdf_bytes = generate_ascensor_pdf_bytes(ot)
+        else:
+            pdf_bytes = generate_ot_pdf_bytes(ot, pdf_url=pdf_url)
 
         if existing:
             existing.archivo.save(descriptive_name, ContentFile(pdf_bytes), save=True)
@@ -517,6 +524,16 @@ class WorkOrderService:
             )
             nuevo_archivo.archivo.save(descriptive_name, ContentFile(pdf_bytes), save=True)
             return nuevo_archivo
+
+    @staticmethod
+    def _es_ot_ascensor(ot):
+        """True si la OT corresponde a mantenimiento de ascensores/elevadores."""
+        if not ot.rutina:
+            return False
+        cod = (ot.rutina.codigo_rutina or '')
+        cat = ot.rutina.categoria_activo
+        cat_nombre = (cat.nombre.lower() if cat else '')
+        return cod.startswith('ASC') or cat_nombre in ('ascensores', 'elevadores')
 
     @staticmethod
     def _build_pdf_descriptive_name(ot):
