@@ -173,7 +173,20 @@ def mobile_ot_update_ajax(request, pk):
             if timezone.is_naive(new_end_date):
                 new_end_date = timezone.make_aware(new_end_date)
             ot.fin_programado = new_end_date
-            
+
+        # Acción FINALIZAR: marcar la OT como REALIZADA y generar el PDF.
+        # Permite finalizar desde el mismo detalle (sin pantalla duplicada).
+        if request.POST.get('action') == 'finalize':
+            if ot.estado != 'REALIZADA':
+                ot.estado = 'REALIZADA'
+                ot.fecha_ejecucion = timezone.now()
+            ot.save()
+            try:
+                task_generar_ot_pdf.delay(ot.id)
+            except Exception as e:
+                print(f"Error al encolar tarea de PDF: {e}")
+            return JsonResponse({'status': 'success', 'message': 'Orden finalizada correctamente'})
+
         ot.save()
         return JsonResponse({'status': 'success', 'message': 'Orden actualizada correctamente'})
     except Exception as e:
@@ -512,7 +525,9 @@ def mobile_ot_iniciar(request, pk):
         ot.estado = 'EJECUCION'
         ot.fecha_ejecucion = timezone.now()
         ot.save()
-    return redirect('mantenimiento:mobile_ot_finalizar', pk=ot.id)
+    # Volver al detalle de la OT: ahí el técnico llena el checklist directamente.
+    # (Antes redirigía a mobile_ot_finalizar, que mostraba el checklist duplicado.)
+    return redirect('mantenimiento:mobile_ot_detalle', pk=ot.id)
 
 @staff_member_required
 @mobile_permission_required('tareas_hoy')

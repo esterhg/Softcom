@@ -567,7 +567,7 @@
                 <ion-icon name="play-outline"></ion-icon> Iniciar Tarea
             </a>
             {% elif ot.estado == 'EJECUCION' %}
-            <a href="{% url 'mantenimiento:mobile_ot_finalizar' ot.id %}" class="fiori-btn fiori-btn-success" style="flex: 1; justify-content: center;">
+            <a href="#" class="fiori-btn fiori-btn-success" style="flex: 1; justify-content: center;" onclick="finalizarOT(this); return false;">
                 <ion-icon name="checkmark-done-outline"></ion-icon> Finalizar
             </a>
             {% elif ot.estado == 'REALIZADA' %}
@@ -832,6 +832,43 @@
             } catch (error) {
                 console.error("Error updating OT:", error);
                 alert("Error de conexión al guardar cambios.");
+                toast.classList.remove('show');
+            }
+        }
+
+        // === Finalizar OT (sin pantalla duplicada) ===
+        async function finalizarOT(btn) {
+            if (!confirm("¿Finalizar esta orden de trabajo?")) return;
+            const toast = document.getElementById('toast');
+            const original = btn.innerHTML;
+            btn.innerHTML = '<ion-icon name="sync-outline" style="animation: spin 1s linear infinite;"></ion-icon> Finalizando...';
+            toast.textContent = "Finalizando...";
+            toast.classList.add('show');
+
+            const form = document.getElementById('assignmentForm');
+            const formData = new FormData(form);
+            formData.append('action', 'finalize');
+
+            try {
+                const response = await fetch("{% url 'mantenimiento:mobile_ot_update_ajax' ot.id %}", {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    toast.textContent = "¡Orden finalizada!";
+                    // Recargar para reflejar estado REALIZADA y mostrar botón de PDF
+                    setTimeout(() => window.location.reload(), 800);
+                } else {
+                    alert("Error: " + (result.message || "No se pudo finalizar"));
+                    btn.innerHTML = original;
+                    toast.classList.remove('show');
+                }
+            } catch (error) {
+                console.error("Error finalizando OT:", error);
+                alert("Error de conexión al finalizar.");
+                btn.innerHTML = original;
                 toast.classList.remove('show');
             }
         }
