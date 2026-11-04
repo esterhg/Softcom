@@ -114,7 +114,21 @@ def mobile_ot_update_ajax(request, pk):
     
     ot = get_object_or_404(OrdenTrabajo, pk=pk)
     is_gerente = request.user.groups.filter(name='Gerentes').exists() or request.user.is_superuser
-    
+
+    # ── ACCIÓN FINALIZAR ──────────────────────────────────────────────────
+    # Solo cambia el estado a REALIZADA y dispara el PDF. NO toca la asignación
+    # de técnico ni ningún otro campo (antes borraba el técnico al finalizar).
+    if request.POST.get('action') == 'finalize':
+        if ot.estado != 'REALIZADA':
+            ot.estado = 'REALIZADA'
+            ot.fecha_ejecucion = timezone.now()
+            ot.save(update_fields=['estado', 'fecha_ejecucion'])
+        try:
+            task_generar_ot_pdf.delay(ot.id)
+        except Exception as e:
+            print(f"Error al encolar tarea de PDF: {e}")
+        return JsonResponse({'status': 'success', 'message': 'Orden finalizada correctamente'})
+
     # Solo permitir cambios si la orden no está FINALIZADA (a menos que sea Gerente)
     if ot.estado == 'REALIZADA' and not is_gerente:
         return JsonResponse({'status': 'error', 'message': 'No se puede modificar una orden finalizada'}, status=400)
@@ -173,19 +187,6 @@ def mobile_ot_update_ajax(request, pk):
             if timezone.is_naive(new_end_date):
                 new_end_date = timezone.make_aware(new_end_date)
             ot.fin_programado = new_end_date
-
-        # Acción FINALIZAR: marcar la OT como REALIZADA y generar el PDF.
-        # Permite finalizar desde el mismo detalle (sin pantalla duplicada).
-        if request.POST.get('action') == 'finalize':
-            if ot.estado != 'REALIZADA':
-                ot.estado = 'REALIZADA'
-                ot.fecha_ejecucion = timezone.now()
-            ot.save()
-            try:
-                task_generar_ot_pdf.delay(ot.id)
-            except Exception as e:
-                print(f"Error al encolar tarea de PDF: {e}")
-            return JsonResponse({'status': 'success', 'message': 'Orden finalizada correctamente'})
 
         ot.save()
         return JsonResponse({'status': 'success', 'message': 'Orden actualizada correctamente'})
