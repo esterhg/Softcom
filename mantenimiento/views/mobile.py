@@ -144,10 +144,8 @@ def mobile_ot_update_ajax(request, pk):
             ot.estado = 'REALIZADA'
             ot.fecha_ejecucion = timezone.now()
             ot.save(update_fields=['estado', 'fecha_ejecucion'])
-        try:
-            task_generar_ot_pdf.delay(ot.id)
-        except Exception as e:
-            print(f"Error al encolar tarea de PDF: {e}")
+        # No se genera un PDF adjunto: el reporte se ve en /mantenimiento/rutina-pdf/<id>/
+        # (generado al momento). Así no se duplican PDFs en la OT.
         return JsonResponse({'status': 'success', 'message': 'Orden finalizada correctamente'})
 
     # Solo permitir cambios si la orden no está FINALIZADA (a menos que sea Gerente)
@@ -771,13 +769,9 @@ def mobile_ot_finalizar(request, pk):
                     ot.fecha_ejecucion = timezone.now()
             
             ot.save()
-            
-            # Disparar generación de PDF en segundo plano (para actualizar el PDF con los nuevos datos)
-            try:
-                task_generar_ot_pdf.delay(ot.id)
-            except Exception as e:
-                print(f"Error al encolar tarea de PDF: {e}")
-                
+
+            # No se genera un PDF adjunto: el reporte se ve en /mantenimiento/rutina-pdf/<id>/
+            # (generado al momento). Así no se duplican PDFs en la OT.
             return redirect('mantenimiento:mobile_ot_detalle', pk=ot.id)
         
         # Por defecto solo guardamos y nos quedamos en la misma pantalla (o volvemos al detalle)

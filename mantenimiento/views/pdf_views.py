@@ -30,20 +30,10 @@ def generate_rutina_pdf_view(request, ot_id):
     from ..services import WorkOrderService
     es_ascensor = WorkOrderService._es_ot_ascensor(ot)
 
-    # 1. Servir el PDF adjunto si ya existe (cache/resultado de tarea en background).
-    #    Para elevadores NO reutilizamos el adjunto: siempre regeneramos en caliente
-    #    con el formato de ascensores (evita servir PDFs viejos con formato genérico).
-    filename = f"OT_{ot.id}.pdf"
-    if not es_ascensor:
-        archivo_adjunto = ArchivoOrdenTrabajo.objects.filter(orden_trabajo=ot, nombre=filename).first()
-        if archivo_adjunto:
-            try:
-                from django.shortcuts import redirect
-                return redirect(archivo_adjunto.archivo.url)
-            except Exception as e:
-                logger.warning(f"Error sirviendo adjunto existente para OT {ot.id}: {e}")
-
-    # 2. Generar en caliente (síncrono)
+    # El reporte SIEMPRE se genera al momento y se sirve en esta misma URL
+    # (/mantenimiento/rutina-pdf/<id>/). Ya no se redirige a un PDF adjunto
+    # guardado (media-proxy/...): así hay un solo PDF y siempre refleja los
+    # datos actuales de la OT.
     try:
         # Elevadores -> formato TKE de ascensores. Resto -> PDF genérico.
         if es_ascensor:

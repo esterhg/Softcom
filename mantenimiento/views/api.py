@@ -923,11 +923,8 @@ def api_guardar_cierre(request, pk):
                     comentarios=request.POST.get('comentarios_cierre', ''),
                 )
 
-            try:
-                from .mobile import task_generar_ot_pdf
-                task_generar_ot_pdf.delay(ot.id)
-            except Exception:
-                pass
+            # No se genera un PDF adjunto: el reporte se ve en /mantenimiento/rutina-pdf/<id>/
+            # (generado al momento). Así no se duplican PDFs en la OT.
             return JsonResponse({'status': 'success', 'message': 'Orden finalizada correctamente.'})
 
         ot.save()

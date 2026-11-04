@@ -601,7 +601,8 @@
             </a>
             {% elif ot.estado == 'REALIZADA' %}
             <div id="pdfActionContainer" style="flex: 1; display: flex;">
-                <a href="#" id="viewPdfBtn" class="fiori-btn fiori-btn-danger" style="flex: 1; justify-content: center; background: #d32f2f;" onclick="this.innerHTML='<ion-icon name=\'sync-outline\' style=\'animation: spin 1s linear infinite;\'></ion-icon> Preparando...'; startPdfPolling(); return false;">
+                {# Abre el PDF generado al momento (/mantenimiento/rutina-pdf/<id>/), no un adjunto guardado #}
+                <a href="{% url 'mantenimiento:rutina_pdf' ot.id %}" target="_blank" rel="noopener" id="viewPdfBtn" class="fiori-btn fiori-btn-danger" style="flex: 1; justify-content: center; background: #d32f2f;">
                     <ion-icon name="document-text-outline"></ion-icon> Reporte PDF
                 </a>
             </div>
@@ -765,72 +766,8 @@
             updateOT();
         }
 
-        // Polling para el PDF si la OT está REALIZADA y no se ha cargado el PDF aún
-        document.addEventListener('DOMContentLoaded', () => {
-            if ("{{ ot.estado }}" === "REALIZADA" && !window.pdfReady) {
-                startPdfPolling();
-            }
-        });
-
-        async function startPdfPolling() {
-            const container = document.getElementById('pdfActionContainer');
-            const toast = document.getElementById('toast');
-            let attempts = 0;
-            const maxAttempts = 20; // ~1 minuto
-
-            if (window.pdfPollingInterval) return;
-            window.pdfPollingInterval = setInterval(async () => {
-                attempts++;
-                if (attempts > maxAttempts) {
-                    clearInterval(window.pdfPollingInterval);
-                    window.pdfPollingInterval = null;
-                    const loader = document.getElementById('pdfLoadingBtn');
-                    if (loader) loader.innerHTML = '<ion-icon name="alert-circle-outline"></ion-icon> Reintente manual';
-                    return;
-                }
-
-                try {
-                    const response = await fetch("{% url 'mantenimiento:check_ot_pdf_status' ot.id %}");
-                    const data = await response.json();
-
-                    if (data.ready) {
-                        clearInterval(window.pdfPollingInterval);
-                        window.pdfPollingInterval = null;
-                        
-                        // Actualizar UI
-                        container.innerHTML = `
-                            <a href="${data.url}" target="_blank" class="fiori-btn fiori-btn-primary" style="background: #e52929; flex-grow: 1; animation: bounceIn 0.5s ease;">
-                                <ion-icon name="document-text-outline"></ion-icon> Descargar PDF
-                            </a>
-                        `;
-
-                        // Mostrar Toast Premium
-                        toast.innerHTML = `<ion-icon name="checkmark-circle" style="vertical-align: middle;"></ion-icon> Reporte OT_${data.id}.pdf listo`;
-                        toast.style.background = "#107e3e";
-                        toast.classList.add('show');
-                        setTimeout(() => toast.classList.remove('show'), 5000);
-                        
-                        // Añadir a la lista de archivos si existe la rejilla
-                        const grid = document.getElementById('attachmentsGrid');
-                        if (grid && !document.getElementById('file-' + data.id)) {
-                             const div = document.createElement('div');
-                             div.className = 'attachment-item';
-                             div.id = 'file-' + data.id;
-                             div.innerHTML = `
-                                <a href="${data.url}" target="_blank" style="text-decoration:none; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;">
-                                    <ion-icon name="document-outline" class="file-icon" style="color: #e52929;"></ion-icon>
-                                    <span class="file-name">${data.nombre}</span>
-                                </a>
-                             `;
-                             grid.prepend(div);
-                             document.getElementById('fileCount').textContent = grid.children.length;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Polling error:", e);
-                }
-            }, 2000);
-        }
+        // El reporte PDF se abre directo en /mantenimiento/rutina-pdf/<id>/ (generado
+        // al momento), así que ya no se espera a un PDF adjunto guardado.
 
         async function updateOT() {
             const form = document.getElementById('assignmentForm');
