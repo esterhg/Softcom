@@ -237,6 +237,16 @@
 
             <form method="get" action="{% url 'inventarios:export_catalogo_excel' %}" target="_blank">
                 <div class="rep-field">
+                    <label>Ubicación / Bodega</label>
+                    <select name="ubicacion" class="rep-control">
+                        <option value="">Todas (muestra todas las ubicaciones por material)</option>
+                        {% for u in ubicaciones %}
+                        <option value="{{ u.id }}">{{ u.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="rep-field">
                     <label>Categoría</label>
                     <select name="categoria" class="rep-control">
                         <option value="">Todas</option>

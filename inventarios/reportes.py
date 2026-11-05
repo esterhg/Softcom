@@ -322,9 +322,14 @@ def export_inventario_actual_excel(request):
 def export_catalogo_excel(request):
     """
     Exporta TODO el catálogo de materiales a Excel, aparezcan o no en
-    existencias o movimientos. Incluye el stock total consolidado.
+    existencias o movimientos. Incluye el stock total consolidado y la(s)
+    ubicación(es)/bodega(s) donde el material tiene existencia.
+
+    La relación material↔ubicación se obtiene de StockRecord. Un material que
+    no está asignado a ninguna ubicación deja la columna "Ubicaciones" vacía.
 
     Filtros soportados (GET):
+      - ubicacion=<id>  (solo materiales con existencia en esa ubicación)
       - categoria=<id>
       - tipo=<tipo_material>
     """
@@ -332,6 +337,10 @@ def export_catalogo_excel(request):
     from django.db.models import Sum, OuterRef, Subquery, DecimalField
     from django.db.models.functions import Coalesce
     from decimal import Decimal
+
+    ubicacion_id = request.GET.get('ubicacion')
+    categoria_id = request.GET.get('categoria')
+    tipo = request.GET.get('tipo')
 
     # Stock total por material (suma de existencias)
     stock_sub = StockRecord.objects.filter(material=OuterRef('pk')).values(
@@ -346,12 +355,39 @@ def export_catalogo_excel(request):
         )
     ).order_by('nombre')
 
-    categoria_id = request.GET.get('categoria')
-    tipo = request.GET.get('tipo')
     if categoria_id:
         qs = qs.filter(categoria_id=categoria_id)
     if tipo:
         qs = qs.filter(tipo_material=tipo)
+
+    # Si se filtra por ubicación, limitar a materiales con existencia ahí.
+    ubicacion_sel = None
+    if ubicacion_id:
+        qs = qs.filter(existencias__ubicacion_id=ubicacion_id).distinct()
+        ubicacion_sel = Ubicacion.objects.filter(pk=ubicacion_id).first()
+
+    material_ids = list(qs.values_list('id', flat=True))
+
+    # Mapa de ubicaciones por material desde StockRecord.
+    # - Sin filtro: lista de todas las bodegas donde hay existencia.
+    # - Con filtro: datos específicos (ubic. específica y cantidad) de esa ubicación.
+    ubic_por_material = {}          # id -> set de nombres de ubicación
+    detalle_por_material = {}       # id -> dict con esp/cantidad (solo con filtro)
+
+    sr_qs = StockRecord.objects.filter(material_id__in=material_ids).select_related('ubicacion')
+    if ubicacion_id:
+        sr_qs = sr_qs.filter(ubicacion_id=ubicacion_id)
+
+    for sr in sr_qs.iterator(chunk_size=2000):
+        if sr.ubicacion_id and sr.ubicacion:
+            ubic_por_material.setdefault(sr.material_id, set()).add(sr.ubicacion.nombre)
+        if ubicacion_id:
+            d = detalle_por_material.setdefault(
+                sr.material_id, {'esp': set(), 'cantidad': Decimal('0')}
+            )
+            if sr.ubicacion_especifica:
+                d['esp'].add(sr.ubicacion_especifica)
+            d['cantidad'] += (sr.cantidad or Decimal('0'))
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -360,9 +396,12 @@ def export_catalogo_excel(request):
     headers = [
         'SKU', 'Código de Barras', 'Material', 'Descripción', 'Categoría',
         'Tipo', 'Marca', 'Unidad', 'Precio Estimado', 'Stock Total',
-        'Stock Mínimo', 'Valor Total', 'No Afecta Stock', 'Técnico',
-        'Creado',
+        'Stock Mínimo', 'Valor Total', 'Ubicaciones',
     ]
+    if ubicacion_id:
+        headers += ['Ubic. Específica', f'Cantidad en {ubicacion_sel.nombre if ubicacion_sel else "Ubicación"}']
+    headers += ['No Afecta Stock', 'Técnico', 'Creado']
+
     _escribir_headers(ws, headers)
 
     _, _, _, border = _estilos()
@@ -374,6 +413,9 @@ def export_catalogo_excel(request):
         stock = float(m.stock_total or 0)
         valor = precio * stock
         total_valor += valor
+
+        ubicaciones_txt = ', '.join(sorted(ubic_por_material.get(m.id, [])))
+
         valores = [
             m.sku or '',
             m.codigo_barras or '',
@@ -387,15 +429,27 @@ def export_catalogo_excel(request):
             stock,
             float(m.stock_minimo or 0),
             round(valor, 2),
+            ubicaciones_txt,  # vacío si no está asignado a ninguna ubicación
+        ]
+
+        if ubicacion_id:
+            det = detalle_por_material.get(m.id, {})
+            esp = ', '.join(sorted(det.get('esp', []))) if det else ''
+            cant = float(det.get('cantidad', 0)) if det else 0
+            valores += [esp, cant]
+
+        valores += [
             'Sí' if m.no_afecta_stock else 'No',
             'Sí' if m.es_tecnico else 'No',
             timezone.localtime(m.creado_en).strftime('%d/%m/%Y') if m.creado_en else '',
         ]
+
         for col, val in enumerate(valores, 1):
             cell = ws.cell(row=row, column=col, value=val)
             cell.border = border
         row += 1
 
+    # Fila de total (columna "Valor Total" = índice 12)
     if row > 2:
         from openpyxl.styles import Font
         ws.cell(row=row, column=11, value='TOTAL:').font = Font(bold=True)
@@ -408,6 +462,11 @@ def export_catalogo_excel(request):
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     stamp = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M')
-    response['Content-Disposition'] = f'attachment; filename="catalogo_completo_{stamp}.xlsx"'
+    sufijo = ''
+    if ubicacion_sel:
+        import re
+        safe = re.sub(r'[^A-Za-z0-9_-]+', '_', ubicacion_sel.nombre).strip('_')
+        sufijo = f'_{safe}'
+    response['Content-Disposition'] = f'attachment; filename="catalogo_completo{sufijo}_{stamp}.xlsx"'
     wb.save(response)
     return response
