@@ -123,6 +123,20 @@ def requisicion_autorizar(request, pk):
         # 4. Aprobador configurado
         APROBADOR_NOMBRE, APROBADOR_EMAIL = _get_aprobador_config()
 
+        # Nombre legible del solicitante (para el correo "solicitud ingresada")
+        nombre_solicitante = ""
+        if solicitante:
+            nombre_solicitante = solicitante.get_full_name() or solicitante.username
+
+        # 5. ¿El solicitante pertenece al grupo de Gerentes?
+        #    Si es gerente -> el flujo de Power Automate pedirá UNA sola aprobación
+        #    (Ing. Ricardo). Si NO es gerente -> pedirá DOS (su gerente + Ricardo).
+        es_gerente = bool(
+            solicitante and solicitante.groups.filter(
+                name__in=['Gerentes', 'GERENTES', 'Gerente', 'GERENTE']
+            ).exists()
+        )
+
         payload = {
             "numero_requisicion": requisicion.cr8ca_requisicion,
             "asunto": requisicion.cr8ca_asunto,
@@ -130,6 +144,7 @@ def requisicion_autorizar(request, pk):
             "costo_aproximado": float(requisicion.cr8ca_totalenarticulos or 0),
             "costo_total": float(requisicion.total_estimado or 0),
             "email_solicitante": (solicitante.email or "") if solicitante else "",
+            "nombre_solicitante": nombre_solicitante,
             "telefono_solicitante": (perfil_sol.telefono or "N/A") if perfil_sol else "N/A",
             "gerente_nombre": f"{responsable.first_name or ''} {responsable.last_name or ''}".strip() if responsable else "No asignado",
             "gerente_email": (responsable.email or "N/A") if responsable else "N/A",
@@ -137,6 +152,10 @@ def requisicion_autorizar(request, pk):
             "aprobador_nombre": APROBADOR_NOMBRE,
             "aprobador_email": APROBADOR_EMAIL,
             "aprobador_telefono": (perfil_aprobador.telefono or "N/A") if perfil_aprobador else "N/A",
+            # Datos para el enrutamiento de aprobaciones en Power Automate
+            "es_gerente": es_gerente,
+            # Número de aprobaciones que debe exigir el flujo (1 si es gerente, 2 si no)
+            "num_aprobaciones_requeridas": 1 if es_gerente else 2,
             "proveedores": ", ".join(proveedores_nombres),
             "vinculo_aprobacion": f"{settings.SITE_URL}{reverse('presupuestos:requisicion_editar', kwargs={'pk': requisicion.pk})}?step=4",
             "articulos": articulos_list,

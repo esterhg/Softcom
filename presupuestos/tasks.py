@@ -467,3 +467,14 @@ def import_codigos_exoneracion_task(self, file_path, file_format, user_id=None, 
 
     cache.set(cache_key, final, 3600)
     return final
+
+
+@shared_task
+def leer_aprobaciones_correo_task():
+    """
+    Tarea periódica: lee el buzón IMAP y procesa los correos de resultado de
+    aprobación enviados por Power Automate (alternativa gratuita a la acción
+    HTTP premium). Reutiliza el management command leer_aprobaciones_correo.
+    """
+    from django.core.management import call_command
+    call_command('leer_aprobaciones_correo')

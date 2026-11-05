@@ -167,10 +167,12 @@ def _notificar_procura_requisicion_autorizada(requisicion, req_codigo):
     from django.utils.html import strip_tags
 
     try:
-        # Recolectar destinatarios: grupo Procura en Django
+        # Recolectar destinatarios: grupos Procura y Procura_Tecnica en Django
         destinatarios = set()
-        grupo = Group.objects.filter(name__in=['Procura', 'PROCURA']).first()
-        if grupo:
+        grupos = Group.objects.filter(
+            name__in=['Procura', 'PROCURA', 'Procura_Tecnica', 'PROCURA_TECNICA']
+        )
+        for grupo in grupos:
             emails_grupo = grupo.user_set.filter(
                 is_active=True
             ).exclude(email='').values_list('email', flat=True)
