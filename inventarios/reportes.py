@@ -88,6 +88,7 @@ def reporte_inventario_view(request):
         'ubicaciones': ubicaciones,
         'categorias': categorias,
         'tipos_movimiento': MovimientoInventario.TIPO_MOVIMIENTO,
+        'tipos_material': Material.TIPO_MATERIAL_CHOICES,
         'estados_movimiento': [
             ('PENDIENTE', 'Pendiente'),
             ('APROBADO', 'Aprobado / Liquidado'),
@@ -144,17 +145,18 @@ def export_movimientos_excel(request):
     if categoria_id:
         qs = qs.filter(material__categoria_id=categoria_id)
 
-    # Mapa de activos aplicados por movimiento (vía MaterialUtilizadoOT)
-    mov_ids = list(qs.values_list('id', flat=True)[:50000])
+    # Mapa de activos aplicados por movimiento (vía MaterialUtilizadoOT).
+    # Se construye desde TODOS los movimientos del queryset filtrado (sin límite).
     activos_por_mov = {}
     usos = MaterialUtilizadoOT.objects.filter(
-        movimiento_id__in=mov_ids
-    ).select_related('activo')
-    for u in usos:
-        if u.activo_id:
-            activos_por_mov.setdefault(u.movimiento_id, []).append(
-                f"{u.activo.nombre} ({u.activo.codigo_interno or u.activo_id})"
-            )
+        movimiento__in=qs, activo__isnull=False
+    ).select_related('activo').values_list(
+        'movimiento_id', 'activo__nombre', 'activo__codigo_interno', 'activo_id'
+    )
+    for mov_id, act_nombre, act_codigo, act_id in usos.iterator(chunk_size=2000):
+        activos_por_mov.setdefault(mov_id, []).append(
+            f"{act_nombre} ({act_codigo or act_id})"
+        )
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -308,5 +310,104 @@ def export_inventario_actual_excel(request):
     )
     stamp = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M')
     response['Content-Disposition'] = f'attachment; filename="inventario_actual_{stamp}.xlsx"'
+    wb.save(response)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Export: Catálogo Completo (todos los materiales, con o sin stock)
+# ---------------------------------------------------------------------------
+
+@login_required
+def export_catalogo_excel(request):
+    """
+    Exporta TODO el catálogo de materiales a Excel, aparezcan o no en
+    existencias o movimientos. Incluye el stock total consolidado.
+
+    Filtros soportados (GET):
+      - categoria=<id>
+      - tipo=<tipo_material>
+    """
+    import openpyxl
+    from django.db.models import Sum, OuterRef, Subquery, DecimalField
+    from django.db.models.functions import Coalesce
+    from decimal import Decimal
+
+    # Stock total por material (suma de existencias)
+    stock_sub = StockRecord.objects.filter(material=OuterRef('pk')).values(
+        'material'
+    ).annotate(total=Sum('cantidad')).values('total')
+
+    qs = Material.objects.select_related(
+        'categoria', 'unidad_medida', 'marca'
+    ).annotate(
+        stock_total=Coalesce(
+            Subquery(stock_sub, output_field=DecimalField()), Decimal('0.00')
+        )
+    ).order_by('nombre')
+
+    categoria_id = request.GET.get('categoria')
+    tipo = request.GET.get('tipo')
+    if categoria_id:
+        qs = qs.filter(categoria_id=categoria_id)
+    if tipo:
+        qs = qs.filter(tipo_material=tipo)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Catálogo"
+
+    headers = [
+        'SKU', 'Código de Barras', 'Material', 'Descripción', 'Categoría',
+        'Tipo', 'Marca', 'Unidad', 'Precio Estimado', 'Stock Total',
+        'Stock Mínimo', 'Valor Total', 'No Afecta Stock', 'Técnico',
+        'Creado',
+    ]
+    _escribir_headers(ws, headers)
+
+    _, _, _, border = _estilos()
+
+    row = 2
+    total_valor = 0.0
+    for m in qs.iterator(chunk_size=1000):
+        precio = float(m.precio_estimado or 0)
+        stock = float(m.stock_total or 0)
+        valor = precio * stock
+        total_valor += valor
+        valores = [
+            m.sku or '',
+            m.codigo_barras or '',
+            m.nombre or '',
+            (m.descripcion or '')[:300],
+            m.categoria.nombre if m.categoria else '',
+            m.get_tipo_material_display() if m.tipo_material else '',
+            m.marca.nombre if m.marca else '',
+            m.unidad_medida.abreviatura if m.unidad_medida else '',
+            precio,
+            stock,
+            float(m.stock_minimo or 0),
+            round(valor, 2),
+            'Sí' if m.no_afecta_stock else 'No',
+            'Sí' if m.es_tecnico else 'No',
+            timezone.localtime(m.creado_en).strftime('%d/%m/%Y') if m.creado_en else '',
+        ]
+        for col, val in enumerate(valores, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.border = border
+        row += 1
+
+    if row > 2:
+        from openpyxl.styles import Font
+        ws.cell(row=row, column=11, value='TOTAL:').font = Font(bold=True)
+        total_cell = ws.cell(row=row, column=12, value=round(total_valor, 2))
+        total_cell.font = Font(bold=True)
+
+    _autoajustar(ws, len(headers))
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    stamp = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M')
+    response['Content-Disposition'] = f'attachment; filename="catalogo_completo_{stamp}.xlsx"'
     wb.save(response)
     return response

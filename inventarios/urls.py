@@ -7,7 +7,7 @@ from .api_mobile_sync import (
     api_mobile_aprobaciones, api_mobile_aprobar, api_mobile_despachos, api_mobile_despachar,
     api_mobile_confirmar_entrega, api_mobile_mis_solicitudes, api_mobile_solicitud_detalle, api_mobile_push_token,
 )
-from .reportes import reporte_inventario_view, export_movimientos_excel, export_inventario_actual_excel
+from .reportes import reporte_inventario_view, export_movimientos_excel, export_inventario_actual_excel, export_catalogo_excel
 
 app_name = 'inventarios'
 
@@ -47,6 +47,7 @@ urlpatterns = [
     path('reportes/', reporte_inventario_view, name='reportes'),
     path('reportes/movimientos/excel/', export_movimientos_excel, name='export_movimientos_excel'),
     path('reportes/inventario/excel/', export_inventario_actual_excel, name='export_inventario_actual_excel'),
+    path('reportes/catalogo/excel/', export_catalogo_excel, name='export_catalogo_excel'),
     path('nuevos-materiales/', views.solicitud_nuevos_materiales, name='solicitud_nuevos_materiales'),
     path('admin-catalogos/', views.admin_catalogos, name='admin_catalogos'),
     path('categorias/', views.categorias_visualizer, name='categorias_visualizer'),

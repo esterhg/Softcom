@@ -61,6 +61,7 @@
     }
     .icon-mov { background: #fef3c7; color: #92400e; }
     .icon-stock { background: #dcfce7; color: #166534; }
+    .icon-cat { background: #eff6ff; color: #1d4ed8; }
 
     .rep-card-head h2 {
         font-size: 1.02rem;
@@ -224,27 +225,17 @@
             </form>
         </div>
 
-        <!-- Inventario Actual -->
+        <!-- Catálogo Completo -->
         <div class="rep-card">
             <div class="rep-card-head">
-                <div class="rep-card-icon icon-stock"><ion-icon name="cube-outline"></ion-icon></div>
+                <div class="rep-card-icon icon-cat"><ion-icon name="albums-outline"></ion-icon></div>
                 <div>
-                    <h2>Inventario Actual</h2>
-                    <p>Existencias por ubicación, lote, valor y stock mínimo.</p>
+                    <h2>Catálogo Completo</h2>
+                    <p>Todos los materiales del catálogo (con o sin existencias) y su stock total.</p>
                 </div>
             </div>
 
-            <form method="get" action="{% url 'inventarios:export_inventario_actual_excel' %}" target="_blank">
-                <div class="rep-field">
-                    <label>Ubicación</label>
-                    <select name="ubicacion" class="rep-control">
-                        <option value="">Todas</option>
-                        {% for u in ubicaciones %}
-                        <option value="{{ u.id }}">{{ u.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
+            <form method="get" action="{% url 'inventarios:export_catalogo_excel' %}" target="_blank">
                 <div class="rep-field">
                     <label>Categoría</label>
                     <select name="categoria" class="rep-control">
@@ -255,13 +246,18 @@
                     </select>
                 </div>
 
-                <label class="rep-check">
-                    <input type="checkbox" name="con_stock" value="1" checked>
-                    Solo mostrar materiales con existencias
-                </label>
+                <div class="rep-field">
+                    <label>Tipo de Material</label>
+                    <select name="tipo" class="rep-control">
+                        <option value="">Todos</option>
+                        {% for val, label in tipos_material %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-                <button type="submit" class="rep-btn success">
-                    <ion-icon name="download-outline"></ion-icon> Descargar Inventario (Excel)
+                <button type="submit" class="rep-btn" style="background:#6a6d70;">
+                    <ion-icon name="download-outline"></ion-icon> Descargar Catálogo (Excel)
                 </button>
             </form>
         </div>
