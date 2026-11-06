@@ -1463,6 +1463,34 @@ def api_search_usuarios(request):
     return JsonResponse({'results': results})
 
 @login_required
+def api_search_tickets(request):
+    """API para buscar Tickets (call center) para vincular a un pase de salida."""
+    from callcenter.models import SolicitudTicket
+    from django.http import JsonResponse
+    from django.db.models import Q
+
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+
+    search_q = Q(folio__icontains=q) | Q(solicitud_descripcion__icontains=q)
+    if q.isdigit():
+        search_q |= Q(id_solicitud=q)
+
+    tickets = SolicitudTicket.objects.filter(search_q).select_related('ubicacion').order_by('-id')[:15]
+    results = []
+    for t in tickets:
+        desc = t.solicitud_descripcion or t.falla_descripcion or 'Sin descripción'
+        results.append({
+            'id': t.id,
+            'codigo': str(t.folio or t.id_solicitud),
+            'nombre': desc[:80],
+            'ubicacion': t.ubicacion.nombre if t.ubicacion else (t.area or 'S/U'),
+        })
+    return JsonResponse({'results': results})
+
+
+@login_required
 def api_search_ordenes_trabajo(request):
     """API para buscar Órdenes de Trabajo activas."""
     from mantenimiento.models import OrdenTrabajo

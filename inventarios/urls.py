@@ -88,6 +88,7 @@ urlpatterns = [
     path('api/conteo-inventario/guardar/', views.api_guardar_conteo_inventario, name='api_guardar_conteo_inventario'),
     path('api/usuarios/search/', views.api_search_usuarios, name='api_search_usuarios'),
     path('api/ordenes-trabajo/search/', views.api_search_ordenes_trabajo, name='api_search_ot'),
+    path('api/tickets/search/', views.api_search_tickets, name='api_search_tickets'),
     path('api/niveles/', views.api_niveles_por_edificio, name='api_niveles_edificio'),
 
     # Impresión de Etiquetas

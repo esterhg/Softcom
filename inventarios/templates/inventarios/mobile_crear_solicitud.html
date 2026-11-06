@@ -400,9 +400,38 @@
             </div>
 
             <div class="form-group" id="ot-section">
-                <label>Orden de Trabajo <span id="ot-required-star" style="color:var(--sap-error); font-weight:700;">*</span></label>
+                <label>Vincular a <span id="ot-required-star" style="color:var(--sap-error); font-weight:700;">*</span></label>
+                <div role="tablist" aria-label="Tipo de vínculo" style="display:flex; border:1px solid var(--sap-border-color, #d9d9d9); border-radius:4px; overflow:hidden; margin-bottom:8px;">
+                    <button type="button" role="tab" id="tab-vinc-ot" class="vinc-tab" data-tipo="ot" aria-selected="true"
+                            style="flex:1; padding:9px; border:none; font-size:13px; font-weight:700; cursor:pointer; background:#0070f2; color:#fff;">
+                        OTNP / Orden de Trabajo
+                    </button>
+                    <button type="button" role="tab" id="tab-vinc-ticket" class="vinc-tab" data-tipo="ticket" aria-selected="false"
+                            style="flex:1; padding:9px; border:none; font-size:13px; font-weight:700; cursor:pointer; background:#fff; color:#32363a;">
+                        Ticket
+                    </button>
+                </div>
+
+                <!-- Ticket -->
+                <div id="ticket-block" style="display:none; position:relative;">
+                    <input type="hidden" id="ticket_id" value="">
+                    <input type="text" id="ticket-search" class="form-control" placeholder="Buscar ticket por folio o descripción..." autocomplete="off">
+                    <div id="ticket-selected" style="display:none; margin-top:6px; padding:10px; background:#e8f4fd; border-radius:4px; border:1px solid #b3d7f2; font-size:13px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong id="ticket-selected-code"></strong>
+                                <span id="ticket-selected-name" style="color:#555; margin-left:6px;"></span>
+                            </div>
+                            <button type="button" onclick="clearTicket()" aria-label="Quitar ticket" style="border:none; background:none; color:var(--sap-error); font-size:18px; cursor:pointer; padding:0 4px;">
+                                <ion-icon name="close-circle"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="ticket-results" style="display:none; position:absolute; top:42px; left:0; right:0; background:var(--sap-card-bg, #fff); border:1px solid var(--sap-border-color); border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+
                 <input type="hidden" id="orden_trabajo" value="">
-                <div style="position:relative;">
+                <div id="ot-block" style="position:relative;">
                     <div style="display:flex; gap:8px;">
                         <input type="text" id="ot-search" class="form-control" placeholder="Buscar por código, nombre o ubicación..." autocomplete="off" style="flex:1;">
                         <button type="button" id="btn-crear-ot-rapida" onclick="crearOtRapida()" style="background:#107e3e; color:#fff; border:none; padding:0 14px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:4px;">
@@ -567,6 +596,7 @@
                     $('#ot-section').slideUp(200);
                     $('#orden_trabajo').val('');
                     clearOT();
+                    clearTicket();
                 } else {
                     $('#ot-section').slideDown(200);
                 }
@@ -770,6 +800,9 @@
                 if (!$(e.target).closest('#ot-search, #ot-results').length) {
                     $('#ot-results').hide();
                 }
+                if (!$(e.target).closest('#ticket-search, #ticket-results').length) {
+                    $('#ticket-results').hide();
+                }
                 if (!$(e.target).closest('#entregar-search, #entregar-results').length) {
                     $('#entregar-results').hide();
                 }
@@ -821,11 +854,72 @@
                 $('#entregar-selected').hide();
             };
 
+            // === Vínculo: OTNP/OT o Ticket (uno u otro) ===
+            function setVinculo(tipo) {
+                $('.vinc-tab').each(function() {
+                    const activo = $(this).data('tipo') === tipo;
+                    $(this).attr('aria-selected', activo ? 'true' : 'false')
+                           .css({ background: activo ? '#0070f2' : '#fff', color: activo ? '#fff' : '#32363a' });
+                });
+                if (tipo === 'ticket') {
+                    clearOT();
+                    $('#ot-block').hide();
+                    $('#ticket-block').show();
+                } else {
+                    clearTicket();
+                    $('#ticket-block').hide();
+                    $('#ot-block').show();
+                }
+            }
+            $('.vinc-tab').on('click', function() { setVinculo($(this).data('tipo')); });
+
+            let ticketDebounce = null;
+            $('#ticket-search').on('input', function() {
+                const q = $(this).val().trim();
+                clearTimeout(ticketDebounce);
+                if (q.length < 2) { $('#ticket-results').hide(); return; }
+                ticketDebounce = setTimeout(function() {
+                    $.get('{% url "inventarios:api_search_tickets" %}', { q: q }, function(data) {
+                        if (!data.results.length) {
+                            $('#ticket-results').html('<div style="padding:12px; text-align:center; color:#999; font-size:13px;">Sin resultados</div>').show();
+                            return;
+                        }
+                        const $list = $('<div>');
+                        data.results.forEach(t => {
+                            const $it = $('<div class="ticket-result-item" style="padding:10px 12px; border-bottom:1px solid #f0f0f0; cursor:pointer; font-size:13px;"></div>');
+                            $it.attr('data-id', t.id).attr('data-codigo', t.codigo).attr('data-nombre', t.nombre);
+                            $it.append($('<div style="font-weight:700; color:#0a6ed1;"></div>').text('Ticket ' + t.codigo));
+                            $it.append($('<div style="color:#333; margin-top:2px;"></div>').text(t.nombre));
+                            $it.append($('<div style="color:#888; font-size:11px; margin-top:1px;"></div>').text(t.ubicacion));
+                            $list.append($it);
+                        });
+                        $('#ticket-results').empty().append($list.children()).show();
+                    });
+                }, 300);
+            });
+            $(document).on('click', '.ticket-result-item', function() {
+                $('#ticket_id').val($(this).attr('data-id'));
+                $('#ticket-search').hide();
+                $('#ticket-selected-code').text('Ticket ' + $(this).attr('data-codigo'));
+                $('#ticket-selected-name').text($(this).attr('data-nombre'));
+                $('#ticket-selected').show();
+                $('#ticket-results').hide();
+                toggleDescRequired();
+            });
+            window.clearTicket = function() {
+                $('#ticket_id').val('');
+                $('#ticket-search').val('').show();
+                $('#ticket-selected').hide();
+                $('#ticket-results').hide();
+                toggleDescRequired();
+            };
+
             // Mostrar/ocultar asterisco de obligatoriedad en la descripción
             function toggleDescRequired() {
-                const hasOT = !!$('#orden_trabajo').val();
+                const hasTicket = !!$('#ticket_id').val();
+                const hasOT = !!$('#orden_trabajo').val() || hasTicket;
                 // Solo con OTNP o ticket vinculado se oculta la justificación
-                const ocultar = hasOT && !!window.otSinJustificacion;
+                const ocultar = hasTicket || (hasOT && !!window.otSinJustificacion);
                 $('#desc-group').toggle(!ocultar);
                 if (ocultar) $('#comentarios').val('');
                 $('#desc-required').toggle(!hasOT);
@@ -1020,7 +1114,8 @@
 
             $('#btn-submit').click(function() {
                 const ubicacionId = $('#ubicacion_origen').val();
-                const otId = $('#orden_trabajo').val();
+                // OT u otro vínculo válido (ticket) cuentan igual para las validaciones
+                const otId = $('#orden_trabajo').val() || $('#ticket_id').val();
                 const comentarios = $('#comentarios').val().trim();
                 const edificioId = $('#edificio_destino').val();
                 const nivelId = $('#nivel_destino').val();
@@ -1053,13 +1148,13 @@
                         Swal.fire({
                             icon: 'warning',
                             title: 'Orden de Trabajo requerida',
-                            html: `Los siguientes materiales son <strong>técnicos</strong> y requieren vincularse con una OT:<br><br><em>${nombres}</em>${tecnicos.length > 3 ? ` y ${tecnicos.length - 3} más...` : ''}`,
+                            html: `Los siguientes materiales son <strong>técnicos</strong> y requieren vincularse con una OTNP o un Ticket:<br><br><em>${nombres}</em>${tecnicos.length > 3 ? ` y ${tecnicos.length - 3} más...` : ''}`,
                             confirmButtonText: 'Entendido'
                         });
                         $('#ot-search').focus();
                         return;
                     }
-                    Swal.fire('Descripción requerida', 'Si no vincula una OT, debe escribir un motivo/descripción.', 'warning');
+                    Swal.fire('Descripción requerida', 'Si no vincula una OTNP o un Ticket, debe escribir un motivo/descripción.', 'warning');
                     $('#comentarios').focus();
                     return;
                 }
@@ -1071,7 +1166,7 @@
                         Swal.fire({
                             icon: 'warning',
                             title: 'Orden de Trabajo obligatoria',
-                            html: `Los siguientes materiales son <strong>técnicos</strong> y requieren vincularse con una OT:<br><br><em>${nombres}</em>${tecnicos.length > 3 ? ` y ${tecnicos.length - 3} más...` : ''}`,
+                            html: `Los siguientes materiales son <strong>técnicos</strong> y requieren vincularse con una OTNP o un Ticket:<br><br><em>${nombres}</em>${tecnicos.length > 3 ? ` y ${tecnicos.length - 3} más...` : ''}`,
                             confirmButtonText: 'Entendido'
                         });
                         $('#ot-search').focus();
@@ -1118,6 +1213,7 @@
                         edificio_destino: edificioId,
                         nivel_destino: nivelId,
                         orden_trabajo: otId,
+                        ticket: $('#ticket_id').val(),
                         entregar_a: entregarAId,
                         comentarios: comentarios,
                         estado: estado,
