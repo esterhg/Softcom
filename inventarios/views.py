@@ -1510,6 +1510,8 @@ def api_search_ordenes_trabajo(request):
             'nivel_id': nivel_id,
             'estado': ot.get_estado_display(),
             'tipo': ot.get_tipo_display(),
+            # OTNP o vinculada a ticket/aviso: el pase de salida no pide justificación
+            'sin_justificacion': bool(ot.tipo == 'NO_PROGRAMADA' or ot.aviso_id),
         })
 
     return JsonResponse({'results': results})

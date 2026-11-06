@@ -424,15 +424,15 @@
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom:0;">
+            <div class="form-group" id="desc-group" style="margin-bottom:0;">
                 <label>Descripción / Motivo <span id="desc-required" style="color:var(--sap-error); font-weight:700; display:none;">*</span></label>
                 <textarea id="comentarios" class="form-control" rows="2" placeholder="Describa el motivo de la solicitud..."></textarea>
             </div>
 
             <div class="form-group" style="margin-top:12px;">
-                <label>Entregar A:</label>
+                <label>Responsable:</label>
                 <div style="position:relative;">
-                    <input type="text" id="entregar-search" class="form-control" placeholder="🔍 Buscar personal por nombre..." autocomplete="off">
+                    <input type="text" id="entregar-search" class="form-control" placeholder="🔍 Buscar responsable por nombre..." autocomplete="off">
                     <input type="hidden" id="entregar_a_id" value="">
                     <div id="entregar-selected" style="display:none; margin-top:6px; padding:10px; background:#f0fdf4; border-radius:4px; border:1px solid #bbf7d0; font-size:13px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -618,7 +618,7 @@
                         let html = '';
                         data.results.forEach(ot => {
                             html += `
-                                <div class="ot-result-item" data-id="${ot.id}" data-codigo="${ot.codigo}" data-nombre="${ot.nombre}" data-edificio="${ot.edificio_id || ''}" data-nivel="${ot.nivel_id || ''}" style="padding:10px 12px; border-bottom:1px solid #f0f0f0; cursor:pointer; font-size:13px;">
+                                <div class="ot-result-item" data-id="${ot.id}" data-codigo="${ot.codigo}" data-nombre="${ot.nombre}" data-edificio="${ot.edificio_id || ''}" data-nivel="${ot.nivel_id || ''}" data-otnp="${ot.sin_justificacion ? '1' : '0'}" style="padding:10px 12px; border-bottom:1px solid #f0f0f0; cursor:pointer; font-size:13px;">
                                     <div style="font-weight:700; color:#0a6ed1;">${ot.codigo}</div>
                                     <div style="color:#333; margin-top:2px;">${ot.nombre}</div>
                                     <div style="color:#888; font-size:11px; margin-top:1px;">${ot.ubicacion} · ${ot.tipo} · ${ot.estado}</div>
@@ -644,6 +644,7 @@
                 const nivelId = $(this).data('nivel');
                 
                 $('#orden_trabajo').val(id);
+                window.otSinJustificacion = String($(this).data('otnp')) === '1';
                 $('#ot-search').hide();
                 $('#ot-selected-code').text(codigo);
                 $('#ot-selected-name').text(nombre);
@@ -693,6 +694,7 @@
 
             window.clearOT = function() {
                 $('#orden_trabajo').val('');
+                window.otSinJustificacion = false;
                 $('#ot-search').val('').show();
                 $('#ot-selected').hide();
                 $('#btn-crear-ot-rapida').show();
@@ -722,6 +724,7 @@
                         const otCodigo = localStorage.getItem('ot_creada_codigo');
                         if (otId && otCodigo) {
                             $('#orden_trabajo').val(otId);
+                            window.otSinJustificacion = true; // OTNP recién creada
                             $('#ot-search').hide();
                             $('#ot-selected-code').text(otCodigo);
                             $('#ot-selected-name').text('(Recién creada)');
@@ -748,6 +751,7 @@
                         const otId = e.newValue;
                         const otCodigo = localStorage.getItem('ot_creada_codigo') || 'OT Nueva';
                         $('#orden_trabajo').val(otId);
+                        window.otSinJustificacion = true; // OTNP recién creada
                         $('#ot-search').hide();
                         $('#ot-selected-code').text(otCodigo);
                         $('#ot-selected-name').text('(Recién creada)');
@@ -820,6 +824,10 @@
             // Mostrar/ocultar asterisco de obligatoriedad en la descripción
             function toggleDescRequired() {
                 const hasOT = !!$('#orden_trabajo').val();
+                // Solo con OTNP o ticket vinculado se oculta la justificación
+                const ocultar = hasOT && !!window.otSinJustificacion;
+                $('#desc-group').toggle(!ocultar);
+                if (ocultar) $('#comentarios').val('');
                 $('#desc-required').toggle(!hasOT);
                 $('#comentarios').attr('placeholder', hasOT ? 'Notas adicionales (opcional)...' : 'Obligatorio si no hay OT — Describa el motivo...');
             }

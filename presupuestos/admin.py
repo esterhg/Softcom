@@ -343,6 +343,14 @@ class RequisicionAdmin(ImportExportModelAdmin):
     resource_classes = [RequisicionResource]
     export_formats = [XLSX, CSV]
     list_per_page = 50
+
+    def add_view(self, request, form_url='', extra_context=None):
+        """'Añadir requisición' usa el wizard (crea borrador y redirige a editar/<uuid>/)."""
+        from django.shortcuts import redirect
+        from django.urls import reverse
+        if not self.has_add_permission(request):
+            return super().add_view(request, form_url, extra_context)
+        return redirect(reverse('presupuestos:requisicion_nuevo'))
     
     def get_urls(self):
         urls = super().get_urls()
