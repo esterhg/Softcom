@@ -1,0 +1,33 @@
+{% extends "monitoreo/av_app_base.html" %}
+
+{% block title %}Mis Averías{% endblock %}
+
+{% block content %}
+<nav class="seg" aria-label="Filtro">
+  <a href="?ver=pendientes" class="{% if ver == 'pendientes' %}on{% endif %}">Pendientes</a>
+  <a href="?ver=resueltas" class="{% if ver == 'resueltas' %}on{% endif %}">Resueltas</a>
+</nav>
+
+<div class="card">
+  {% for a in averias %}
+  <a href="{% url 'monitoreo:av_app_detalle' a.pk %}" class="item">
+    <div class="ic"><ion-icon name="warning-outline"></ion-icon></div>
+    <div style="flex:1;min-width:0;">
+      <h4>{{ a.codigo }}
+        <span class="badge {{ a.prioridad_badge }}">{{ a.get_prioridad_display }}</span>
+        <span class="badge {{ a.estado_badge }}">{{ a.get_estado_display }}</span>
+      </h4>
+      <p><strong>{{ a.equipo_display }}</strong></p>
+      <p>{{ a.unidad_funcional|default:"Sin unidad funcional" }} · {{ a.fecha_hora|date:"d/m H:i" }}</p>
+      <p>{{ a.descripcion|truncatechars:70 }}</p>
+    </div>
+    <ion-icon name="chevron-forward-outline" style="color:#ccc;"></ion-icon>
+  </a>
+  {% empty %}
+  <div class="empty">
+    <ion-icon name="checkmark-done-outline"></ion-icon>
+    {% if ver == 'resueltas' %}Aún no has resuelto averías.{% else %}No tienes averías pendientes.{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

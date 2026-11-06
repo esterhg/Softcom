@@ -1,0 +1,96 @@
+{% extends "monitoreo/av_base.html" %}
+
+{% block title %}Reportes de Avería{% endblock %}
+
+{% block content %}
+<div class="mon-wrap">
+  <div class="mon-page-header">
+    <h1><i class="fas fa-triangle-exclamation" style="color:#e9730c;margin-right:.4rem;"></i>Reportes de Avería — Elevadores</h1>
+    <div class="header-actions">
+      <a href="{% url 'admin:monitoreo_reporteaveria_add' %}" class="mon-btn mon-btn-primary"><i class="fas fa-plus"></i> Nueva avería</a>
+    </div>
+  </div>
+
+  {% if abiertas_sin_asignar %}
+  <div class="mon-card" style="border-left:4px solid #e9730c;">
+    <div class="mon-card-body" style="padding:.65rem 1rem;font-size:.86rem;">
+      <i class="fas fa-user-clock" style="color:#e9730c;"></i>
+      {{ abiertas_sin_asignar }} avería{{ abiertas_sin_asignar|pluralize }} abierta{{ abiertas_sin_asignar|pluralize }} sin asignar.
+      <a href="?estado=abierta" style="color:#0070f2;">Ver</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="get" class="mon-toolbar">
+    <div class="mon-search">
+      <i class="fas fa-search"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="Buscar código, elevador…" class="mon-form-control">
+    </div>
+    <select name="estado" class="mon-form-control" style="width:auto;">
+      <option value="">Todos los estados</option>
+      {% for v, l in ESTADOS %}<option value="{{ v }}" {% if v == estado %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+    <select name="prioridad" class="mon-form-control" style="width:auto;">
+      <option value="">Toda prioridad</option>
+      {% for v, l in PRIORIDADES %}<option value="{{ v }}" {% if v == prioridad %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+    <label style="font-size:.84rem;display:flex;align-items:center;gap:.3rem;">
+      <input type="checkbox" name="mias" value="1" {% if mias %}checked{% endif %}> Asignadas a mí
+    </label>
+    <button type="submit" class="mon-btn mon-btn-secondary"><i class="fas fa-filter"></i> Filtrar</button>
+    {% if q or estado or prioridad or mias %}<a href="{% url 'monitoreo:av_lista' %}" class="mon-btn mon-btn-ghost"><i class="fas fa-times"></i> Limpiar</a>{% endif %}
+    <span style="margin-left:auto;font-size:.81rem;color:#6a6d70;">{{ total }} avería{{ total|pluralize }}</span>
+  </form>
+
+  <div class="mon-card">
+    {% if page_obj.object_list %}
+    <div class="table-scroll">
+      <table class="mon-table">
+        <thead>
+          <tr><th>Código</th><th>Fecha</th><th>Activo</th><th>Unidad funcional</th><th>Prioridad</th><th>Técnico</th><th>Estado</th><th>Acciones</th></tr>
+        </thead>
+        <tbody>
+          {% for a in page_obj %}
+          <tr>
+            <td data-label="Código"><a href="{% url 'monitoreo:av_detalle' a.pk %}" style="font-weight:700;color:#0070f2;text-decoration:none;">{{ a.codigo }}</a></td>
+            <td data-label="Fecha" style="white-space:nowrap;">{{ a.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td data-label="Activo">{{ a.equipo_display }}{% if a.equipo_parado %} <span class="badge-estado badge-err">Fuera de servicio</span>{% endif %}</td>
+            <td data-label="Unidad funcional" style="font-size:.82rem;color:#6a6d70;">{{ a.unidad_funcional|default:"—" }}</td>
+            <td data-label="Prioridad"><span class="badge-estado {{ a.prioridad_badge }}">{{ a.get_prioridad_display }}</span></td>
+            <td data-label="Técnico">
+              {{ a.tecnico_principal_display }}
+              {% if a.tecnicos.all %}<span style="color:#6a6d70;font-size:.78rem;">+{{ a.tecnicos.all|length }}</span>{% endif %}
+            </td>
+            <td data-label="Estado"><span class="badge-estado {{ a.estado_badge }}">{{ a.get_estado_display }}</span></td>
+            <td data-label="Acciones">
+              <div class="row-actions">
+                <a href="{% url 'monitoreo:av_detalle' a.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Ver"><i class="fas fa-eye"></i></a>
+                <a href="{% url 'admin:monitoreo_reporteaveria_change' a.pk %}" class="mon-btn mon-btn-secondary mon-btn-sm" title="Editar"><i class="fas fa-pencil-alt" style="color:#0070f2;"></i></a>
+                <form method="post" action="{% url 'monitoreo:av_eliminar' a.pk %}" style="display:inline;" data-confirm="¿Eliminar la avería {{ a.codigo }}?">
+                  {% csrf_token %}
+                  <button type="submit" class="mon-btn mon-btn-danger mon-btn-sm" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="pager">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&estado={{ estado }}&prioridad={{ prioridad }}{% if mias %}&mias=1{% endif %}" class="mon-btn mon-btn-secondary mon-btn-sm"><i class="fas fa-chevron-left"></i></a>{% endif %}
+      <span style="font-size:.82rem;color:#6a6d70;">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&estado={{ estado }}&prioridad={{ prioridad }}{% if mias %}&mias=1{% endif %}" class="mon-btn mon-btn-secondary mon-btn-sm"><i class="fas fa-chevron-right"></i></a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="mon-empty">
+      <i class="fas fa-triangle-exclamation"></i>
+      <p>No hay averías registradas con estos filtros.</p>
+      <a href="{% url 'admin:monitoreo_reporteaveria_add' %}" class="mon-btn mon-btn-primary"><i class="fas fa-plus"></i> Reportar avería</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

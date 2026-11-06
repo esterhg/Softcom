@@ -475,3 +475,206 @@ class FotoAnexoAccionamiento(models.Model):
 
     def __str__(self):
         return f"Foto #{self.pk} — Accionamiento #{self.reporte_id}"
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  REPORTE DE AVERÍA DE ELEVADOR
+#  Documento para reportar una avería en un elevador y asignarla a
+#  uno o varios técnicos. Correlativo propio: AV-0001, AV-0002, ...
+# ═══════════════════════════════════════════════════════════════════
+
+class ReporteAveria(models.Model):
+    """Reporte de avería de un elevador, asignable a técnicos."""
+    PRIORIDAD_CHOICES = [
+        ('baja', 'Baja'),
+        ('media', 'Media'),
+        ('alta', 'Alta'),
+        ('critica', 'Crítica'),
+    ]
+    ESTADO_CHOICES = [
+        ('abierta', 'Abierta'),
+        ('asignada', 'Asignada'),
+        ('en_proceso', 'En proceso'),
+        ('resuelta', 'Resuelta'),
+        ('cancelada', 'Cancelada'),
+    ]
+    CLASIFICACION_CHOICES = [
+        ('', '—'),
+        ('mecanica', 'Mecánica'),
+        ('electrica', 'Eléctrica'),
+        ('electronica', 'Electrónica'),
+        ('hidraulica', 'Hidráulica'),
+        ('externa', 'Externa'),
+        ('n_a', 'N/A'),
+    ]
+    CODIGO_PREFIJO = 'AV-'
+
+    codigo = models.CharField(
+        max_length=20, unique=True, null=True, blank=True, db_index=True,
+        verbose_name="Correlativo",
+    )
+    activo = models.ForeignKey(
+        'activos.Activo', on_delete=models.PROTECT, null=True,
+        related_name='averias_elevador', verbose_name="Activo",
+        help_text="Equipo (elevador) con la avería.",
+    )
+    unidad_funcional = models.ForeignKey(
+        'activos.Ubicacion', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='averias_elevador', verbose_name="Unidad funcional",
+        help_text="Se toma automáticamente de la ubicación del activo.",
+    )
+    elevador = models.ForeignKey(
+        Elevador, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='averias', verbose_name="Elevador (catálogo monitoreo)",
+    )
+    fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y hora de la avería")
+    reportado_por_nombre = models.CharField(
+        max_length=200, blank=True, verbose_name="Reportado por (texto libre)",
+        help_text="Quien detectó o avisó la avería.",
+    )
+    prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='media', db_index=True)
+    clasificacion = models.CharField(max_length=30, choices=CLASIFICACION_CHOICES, blank=True, default='')
+    equipo_parado = models.BooleanField(default=False, verbose_name="¿Elevador fuera de servicio?")
+    descripcion = models.TextField(verbose_name="Descripción de la avería")
+
+    tecnico_principal = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='averias_elevador_lider', verbose_name="Técnico responsable",
+    )
+    tecnicos = models.ManyToManyField(
+        User, blank=True, related_name='averias_elevador_apoyo',
+        verbose_name="Técnicos de apoyo",
+    )
+    fecha_asignacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de asignación")
+    asignado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='averias_elevador_asignadas_por', verbose_name="Asignado por",
+    )
+
+    diagnostico = models.TextField(blank=True, verbose_name="Diagnóstico")
+    acciones_realizadas = models.TextField(blank=True, verbose_name="Acciones realizadas")
+    materiales_utilizados = models.TextField(blank=True, verbose_name="Materiales / repuestos utilizados")
+    operativo_salida = models.BooleanField(null=True, blank=True, verbose_name="¿Quedó operativo?")
+    fecha_inicio = models.DateTimeField(null=True, blank=True, verbose_name="Inicio de atención")
+    fecha_resolucion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de resolución")
+    resuelto_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='averias_elevador_resueltas', verbose_name="Resuelto por",
+    )
+
+    estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='abierta', db_index=True)
+    creado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='averias_elevador_creadas', verbose_name="Creado por",
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Reporte de Avería"
+        verbose_name_plural = "Reportes de Avería"
+        ordering = ['-fecha_hora', '-id']
+
+    def __str__(self):
+        return f"{self.codigo or 'AV-TEMP'} — {self.equipo_display}"
+
+    def save(self, *args, **kwargs):
+        es_nuevo = self.pk is None
+        # La unidad funcional siempre se deriva de la ubicación del activo
+        if self.activo_id:
+            self.unidad_funcional_id = self.activo.ubicacion_id
+        super().save(*args, **kwargs)
+        if es_nuevo and not self.codigo:
+            self._asignar_codigo()
+
+    def _asignar_codigo(self, max_retries=5):
+        """Asigna AV-0001, AV-0002… de forma segura ante concurrencia."""
+        from django.db import IntegrityError, transaction
+        for intento in range(max_retries):
+            try:
+                with transaction.atomic():
+                    ultimo = (ReporteAveria.objects.select_for_update()
+                              .filter(codigo__startswith=self.CODIGO_PREFIJO)
+                              .order_by('-codigo').first())
+                    siguiente = 1
+                    if ultimo and ultimo.codigo:
+                        try:
+                            siguiente = int(ultimo.codigo[len(self.CODIGO_PREFIJO):]) + 1
+                        except ValueError:
+                            pass
+                    nuevo = f"{self.CODIGO_PREFIJO}{siguiente:04d}"
+                    ReporteAveria.objects.filter(pk=self.pk).update(codigo=nuevo)
+                    self.codigo = nuevo
+                    return
+            except IntegrityError:
+                if intento == max_retries - 1:
+                    nuevo = f"{self.CODIGO_PREFIJO}{self.pk:04d}"
+                    ReporteAveria.objects.filter(pk=self.pk).update(codigo=nuevo)
+                    self.codigo = nuevo
+
+    @property
+    def equipo_display(self):
+        if self.activo_id:
+            return str(self.activo)
+        if self.elevador_id:
+            return self.elevador.nombre
+        return "Sin activo"
+
+    @property
+    def unidad_funcional_display(self):
+        if self.unidad_funcional_id:
+            return self.unidad_funcional.get_ruta_completa()
+        return "—"
+
+    @property
+    def esta_cerrada(self):
+        return self.estado in ('resuelta', 'cancelada')
+
+    def puede_atender(self, user):
+        """El técnico responsable, los de apoyo o el personal staff."""
+        if not user.is_authenticated:
+            return False
+        if user.is_staff or self.tecnico_principal_id == user.pk:
+            return True
+        return self.tecnicos.filter(pk=user.pk).exists()
+
+    @property
+    def tecnico_principal_display(self):
+        if self.tecnico_principal:
+            return self.tecnico_principal.get_full_name() or self.tecnico_principal.username
+        return "Sin asignar"
+
+    @property
+    def prioridad_badge(self):
+        return {
+            'baja': 'badge-pend', 'media': 'badge-info',
+            'alta': 'badge-prog', 'critica': 'badge-err',
+        }.get(self.prioridad, 'badge-pend')
+
+    @property
+    def estado_badge(self):
+        return {
+            'abierta': 'badge-err', 'asignada': 'badge-info',
+            'en_proceso': 'badge-prog', 'resuelta': 'badge-ok',
+            'cancelada': 'badge-pend',
+        }.get(self.estado, 'badge-pend')
+
+
+class FotoAveria(models.Model):
+    """Foto adjunta a un reporte de avería."""
+    averia = models.ForeignKey(
+        ReporteAveria, on_delete=models.CASCADE,
+        related_name='fotos', verbose_name="Avería",
+    )
+    imagen = models.ImageField(upload_to='monitoreo/averias/fotos/', verbose_name="Imagen")
+    descripcion = models.CharField(max_length=300, blank=True, verbose_name="Descripción")
+    subido_en = models.DateTimeField(auto_now_add=True)
+    subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Subido por")
+
+    class Meta:
+        verbose_name = "Foto de avería"
+        verbose_name_plural = "Fotos de avería"
+        ordering = ['subido_en']
+
+    def __str__(self):
+        return f"Foto #{self.pk} — {self.averia.codigo}"

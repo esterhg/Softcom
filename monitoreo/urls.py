@@ -48,4 +48,20 @@ urlpatterns = [
     path('accionamiento/<int:pk>/pdf/', views.acc_pdf, name='acc_pdf'),
     path('accionamiento/<int:pk>/fotos/subir/', views.acc_foto_subir, name='acc_foto_subir'),
     path('accionamiento/fotos/<int:foto_pk>/eliminar/', views.acc_foto_eliminar, name='acc_foto_eliminar'),
+
+    # ── Reporte de Avería (AV-XXXX) ──
+    path('averias/api/activo/<int:activo_pk>/', views.av_api_activo, name='av_api_activo'),
+    # App del técnico
+    path('averias/app/', views.av_app_lista, name='av_app_lista'),
+    path('averias/app/<int:pk>/', views.av_app_detalle, name='av_app_detalle'),
+    path('averias/app/<int:pk>/iniciar/', views.av_app_iniciar, name='av_app_iniciar'),
+    path('averias/app/<int:pk>/guardar/', views.av_app_guardar, name='av_app_guardar'),
+    # Supervisor
+    path('averias/', views.av_lista, name='av_lista'),
+    path('averias/nueva/', views.av_crear, name='av_crear'),
+    path('averias/<int:pk>/', views.av_detalle, name='av_detalle'),
+    path('averias/<int:pk>/editar/', views.av_editar, name='av_editar'),
+    path('averias/<int:pk>/asignar/', views.av_asignar, name='av_asignar'),
+    path('averias/<int:pk>/estado/', views.av_estado, name='av_estado'),
+    path('averias/<int:pk>/eliminar/', views.av_eliminar, name='av_eliminar'),
 ]

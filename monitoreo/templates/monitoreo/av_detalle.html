@@ -1,0 +1,96 @@
+{% extends "monitoreo/av_base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mon-wrap">
+  <div class="mon-breadcrumb"><a href="{% url 'monitoreo:av_lista' %}">Averías</a> / {{ averia.codigo }}</div>
+  <div class="mon-page-header">
+    <h1>
+      <i class="fas fa-triangle-exclamation" style="color:#e9730c;margin-right:.4rem;"></i>{{ averia.codigo }} — {{ averia.equipo_display }}
+      <span class="badge-estado {{ averia.estado_badge }}" style="margin-left:.4rem;">{{ averia.get_estado_display }}</span>
+    </h1>
+    <div class="header-actions">
+      <a href="{% url 'admin:monitoreo_reporteaveria_change' averia.pk %}" class="mon-btn mon-btn-secondary"><i class="fas fa-pencil-alt"></i> Editar</a>
+      <form method="post" action="{% url 'monitoreo:av_eliminar' averia.pk %}" style="display:inline;" data-confirm="¿Eliminar la avería {{ averia.codigo }}?">
+        {% csrf_token %}<button type="submit" class="mon-btn mon-btn-danger"><i class="fas fa-trash"></i> Eliminar</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mon-card">
+    <div class="mon-card-title">Detalle</div>
+    <div class="mon-card-body">
+      <dl class="kv">
+        <dt>Activo</dt><dd>{{ averia.equipo_display }}</dd>
+        <dt>Unidad funcional</dt><dd>{{ averia.unidad_funcional_display }}</dd>
+        <dt>Fecha</dt><dd>{{ averia.fecha_hora|date:"d/m/Y H:i" }}</dd>
+        <dt>Reportado por</dt><dd>{{ averia.reportado_por_nombre|default:"—" }}</dd>
+        <dt>Prioridad</dt><dd><span class="badge-estado {{ averia.prioridad_badge }}">{{ averia.get_prioridad_display }}</span></dd>
+        <dt>Clasificación</dt><dd>{{ averia.get_clasificacion_display|default:"—" }}</dd>
+        <dt>Fuera de servicio</dt><dd>{% if averia.equipo_parado %}<span class="badge-estado badge-err">Sí</span>{% else %}No{% endif %}</dd>
+        <dt>Descripción</dt><dd>{{ averia.descripcion }}</dd>
+        <dt>Diagnóstico</dt><dd>{{ averia.diagnostico|default:"—" }}</dd>
+        <dt>Acciones</dt><dd>{{ averia.acciones_realizadas|default:"—" }}</dd>
+        <dt>Materiales</dt><dd>{{ averia.materiales_utilizados|default:"—" }}</dd>
+        <dt>¿Quedó operativo?</dt><dd>{% if averia.operativo_salida == True %}Sí{% elif averia.operativo_salida == False %}No{% else %}—{% endif %}</dd>
+        {% if averia.fecha_inicio %}<dt>Inicio atención</dt><dd>{{ averia.fecha_inicio|date:"d/m/Y H:i" }}</dd>{% endif %}
+        {% if averia.fecha_resolucion %}<dt>Resuelta</dt><dd>{{ averia.fecha_resolucion|date:"d/m/Y H:i" }}{% if averia.resuelto_por %} por {{ averia.resuelto_por.get_full_name|default:averia.resuelto_por.username }}{% endif %}</dd>{% endif %}
+        <dt>Creada por</dt><dd>{{ averia.creado_por.get_full_name|default:averia.creado_por.username|default:"—" }} · {{ averia.creado_en|date:"d/m/Y H:i" }}</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="mon-card">
+    <div class="mon-card-title">Asignación de técnicos</div>
+    <div class="mon-card-body">
+      {% if averia.fecha_asignacion %}
+      <p style="font-size:.82rem;color:#6a6d70;margin-top:0;">Asignada el {{ averia.fecha_asignacion|date:"d/m/Y H:i" }}{% if averia.asignado_por %} por {{ averia.asignado_por.get_full_name|default:averia.asignado_por.username }}{% endif %}.</p>
+      {% endif %}
+      <form method="post" action="{% url 'monitoreo:av_asignar' averia.pk %}">
+        {% csrf_token %}
+        <div class="mon-grid mon-grid-2">
+          <div class="mon-field">
+            <label>Técnico responsable</label>
+            <select name="tecnico_principal" class="mon-form-control">
+              <option value="">— Sin asignar —</option>
+              {% for t in tecnicos %}<option value="{{ t.pk }}" {% if averia.tecnico_principal_id == t.pk %}selected{% endif %}>{{ t.get_full_name|default:t.username }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mon-field">
+            <label>Técnicos de apoyo (Ctrl para varios)</label>
+            <select name="tecnicos" multiple size="5" class="mon-form-control">
+              {% for t in tecnicos %}<option value="{{ t.pk }}" {% if t in averia.tecnicos.all %}selected{% endif %}>{{ t.get_full_name|default:t.username }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="mon-btn mon-btn-primary" style="margin-top:.85rem;"><i class="fas fa-user-check"></i> Guardar asignación</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mon-card">
+    <div class="mon-card-title">Cambiar estado</div>
+    <div class="mon-card-body">
+      <form method="post" action="{% url 'monitoreo:av_estado' averia.pk %}" class="mon-toolbar" style="margin:0;">
+        {% csrf_token %}
+        <select name="estado" class="mon-form-control" style="width:auto;">
+          {% for v, l in ESTADOS %}<option value="{{ v }}" {% if averia.estado == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="mon-btn mon-btn-secondary"><i class="fas fa-rotate"></i> Actualizar</button>
+      </form>
+    </div>
+  </div>
+
+  {% if averia.fotos.all %}
+  <div class="mon-card">
+    <div class="mon-card-title">Fotos</div>
+    <div class="mon-card-body">
+      <div class="fotos-grid">
+        {% for f in averia.fotos.all %}<a href="{{ f.imagen.url }}" target="_blank" rel="noopener"><img src="{{ f.imagen.url }}" alt="Foto de avería {{ forloop.counter }}"></a>{% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
