@@ -270,7 +270,7 @@
         .attachment-delete {
             position: absolute;
             top: 4px; right: 4px;
-            width: 24px; height: 24px;
+            width: 32px; height: 32px;
             background: rgba(0,0,0,0.6);
             color: white;
             border-radius: 50%;
@@ -278,7 +278,15 @@
             align-items: center;
             justify-content: center;
             border: none;
-            font-size: 16px;
+            font-size: 20px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            cursor: pointer;
+        }
+        .attachment-delete::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
         }
 
         /* Toast */
@@ -559,7 +567,7 @@
                 </div>
                 <div class="attachments-grid" id="attachmentsGrid">
                     {% for archivo in ot.archivos.all %}
-                    <div class="attachment-item" id="file-{{ archivo.id }}" style="height: auto; min-height: 120px; display: flex; flex-direction: column;">
+                    <div class="attachment-item" id="file-{{ archivo.id|unlocalize }}" style="height: auto; min-height: 120px; display: flex; flex-direction: column;">
                         <div style="position: relative; flex-grow: 1; height: 100px;">
                             {% if archivo.tipo == 'IMAGEN' %}
                             <div onclick="openMediaModal('{{ archivo.archivo.url }}', 'IMAGEN')" style="width:100%;height:100%;">
@@ -571,7 +579,7 @@
                                 <span class="file-name" style="font-size: 10px;">{{ archivo.nombre|truncatechars:15 }}</span>
                             </a>
                             {% endif %}
-                            <button class="attachment-delete" onclick="deleteFile({{ archivo.id }})" title="Eliminar" style="z-index: 10;">
+                            <button type="button" class="attachment-delete" onclick="deleteFile({{ archivo.id|unlocalize }})" title="Eliminar" aria-label="Eliminar archivo" style="z-index: 10;">
                                 <ion-icon name="close"></ion-icon>
                             </button>
                         </div>
@@ -579,7 +587,7 @@
                             <input type="text" class="fiori-input" value="{{ archivo.nombre }}" 
                                    style="font-size: 11px; padding: 4px; height: 24px; border: none; border-bottom: 1px solid var(--sap-border-color);"
                                    placeholder="Descripción..."
-                                   onchange="updateFileName({{ archivo.id }}, this.value)">
+                                   onchange="updateFileName({{ archivo.id|unlocalize }}, this.value)">
                         </div>
                     </div>
                     {% endfor %}
@@ -978,7 +986,7 @@
                                 <div onclick="openMediaModal('${a.url}', 'IMAGEN')" style="width:100%;height:100%;">
                                     <img src="${a.url}" alt="${a.nombre}" style="object-fit: cover;">
                                 </div>
-                                <button class="attachment-delete" onclick="deleteFile(${a.id})" title="Eliminar" style="z-index: 10;">
+                                <button type="button" class="attachment-delete" onclick="deleteFile(${a.id})" title="Eliminar" aria-label="Eliminar archivo" style="z-index: 10;">
                                     <ion-icon name="close"></ion-icon>
                                 </button>
                                 <div style="padding: 4px;">
@@ -999,7 +1007,7 @@
                                         <ion-icon name="document-outline" class="file-icon"></ion-icon>
                                         <span class="file-name" style="font-size: 10px;">${a.nombre}</span>
                                     </a>
-                                    <button class="attachment-delete" onclick="deleteFile(${a.id})" title="Eliminar" style="z-index: 10;">
+                                    <button type="button" class="attachment-delete" onclick="deleteFile(${a.id})" title="Eliminar" aria-label="Eliminar archivo" style="z-index: 10;">
                                         <ion-icon name="close"></ion-icon>
                                     </button>
                                 </div>
@@ -1040,7 +1048,7 @@
             formData.append('nombre', nuevoNombre);
 
             try {
-                const url = "{% url 'mantenimiento:mobile_ot_update_file_name' ot.id 0 %}".replace('0', archivoId);
+                const url = "{% url 'mantenimiento:mobile_ot_update_file_name' ot.id 0 %}".replace('/0/', '/' + archivoId + '/');
                 const response = await fetch(url, {
                     method: 'POST',
                     body: formData,
@@ -1065,8 +1073,20 @@
         }
 
         async function deleteFile(archivoId) {
-            if (!confirm('¿Eliminar este archivo?')) return;
+            if (window.Swal) {
+                const r = await Swal.fire({
+                    title: '¿Eliminar este archivo?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#bb0000',
+                    allowOutsideClick: false
+                });
+                if (!r.isConfirmed) return;
+            } else if (!confirm('¿Eliminar este archivo?')) return;
 
+            const showErr = (msg) => window.Swal ? Swal.fire({icon: 'error', title: 'No se pudo eliminar', text: msg}) : alert(msg);
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const toast = document.getElementById('toast');
 
@@ -1078,7 +1098,8 @@
                         'Content-Type': 'application/json'
                     }
                 });
-                const result = await response.json();
+                let result = {};
+                try { result = await response.json(); } catch (_) {}
 
                 if (result.status === 'success') {
                     const el = document.getElementById('file-' + archivoId);
@@ -1089,10 +1110,10 @@
                     toast.classList.add('show');
                     setTimeout(() => toast.classList.remove('show'), 2000);
                 } else {
-                    alert('Error: ' + result.message);
+                    showErr(result.message || ('Error del servidor (HTTP ' + response.status + ').'));
                 }
             } catch (e) {
-                alert('Error de conexión.');
+                showErr('Error de conexión.');
             }
         }
 
