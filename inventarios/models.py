@@ -161,6 +161,19 @@ class Material(models.Model):
             return Decimal('0.00')
         return self.existencias.aggregate(total=models.Sum('cantidad'))['total'] or Decimal('0.00')
 
+    def get_stock_reservado(self, ubicacion_id=None):
+        """Cantidad reservada por pases de salida aún no aprobados."""
+        if self.no_afecta_stock:
+            return Decimal('0.00')
+        from .services_salida import ESTADOS_RESERVA
+        qs = self.movimientos.filter(
+            tipo='SALIDA', estado='PENDIENTE',
+            solicitud__estado__in=ESTADOS_RESERVA,
+        )
+        if ubicacion_id:
+            qs = qs.filter(ubicacion_origen_id=ubicacion_id)
+        return qs.aggregate(total=models.Sum('cantidad'))['total'] or Decimal('0.00')
+
     def recalcular_stock(self):
         if self.no_afecta_stock:
             self.existencias.update(cantidad=Decimal('0'))

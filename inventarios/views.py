@@ -570,12 +570,12 @@ def cart_checkout(request):
 
                 # Si se pide guardar como borrador, respetar ese estado.
                 # Requiere autorización si hay aprobadores por departamento o jefe directo.
+                # Todo pase de salida requiere aprobador (el material queda reservado
+                # hasta que se apruebe; al aprobar se descuenta el stock).
                 if es_borrador:
                     estado_inicial = 'BORRADOR'
-                elif hay_aprobadores or jefe:
-                    estado_inicial = 'PENDIENTE_AUTORIZACION'
                 else:
-                    estado_inicial = 'PENDIENTE'
+                    estado_inicial = 'PENDIENTE_AUTORIZACION'
 
                 # Crear la cabecera de la orden
                 solicitud = SolicitudMaterial.objects.create(
@@ -869,8 +869,9 @@ def api_despachar_solicitud(request, pk):
         solicitud.estado = 'RECHAZADO'
         solicitud.comentarios_almacen = comentarios_almacen
         solicitud.save()
-        # Rechazar todos los movimientos pendientes
-        solicitud.items.filter(estado='PENDIENTE').update(estado='RECHAZADO')
+        # Rechazar todos los movimientos (devuelve el stock si ya estaba aprobado)
+        from .services_salida import revertir_salida
+        revertir_salida(solicitud, request.user, motivo='Rechazado por almacén')
         return JsonResponse({'status': 'success', 'message': f'Solicitud #{solicitud.id} rechazada.'})
     
     # Procesar Fotos si las hay
@@ -891,7 +892,9 @@ def api_despachar_solicitud(request, pk):
     procesados = 0
     
     with transaction.atomic():
-        for mov in solicitud.items.filter(estado='PENDIENTE'):
+        # Incluye los ya APROBADOS (stock descontado al aprobar el pase): al ajustar
+        # la cantidad entregada, la señal recalcula el stock con lo real.
+        for mov in solicitud.items.filter(estado__in=['PENDIENTE', 'APROBADO']):
             try:
                 # Obtener lo que el almacenista especificó
                 item_data = cantidades_map.get(mov.id, {'cantidad': mov.cantidad, 'cantidad_usada': 0})
@@ -917,10 +920,13 @@ def api_despachar_solicitud(request, pk):
                     # Si se entrega TODO como usado, simplemente cambiamos el material del movimiento original
                     # Si se entrega PARCIAL, creamos un nuevo movimiento para el usado
                     if cant_nueva == 0:
+                        material_original = mov.material
                         mov.material = material_usado
                         mov.cantidad = cant_usada
                         mov.save()
                         mov.liquidar(request.user)
+                        # El material original deja de tener esta salida: recalcular
+                        material_original.recalcular_stock()
                         procesados += 1
                     else:
                         # Entrega Mixta: El original se queda como nuevo, creamos uno nuevo para el usado
@@ -1134,7 +1140,8 @@ def api_enviar_borrador(request, pk):
         aprobadores = _obtener_aprobadores_solicitud(solicitud, jefe)
     except Exception:
         aprobadores = []
-    solicitud.estado = 'PENDIENTE_AUTORIZACION' if aprobadores else 'PENDIENTE'
+    # Todo pase de salida requiere aprobador
+    solicitud.estado = 'PENDIENTE_AUTORIZACION'
     solicitud.save(update_fields=['estado'])
 
     # Notificaciones
@@ -2606,8 +2613,11 @@ def api_autorizar_solicitud(request, pk):
     accion = data.get('accion', '').lower()
     
     if accion == 'aprobar':
-        solicitud.estado = 'PENDIENTE'
-        solicitud.save()
+        from .services_salida import aprobar_salida
+        with transaction.atomic():
+            solicitud.estado = 'PENDIENTE'
+            solicitud.save()
+            aprobar_salida(solicitud, None)  # descuenta stock
         
         # Push notification vía ntfy al almacén
         from .utils_ntfy import notificar_nueva_solicitud
@@ -2618,8 +2628,9 @@ def api_autorizar_solicitud(request, pk):
     elif accion == 'rechazar':
         solicitud.estado = 'RECHAZADO'
         solicitud.save()
-        # Rechazar todos los movimientos asociados
-        solicitud.items.update(estado='RECHAZADO')
+        # Rechazar todos los movimientos asociados (libera reserva)
+        from .services_salida import revertir_salida
+        revertir_salida(solicitud)
         
         return JsonResponse({'status': 'success', 'message': f'Solicitud #{solicitud.id} rechazada.'})
         
@@ -3070,9 +3081,12 @@ def formulario_aprobacion_solicitud(request, pk, token):
         comentario = request.POST.get('comentario', '')
         
         if accion == 'aprobar':
-            solicitud.estado = 'PENDIENTE'
-            solicitud.comentarios_almacen = (solicitud.comentarios_almacen or '') + f"\n[Aprobado por {request.user.get_full_name() or request.user.username}] {comentario}".strip()
-            solicitud.save()
+            from .services_salida import aprobar_salida
+            with transaction.atomic():
+                solicitud.estado = 'PENDIENTE'
+                solicitud.comentarios_almacen = (solicitud.comentarios_almacen or '') + f"\n[Aprobado por {request.user.get_full_name() or request.user.username}] {comentario}".strip()
+                solicitud.save()
+                aprobar_salida(solicitud, request.user)  # descuenta stock
             
             # Notificar al almacén vía ntfy
             from .utils_ntfy import notificar_nueva_solicitud
@@ -3087,7 +3101,8 @@ def formulario_aprobacion_solicitud(request, pk, token):
             solicitud.estado = 'RECHAZADO'
             solicitud.comentarios_almacen = (solicitud.comentarios_almacen or '') + f"\n[Rechazado por {request.user.get_full_name() or request.user.username}] {comentario}".strip()
             solicitud.save()
-            solicitud.items.update(estado='RECHAZADO')
+            from .services_salida import revertir_salida
+            revertir_salida(solicitud, request.user)
             
             return render(request, 'inventarios/aprobacion_solicitud.html', {
                 'solicitud': solicitud,
@@ -4741,10 +4756,13 @@ a.btn {{ display:inline-block; margin-top:18px; background:#0070f2; color:#fff; 
 
     # Procesar la acción
     if accion == 'aprobar':
-        solicitud.estado = 'PENDIENTE'  # aprobada → pasa a pendiente de despacho en almacén
-        solicitud.autorizado_por = aprobador
-        solicitud.fecha_autorizacion = timezone.now()
-        solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+        from .services_salida import aprobar_salida
+        with transaction.atomic():
+            solicitud.estado = 'PENDIENTE'  # aprobada → pasa a pendiente de despacho en almacén
+            solicitud.autorizado_por = aprobador
+            solicitud.fecha_autorizacion = timezone.now()
+            solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+            aprobar_salida(solicitud, aprobador)  # descuenta stock
         try:
             from .utils_ntfy import notificar_nueva_solicitud
             notificar_nueva_solicitud(solicitud)
@@ -4762,10 +4780,13 @@ a.btn {{ display:inline-block; margin-top:18px; background:#0070f2; color:#fff; 
             '#107e3e'
         )
     elif accion == 'rechazar':
-        solicitud.estado = 'RECHAZADO'
-        solicitud.rechazado_por = aprobador
-        solicitud.fecha_rechazo = timezone.now()
-        solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+        from .services_salida import revertir_salida
+        with transaction.atomic():
+            solicitud.estado = 'RECHAZADO'
+            solicitud.rechazado_por = aprobador
+            solicitud.fecha_rechazo = timezone.now()
+            solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+            revertir_salida(solicitud, aprobador)  # libera la reserva
         return _pagina(
             'Solicitud rechazada',
             f"La solicitud fue <strong>rechazada</strong> por <strong>{_nombre(aprobador)}</strong>. Se notificará al solicitante.",
@@ -4960,10 +4981,13 @@ def solicitud_aprobar_departamento(request, pk):
     accion = (request.POST.get('accion') or '').lower()
 
     if accion == 'aprobar':
-        solicitud.estado = 'PENDIENTE'
-        solicitud.autorizado_por = request.user
-        solicitud.fecha_autorizacion = timezone.now()
-        solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+        from .services_salida import aprobar_salida
+        with transaction.atomic():
+            solicitud.estado = 'PENDIENTE'
+            solicitud.autorizado_por = request.user
+            solicitud.fecha_autorizacion = timezone.now()
+            solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+            aprobar_salida(solicitud, request.user)  # descuenta stock
         try:
             from .utils_ntfy import notificar_nueva_solicitud
             notificar_nueva_solicitud(solicitud)
@@ -4981,10 +5005,13 @@ def solicitud_aprobar_departamento(request, pk):
             pass
         return JsonResponse({'status': 'success', 'message': 'Solicitud autorizada.', 'nuevo_estado': 'PENDIENTE'})
     elif accion == 'rechazar':
-        solicitud.estado = 'RECHAZADO'
-        solicitud.rechazado_por = request.user
-        solicitud.fecha_rechazo = timezone.now()
-        solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+        from .services_salida import revertir_salida
+        with transaction.atomic():
+            solicitud.estado = 'RECHAZADO'
+            solicitud.rechazado_por = request.user
+            solicitud.fecha_rechazo = timezone.now()
+            solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+            revertir_salida(solicitud, request.user)  # libera la reserva
         return JsonResponse({'status': 'success', 'message': 'Solicitud rechazada.', 'nuevo_estado': 'RECHAZADO'})
     else:
         return JsonResponse({'status': 'error', 'message': 'Acción no válida.'}, status=400)
@@ -5109,9 +5136,10 @@ def solicitud_confirmar_entrega(request, pk):
     try:
         with transaction.atomic():
             # Liquidar cada movimiento (aprueba y descuenta stock)
-            for mov in solicitud.items.all():
-                if mov.estado != 'APROBADO':
-                    mov.liquidar(request.user)
+            # Normalmente ya están APROBADOS (se descuentan al aprobar el pase).
+            # Solo se liquidan los PENDIENTES; los RECHAZADOS no se tocan.
+            for mov in solicitud.items.filter(estado='PENDIENTE'):
+                mov.liquidar(request.user)
 
             solicitud.estado = 'ENTREGADO'
             if not solicitud.entregado_por:

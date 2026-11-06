@@ -134,6 +134,10 @@ def api_list_materials(request):
         stock_qs = stock_qs.filter(ubicacion_id=ubicacion_id)
     for row in stock_qs.values('material_id').annotate(total=DSum('cantidad')):
         stock_map[row['material_id']] = float(row['total'] or 0)
+
+    # Reservado por pases de salida pendientes de aprobación
+    from .services_salida import reservado_por_material
+    reservado_map = reservado_por_material(material_ids, ubicacion_id or None)
     
     # Batch: departamentos
     dept_map = defaultdict(set)
@@ -176,7 +180,10 @@ def api_list_materials(request):
             'descripcion': m.descripcion or '',
             'unidad': m.unidad_medida.nombre if m.unidad_medida else 'Unidad',
             'precio_estimado': float(m.precio_estimado),
-            'stock': stock_map.get(m.id, 0),
+            # 'stock' = disponible (total - reservado por pases sin aprobar)
+            'stock': stock_map.get(m.id, 0) - float(reservado_map.get(m.id, 0)),
+            'stock_total': stock_map.get(m.id, 0),
+            'reservado': float(reservado_map.get(m.id, 0)),
             'ancho': float(m.ancho) if m.ancho else None,
             'alto': float(m.alto) if m.alto else None,
             'peso': float(m.peso) if m.peso else None,

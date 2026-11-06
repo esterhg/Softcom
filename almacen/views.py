@@ -138,7 +138,7 @@ def procesar_despacho(request, orden_id):
 
     try:
         with transaction.atomic():
-            for item in orden.items.all():
+            for item in orden.items.exclude(estado='RECHAZADO'):
                 item_id_str = str(item.id)
                 nueva_qty = cantidades.get(item_id_str)
                 valor_loc = ubicaciones_seleccionadas.get(item_id_str) # "ID|ESPECIFICA"

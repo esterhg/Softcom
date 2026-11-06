@@ -551,10 +551,14 @@ def api_mobile_aprobar(request, pk):
     accion = (data.get('accion') or '').lower()
 
     if accion == 'aprobar':
-        solicitud.estado = 'PENDIENTE'
-        solicitud.autorizado_por = user
-        solicitud.fecha_autorizacion = timezone.now()
-        solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+        from django.db import transaction
+        from .services_salida import aprobar_salida
+        with transaction.atomic():
+            solicitud.estado = 'PENDIENTE'
+            solicitud.autorizado_por = user
+            solicitud.fecha_autorizacion = timezone.now()
+            solicitud.save(update_fields=['estado', 'autorizado_por', 'fecha_autorizacion'])
+            aprobar_salida(solicitud, user)  # descuenta stock
         try:
             from .utils_ntfy import notificar_nueva_solicitud
             notificar_nueva_solicitud(solicitud)
@@ -572,10 +576,14 @@ def api_mobile_aprobar(request, pk):
             pass
         return JsonResponse({'status': 'success', 'message': 'Solicitud autorizada.'})
     elif accion == 'rechazar':
-        solicitud.estado = 'RECHAZADO'
-        solicitud.rechazado_por = user
-        solicitud.fecha_rechazo = timezone.now()
-        solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+        from django.db import transaction
+        from .services_salida import revertir_salida
+        with transaction.atomic():
+            solicitud.estado = 'RECHAZADO'
+            solicitud.rechazado_por = user
+            solicitud.fecha_rechazo = timezone.now()
+            solicitud.save(update_fields=['estado', 'rechazado_por', 'fecha_rechazo'])
+            revertir_salida(solicitud, user)  # libera la reserva
         return JsonResponse({'status': 'success', 'message': 'Solicitud rechazada.'})
     return JsonResponse({'status': 'error', 'message': 'Acción no válida.'}, status=400)
 
@@ -659,9 +667,9 @@ def api_mobile_confirmar_entrega(request, pk):
 
     try:
         with transaction.atomic():
-            for mov in solicitud.items.all():
-                if mov.estado != 'APROBADO':
-                    mov.liquidar(user)
+            # Normalmente ya están APROBADOS (se descuentan al aprobar el pase).
+            for mov in solicitud.items.filter(estado='PENDIENTE'):
+                mov.liquidar(user)
 
             solicitud.estado = 'ENTREGADO'
             solicitud.recibe_nombre = recibe_nombre or None
