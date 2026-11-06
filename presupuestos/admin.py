@@ -663,10 +663,12 @@ class CentroCostoAdmin(admin.ModelAdmin):
 
 @admin.register(OrdenCompra)
 class OrdenCompraAdmin(admin.ModelAdmin):
-    list_display = ['numero_oc', 'tipo_documento', 'requisicion_link', 'proveedor', 'total', 'estado', 'fecha_creacion']
+    list_display = ['numero_oc', 'tipo_documento', 'requisicion_link', 'pdf_requisicion_link', 'proveedor', 'total', 'estado', 'fecha_creacion']
     list_filter = ['estado', 'tipo_documento', 'fecha_creacion']
     search_fields = ['numero_oc', 'proveedor__nombre', 'requisicion__cr8ca_requisicion']
-    readonly_fields = ['numero_oc', 'subtotal', 'impuestos', 'total', 'fecha_creacion', 'creado_por']
+    # numero_oc ya NO es de solo lectura: Procura puede editarlo (debe ser único;
+    # el formulario del admin valida que no exista otra OC con el mismo número).
+    readonly_fields = ['subtotal', 'impuestos', 'total', 'fecha_creacion', 'creado_por']
     fieldsets = [
         ('Documento', {'fields': ['tipo_documento', 'numero_oc', 'estado']}),
         ('Referencias', {'fields': ['requisicion', 'proveedor', 'centro_costo']}),
@@ -685,6 +687,18 @@ class OrdenCompraAdmin(admin.ModelAdmin):
         return format_html('<a href="{}">{}</a>', url, obj.requisicion.cr8ca_requisicion)
     requisicion_link.short_description = "Requisición"
     requisicion_link.admin_order_field = 'requisicion__cr8ca_requisicion'
+
+    def pdf_requisicion_link(self, obj):
+        """Botón que abre el PDF de la requisición de esta orden (la OC aún no tiene PDF propio)."""
+        from django.urls import reverse
+        url = reverse('presupuestos:requisicion_pdf', args=[obj.requisicion_id])
+        return format_html(
+            '<a class="button" href="{}" target="_blank" rel="noopener" '
+            'style="background:#ef4444;color:#fff;padding:2px 8px;border-radius:4px;'
+            'font-weight:600;text-decoration:none;font-size:0.9em;">📄 PDF</a>',
+            url,
+        )
+    pdf_requisicion_link.short_description = "PDF Requisición"
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
