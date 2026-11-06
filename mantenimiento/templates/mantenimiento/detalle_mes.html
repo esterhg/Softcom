@@ -878,7 +878,7 @@
                                 data-ot-assets="{{ ot.activos_nombres }}" data-asset-id="{{ asset.id|unlocalize }}"
                                 data-ot-estado="{{ ot.estado }}" data-prog-id="{{ ot.prog_id|default:'' }}"
                                 onclick="selectOT(event, this)" oncontextmenu="showContextMenu(event, this)"
-                                title="OT #{{ ot.id|unlocalize }}&#10;Estado: {{ ot.estado }}&#10;Rutina: {{ ot.rutina_nombre }}&#10;Inicio: {{ ot.inicio_hm }}&#10;Fin: {{ ot.fin_full }}">
+                                title="OT #{{ ot.id|unlocalize }}&#10;Estado: {{ ot.estado }}&#10;{% if ot.es_otnp %}OTNP{% else %}Rutina{% endif %}: {{ ot.rutina_nombre }}&#10;Inicio: {{ ot.inicio_hm }}&#10;Fin: {{ ot.fin_full }}">
                                 {% if ot.estado == 'REALIZADA' %}
                                 <ion-icon name="checkmark-sharp" style="pointer-events: none;"></ion-icon>
                                 {% endif %}

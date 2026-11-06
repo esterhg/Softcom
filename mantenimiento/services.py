@@ -10,6 +10,9 @@ from django.core.files.base import ContentFile
 from .utils.pdf_utils import generate_ot_pdf_bytes
 
 class WorkOrderService:
+    # Color de las OTNP (No Programadas) en el cronograma (naranja de advertencia).
+    COLOR_OTNP = '#e9730c'
+
     @staticmethod
     def get_calendar_data(year, view_mode='sistema', ubicacion_ids=None, tipo_ids=None, programacion_id=None, rutina_id=None):
         """
@@ -401,8 +404,19 @@ class WorkOrderService:
         for ot in ordenes:
             root_name, sub_name = get_root_and_sub(ot.ubicacion_id)
             
-            cat_name = ot.rutina.tipo.nombre if ot.rutina and ot.rutina.tipo else "Sin Tipo"
-            rut_name = ot.rutina.nombre if ot.rutina else "OT Sin Rutina"
+            # OTNP (No Programada) sin rutina: se muestran con su código y descripción
+            # bajo la categoría "OTNP", en vez de "OT Sin Rutina".
+            es_otnp = (ot.tipo == 'NO_PROGRAMADA' and not ot.rutina_id)
+            if es_otnp:
+                codigo = ot.codigo_de_orden or f"OT-{ot.id}"
+                desc = (ot.descripcion_corta or '').strip()
+                if len(desc) > 60:
+                    desc = desc[:57] + '…'
+                cat_name = "OTNP"
+                rut_name = f"{codigo} · {desc}" if desc else codigo
+            else:
+                cat_name = ot.rutina.tipo.nombre if ot.rutina and ot.rutina.tipo else "Sin Tipo"
+                rut_name = ot.rutina.nombre if ot.rutina else "OT Sin Rutina"
             
             # Color logic (optional, reuse existing or random)
             primer_horario = ot.programacion.horarios.first() if ot.programacion else None
@@ -431,7 +445,7 @@ class WorkOrderService:
                         'rutina_nombre': rut_name, 
                         'activos_nombres': ", ".join([a.nombre for a in assets]), 
                         'duration_pos': dp, 
-                        'color': '#ef4444' if (ot.rutina and ot.rutina.es_invasiva) else color
+                        'color': WorkOrderService.COLOR_OTNP if es_otnp else ('#ef4444' if (ot.rutina and ot.rutina.es_invasiva) else color)
                     }
 
                     if not assets:

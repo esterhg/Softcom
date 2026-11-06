@@ -335,6 +335,10 @@ def detalle_mes(request, year, month):
     # Flag especial: "Sin Categoría" es un label sintético para OTs sin tipo asignado
     is_sin_categoria = (filter_q == 'Sin Categoría' and not tipo_ids)
 
+    # Flag especial: "OTNP" es un grupo sintético con las OTs No Programadas sin rutina
+    # (no tienen categoría de mantenimiento, así que no entran por el filtro de tipo).
+    is_otnp = (filter_q == 'OTNP' and not tipo_ids)
+
     # Detectar Modo Resumen (General): Solo cuando NO hay NINGUN filtro activo
     # Si filter_q está presente (ej: "Sin Categoría"), ya se hizo clic en una categoría → modo detallado
     is_summary = not (tipo_ids or ubi_ids or programacion_id or filter_q)
@@ -401,6 +405,11 @@ def detalle_mes(request, year, month):
         # "Sin Categoría": filtrar solo OTs cuya rutina NO tiene tipo asignado
         if is_sin_categoria:
             filtros['rutina__tipo__isnull'] = True
+
+        # "OTNP": solo las No Programadas sin rutina (las que van en el grupo OTNP)
+        if is_otnp:
+            filtros['tipo'] = 'NO_PROGRAMADA'
+            filtros['rutina__isnull'] = True
         
         # BRUTAL OPTIMIZATION: Single optimized query instead of N+1
         ordenes = OrdenTrabajo.objects.filter(**filtros).select_related(
@@ -469,9 +478,26 @@ def detalle_mes(request, year, month):
             tree_dict = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(list)))))))
             system_colors = {}
 
+        def es_otnp_sin_rutina(ot):
+            """OTNP (No Programada) sin rutina: no tiene categoría de mantenimiento."""
+            return ot.tipo == 'NO_PROGRAMADA' and not ot.rutina_id
+
+        def etiqueta_otnp(ot):
+            """Texto de la fila de una OTNP: código + descripción corta."""
+            codigo = ot.codigo_de_orden or f"OT-{ot.id}"
+            desc = (ot.descripcion_corta or '').strip()
+            if len(desc) > 60:
+                desc = desc[:57] + '…'
+            return f"{codigo} · {desc}" if desc else codigo
+
         def add_to_tree_common(ot_dict, rut, ubi, assets, prog_color, day_key):
             tipo = rut.tipo if rut else None
-            if tipo and tipo.id in categs:
+            if ot_dict.get('es_otnp'):
+                # OTNP sin rutina: grupo propio para que se vean en el cronograma
+                sys_name = "OTNP"
+                sub_name = "General"
+                system_colors[sys_name] = WorkOrderService.COLOR_OTNP
+            elif tipo and tipo.id in categs:
                 fc = categs[tipo.id]
                 root = fc.get_root()
                 sys_name = root.nombre
@@ -488,7 +514,10 @@ def detalle_mes(request, year, month):
 
             asset_key = (assets[0].id, assets[0].nombre) if assets else (None, "General")
             asset_cat = assets[0].modelo.categoria.nombre if (assets and assets[0].modelo and assets[0].modelo.categoria) else "General"
-            rut_key = (rut.nombre, rut.frecuencia.nombre) if rut and rut.frecuencia else (rut.nombre if rut else "OT Sin Rutina", "")
+            if ot_dict.get('es_otnp'):
+                rut_key = (ot_dict['rutina_nombre'], "")  # una fila por OTNP (código · descripción)
+            else:
+                rut_key = (rut.nombre, rut.frecuencia.nombre) if rut and rut.frecuencia else (rut.nombre if rut else "OT Sin Rutina", "")
             ubi_label = ubi.get_ruta_completa(separador=' - ') if ubi else "Multiple"
             tree_dict[sys_name][sub_name][rut_key][ubi_label][asset_cat][asset_key][day_key].append(ot_dict)
 
@@ -506,10 +535,11 @@ def detalle_mes(request, year, month):
                         'id': ot.id, 'estado': ot.estado, 
                         'inicio_iso': sd.strftime('%Y-%m-%d'), 'inicio_hm': sd.strftime('%H:%M'), 
                         'fin_full': ed.strftime('%d/%m/%Y %H:%M'), 'fin_hm': ed.strftime('%H:%M'), 
-                        'rutina_nombre': ot.rutina.nombre if ot.rutina else "OT", 
+                        'rutina_nombre': etiqueta_otnp(ot) if es_otnp_sin_rutina(ot) else (ot.rutina.nombre if ot.rutina else "OT"), 
                         'activos_nombres': ", ".join([a.nombre for a in assets]), 
                         'duration_pos': dp, 
-                        'color': '#ef4444' if (ot.rutina and ot.rutina.es_invasiva) else (ot.programacion.horarios.first().color if ot.programacion and ot.programacion.horarios.exists() else '#3b82f6')
+                        'color': WorkOrderService.COLOR_OTNP if es_otnp_sin_rutina(ot) else ('#ef4444' if (ot.rutina and ot.rutina.es_invasiva) else (ot.programacion.horarios.first().color if ot.programacion and ot.programacion.horarios.exists() else '#3b82f6')),
+                        'es_otnp': es_otnp_sin_rutina(ot)
                     }
                     
                     if not assets:
