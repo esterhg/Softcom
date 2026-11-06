@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% block title %}Averías{% endblock %}</title>
+  <style>
+    @font-face { font-family:'Artifakt Element'; src:url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2'); font-weight:400; font-display:swap; }
+    @font-face { font-family:'Artifakt Element'; src:url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2'); font-weight:700; font-display:swap; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  {% include 'core/fiori_tokens.html' %}
+  <style>
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { margin:0; font-family:'Artifakt Element','Outfit',sans-serif; background:var(--sap-bg-color); color:var(--sap-text-color); padding-bottom:env(safe-area-inset-bottom); }
+    .shell { position:sticky; top:0; z-index:10; height:56px; background:var(--sap-shell-bg); color:#fff; display:flex; align-items:center; gap:12px; padding:0 16px; }
+    .shell a { color:#fff; display:flex; font-size:22px; text-decoration:none; }
+    .shell h1 { font-size:16px; font-weight:600; margin:0; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .page { padding:14px; max-width:720px; margin:0 auto; }
+    .card { background:var(--sap-card-bg); border:1px solid var(--sap-border-color); border-radius:.5rem; box-shadow:0 .125rem .25rem rgba(0,0,0,.08); margin-bottom:12px; }
+    .card-h { padding:12px 16px; border-bottom:1px solid var(--sap-border-color); font-weight:700; font-size:14px; }
+    .card-b { padding:14px 16px; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .badge-pend { background:#f1f5f9; color:#475569; }
+    .badge-prog { background:#fef3c7; color:#92400e; }
+    .badge-ok   { background:#dcfce7; color:#166534; }
+    .badge-err  { background:#fee2e2; color:#991b1b; }
+    .badge-info { background:#eff6ff; color:#1d4ed8; }
+    .item { display:flex; gap:12px; align-items:center; padding:14px 16px; text-decoration:none; color:inherit; border-bottom:1px solid var(--sap-border-color); }
+    .item:last-child { border-bottom:none; }
+    .item .ic { width:40px; height:40px; border-radius:50%; background:#fee2e2; color:#bb0000; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+    .item h4 { margin:0 0 3px; font-size:14px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .item p { margin:0; font-size:12px; color:var(--sap-text-muted); }
+    .seg { display:flex; background:var(--sap-card-bg); border:1px solid var(--sap-border-color); border-radius:4px; overflow:hidden; margin-bottom:12px; }
+    .seg a { flex:1; text-align:center; padding:9px; font-size:13px; font-weight:600; text-decoration:none; color:var(--sap-text-muted); }
+    .seg a.on { background:#0070f2; color:#fff; }
+    .kv { display:grid; grid-template-columns:120px 1fr; gap:8px 10px; font-size:13px; margin:0; }
+    .kv dt { color:var(--sap-text-muted); font-weight:700; font-size:11px; text-transform:uppercase; padding-top:2px; }
+    .kv dd { margin:0; white-space:pre-line; }
+    label.lbl { display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--sap-text-muted); margin:12px 0 5px; }
+    .fc { width:100%; border:1px solid var(--sap-border-color); border-radius:4px; padding:10px; font-size:14px; font-family:inherit; background:var(--sap-card-bg); color:var(--sap-text-color); }
+    .fc:focus { outline:none; border-color:#0070f2; box-shadow:0 0 0 2px rgba(0,112,242,.15); }
+    textarea.fc { min-height:84px; resize:vertical; }
+    .opts { display:flex; gap:8px; }
+    .opts label { flex:1; border:1px solid var(--sap-border-color); border-radius:4px; padding:10px; text-align:center; font-size:14px; font-weight:600; cursor:pointer; }
+    .opts input { margin-right:6px; }
+    .btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:4px; border:1px solid transparent; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; text-decoration:none; }
+    .btn-primary { background:#0070f2; color:#fff; }
+    .btn-success { background:#107e3e; color:#fff; }
+    .btn-secondary { background:var(--sap-card-bg); color:var(--sap-text-color); border-color:var(--sap-border-color); }
+    .btns { display:grid; gap:10px; margin-top:16px; }
+    .msg { padding:10px 14px; border-radius:4px; margin-bottom:12px; font-size:13px; font-weight:600; }
+    .msg-success { background:#dcfce7; color:#166534; } .msg-error { background:#fee2e2; color:#991b1b; } .msg-warning, .msg-info { background:#fef3c7; color:#92400e; }
+    .fotos { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    .fotos img { width:100%; height:90px; object-fit:cover; border-radius:4px; border:1px solid var(--sap-border-color); }
+    .empty { text-align:center; padding:40px 16px; color:var(--sap-text-muted); font-size:13px; }
+    .empty ion-icon { font-size:36px; opacity:.5; display:block; margin:0 auto 10px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <a href="{% block back %}{% url 'core:mobile_dashboard' %}{% endblock %}" aria-label="Volver"><ion-icon name="arrow-back-outline"></ion-icon></a>
+    <h1>{% block header %}Mis Averías{% endblock %}</h1>
+  </div>
+  <main class="page">
+    {% for m in messages %}<div class="msg msg-{{ m.tags|default:'info' }}" role="status">{{ m }}</div>{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,111 @@
+{% extends "monitoreo/av_app_base.html" %}
+
+{% block title %}{{ averia.codigo }}{% endblock %}
+{% block back %}{% url 'monitoreo:av_app_lista' %}{% endblock %}
+{% block header %}{{ averia.codigo }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span>{{ averia.equipo_display }}</span>
+    <span class="badge {{ averia.estado_badge }}">{{ averia.get_estado_display }}</span>
+  </div>
+  <div class="card-b">
+    <dl class="kv">
+      <dt>Unidad funcional</dt><dd>{{ averia.unidad_funcional_display }}</dd>
+      <dt>Prioridad</dt><dd><span class="badge {{ averia.prioridad_badge }}">{{ averia.get_prioridad_display }}</span></dd>
+      <dt>Fecha</dt><dd>{{ averia.fecha_hora|date:"d/m/Y H:i" }}</dd>
+      {% if averia.clasificacion %}<dt>Clasificación</dt><dd>{{ averia.get_clasificacion_display }}</dd>{% endif %}
+      <dt>Fuera de servicio</dt><dd>{% if averia.equipo_parado %}<span class="badge badge-err">Sí</span>{% else %}No{% endif %}</dd>
+      <dt>Reportado por</dt><dd>{{ averia.reportado_por_nombre|default:"—" }}</dd>
+      <dt>Responsable</dt><dd>{{ averia.tecnico_principal_display }}</dd>
+      {% if averia.tecnicos.all %}<dt>Apoyo</dt><dd>{% for t in averia.tecnicos.all %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
+      <dt>Descripción</dt><dd>{{ averia.descripcion }}</dd>
+      {% if averia.fecha_inicio %}<dt>Inicio</dt><dd>{{ averia.fecha_inicio|date:"d/m/Y H:i" }}</dd>{% endif %}
+    </dl>
+  </div>
+</div>
+
+{% if averia.fotos.all %}
+<div class="card">
+  <div class="card-h">Fotos</div>
+  <div class="card-b fotos">
+    {% for f in averia.fotos.all %}<a href="{{ f.imagen.url }}" target="_blank" rel="noopener"><img src="{{ f.imagen.url }}" alt="Foto {{ forloop.counter }} de la avería"></a>{% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if averia.esta_cerrada %}
+<div class="card">
+  <div class="card-h">Resolución</div>
+  <div class="card-b">
+    <dl class="kv">
+      <dt>Diagnóstico</dt><dd>{{ averia.diagnostico|default:"—" }}</dd>
+      <dt>Acciones</dt><dd>{{ averia.acciones_realizadas|default:"—" }}</dd>
+      <dt>Materiales</dt><dd>{{ averia.materiales_utilizados|default:"—" }}</dd>
+      <dt>¿Operativo?</dt><dd>{% if averia.operativo_salida == True %}Sí{% elif averia.operativo_salida == False %}No{% else %}—{% endif %}</dd>
+      {% if averia.fecha_resolucion %}<dt>Resuelta</dt><dd>{{ averia.fecha_resolucion|date:"d/m/Y H:i" }}{% if averia.resuelto_por %} · {{ averia.resuelto_por.get_full_name|default:averia.resuelto_por.username }}{% endif %}</dd>{% endif %}
+    </dl>
+  </div>
+</div>
+
+{% elif averia.estado != 'en_proceso' %}
+<form method="post" action="{% url 'monitoreo:av_app_iniciar' averia.pk %}">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-primary"><ion-icon name="play-outline"></ion-icon> Iniciar atención</button>
+</form>
+
+{% else %}
+<form method="post" action="{% url 'monitoreo:av_app_guardar' averia.pk %}" enctype="multipart/form-data" id="form-resolver">
+  {% csrf_token %}
+  <div class="card">
+    <div class="card-h">Resolver avería</div>
+    <div class="card-b">
+      <label class="lbl" for="diag">Diagnóstico *</label>
+      <textarea id="diag" name="diagnostico" class="fc" placeholder="Causa encontrada">{{ averia.diagnostico }}</textarea>
+
+      <label class="lbl" for="acc">Acciones realizadas *</label>
+      <textarea id="acc" name="acciones_realizadas" class="fc" placeholder="Qué se hizo para corregirla">{{ averia.acciones_realizadas }}</textarea>
+
+      <label class="lbl" for="mat">Materiales / repuestos</label>
+      <textarea id="mat" name="materiales_utilizados" class="fc" style="min-height:60px;">{{ averia.materiales_utilizados }}</textarea>
+
+      <span class="lbl">¿El equipo quedó operativo? *</span>
+      <div class="opts" role="radiogroup">
+        <label><input type="radio" name="operativo_salida" value="1" {% if averia.operativo_salida == True %}checked{% endif %}>Sí</label>
+        <label><input type="radio" name="operativo_salida" value="0" {% if averia.operativo_salida == False %}checked{% endif %}>No</label>
+      </div>
+
+      <label class="lbl" for="fotos">Fotos de evidencia</label>
+      <input id="fotos" type="file" name="fotos" accept="image/*" capture="environment" multiple class="fc">
+    </div>
+  </div>
+
+  <div class="btns">
+    <button type="submit" name="action" value="resolver" class="btn btn-success" id="btn-resolver"><ion-icon name="checkmark-circle-outline"></ion-icon> Marcar como resuelta</button>
+    <button type="submit" name="action" value="guardar" class="btn btn-secondary"><ion-icon name="save-outline"></ion-icon> Guardar avance</button>
+  </div>
+</form>
+<script>
+(function () {
+  var form = document.getElementById('form-resolver');
+  var btn = document.getElementById('btn-resolver');
+  btn.addEventListener('click', function (e) {
+    if (form.dataset.ok) return;
+    e.preventDefault();
+    var run = function () {
+      form.dataset.ok = '1';
+      var h = document.createElement('input');
+      h.type = 'hidden'; h.name = 'action'; h.value = 'resolver';
+      form.appendChild(h);
+      form.submit();
+    };
+    if (typeof Swal === 'undefined') { if (confirm('¿Cerrar la avería {{ averia.codigo }} como resuelta?')) run(); return; }
+    Swal.fire({ title: '¿Marcar {{ averia.codigo }} como resuelta?', text: 'Ya no podrás editarla desde la app.',
+      icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, resolver', cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#107e3e' }).then(function (r) { if (r.isConfirmed) run(); });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

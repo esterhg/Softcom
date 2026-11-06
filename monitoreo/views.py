@@ -1265,3 +1265,288 @@ def _procesar_form_acc(request, instance):
             pass
 
     return reporte
+
+
+
+
+# ═════════════════════════════════════════════════════════════
+#  REPORTE DE AVERÍA (correlativo AV-XXXX)
+#  - El supervisor la crea y asigna en /admin/ (ReporteAveriaAdmin).
+#  - El técnico asignado la ve y resuelve en /app/ (vistas av_app_*).
+# ═════════════════════════════════════════════════════════════
+
+from django.contrib.auth.decorators import login_required
+from django.urls import reverse
+
+
+def _tecnicos_disponibles():
+    """Usuarios activos que son técnicos (perfil técnico) o personal staff."""
+    from django.contrib.auth.models import User
+    return (User.objects.filter(is_active=True)
+            .filter(Q(perfil_tecnico__isnull=False) | Q(is_staff=True))
+            .distinct().order_by('first_name', 'last_name', 'username'))
+
+
+def _averias_asignadas(user):
+    """Averías donde el usuario es responsable o apoyo."""
+    from .models import ReporteAveria
+    return (ReporteAveria.objects
+            .filter(Q(tecnico_principal=user) | Q(tecnicos=user))
+            .select_related('activo', 'unidad_funcional', 'tecnico_principal')
+            .distinct())
+
+
+# ── Supervisor (staff) ───────────────────────────────────────
+
+@staff_member_required
+def av_lista(request):
+    from .models import ReporteAveria
+    qs = (ReporteAveria.objects
+          .select_related('activo', 'unidad_funcional', 'tecnico_principal')
+          .prefetch_related('tecnicos'))
+
+    q = request.GET.get('q', '').strip()
+    estado = request.GET.get('estado', '').strip()
+    prioridad = request.GET.get('prioridad', '').strip()
+    mias = request.GET.get('mias') == '1'
+
+    if q:
+        qs = qs.filter(
+            Q(codigo__icontains=q) | Q(descripcion__icontains=q) |
+            Q(activo__nombre__icontains=q) | Q(activo__codigo_interno__icontains=q) |
+            Q(unidad_funcional__nombre__icontains=q)
+        )
+    if estado:
+        qs = qs.filter(estado=estado)
+    if prioridad:
+        qs = qs.filter(prioridad=prioridad)
+    if mias:
+        qs = qs.filter(Q(tecnico_principal=request.user) | Q(tecnicos=request.user)).distinct()
+
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'monitoreo/av_lista.html', {
+        'title': 'Reportes de Avería',
+        'page_obj': page_obj,
+        'q': q, 'estado': estado, 'prioridad': prioridad, 'mias': mias,
+        'total': paginator.count,
+        'ESTADOS': ReporteAveria.ESTADO_CHOICES,
+        'PRIORIDADES': ReporteAveria.PRIORIDAD_CHOICES,
+        'abiertas_sin_asignar': ReporteAveria.objects.filter(estado='abierta').count(),
+    })
+
+
+@staff_member_required
+def av_crear(request):
+    """La creación se hace en el admin."""
+    return redirect('admin:monitoreo_reporteaveria_add')
+
+
+@staff_member_required
+def av_editar(request, pk):
+    return redirect('admin:monitoreo_reporteaveria_change', pk)
+
+
+@staff_member_required
+def av_detalle(request, pk):
+    from .models import ReporteAveria
+    averia = get_object_or_404(
+        ReporteAveria.objects
+            .select_related('activo', 'unidad_funcional', 'tecnico_principal',
+                            'asignado_por', 'creado_por', 'resuelto_por')
+            .prefetch_related('tecnicos', 'fotos'),
+        pk=pk,
+    )
+    return render(request, 'monitoreo/av_detalle.html', {
+        'title': f'Avería {averia.codigo}',
+        'averia': averia,
+        'ESTADOS': ReporteAveria.ESTADO_CHOICES,
+        'tecnicos': _tecnicos_disponibles(),
+    })
+
+
+@staff_member_required
+@require_POST
+def av_asignar(request, pk):
+    """Asignación rápida de técnico responsable y apoyo desde el detalle."""
+    from django.contrib.auth.models import User
+    from .models import ReporteAveria
+    averia = get_object_or_404(ReporteAveria, pk=pk)
+
+    principal_id = request.POST.get('tecnico_principal', '')
+    principal = User.objects.filter(pk=principal_id, is_active=True).first() if principal_id.isdigit() else None
+    apoyo_ids = [int(x) for x in request.POST.getlist('tecnicos') if x.isdigit()]
+    if principal:
+        apoyo_ids = [i for i in apoyo_ids if i != principal.pk]
+
+    with transaction.atomic():
+        averia.tecnico_principal = principal
+        averia.fecha_asignacion = timezone.now() if (principal or apoyo_ids) else None
+        averia.asignado_por = request.user if (principal or apoyo_ids) else None
+        if averia.estado == 'abierta' and (principal or apoyo_ids):
+            averia.estado = 'asignada'
+        averia.save()
+        averia.tecnicos.set(User.objects.filter(pk__in=apoyo_ids, is_active=True))
+
+    messages.success(request, f'Técnicos asignados a {averia.codigo}.')
+    return redirect('monitoreo:av_detalle', pk=pk)
+
+
+@staff_member_required
+@require_POST
+def av_estado(request, pk):
+    """Cambio rápido de estado por el supervisor."""
+    from .models import ReporteAveria
+    averia = get_object_or_404(ReporteAveria, pk=pk)
+    estado = request.POST.get('estado', '')
+    if estado not in dict(ReporteAveria.ESTADO_CHOICES):
+        messages.error(request, 'Estado inválido.')
+        return redirect('monitoreo:av_detalle', pk=pk)
+    averia.estado = estado
+    if estado == 'resuelta':
+        averia.fecha_resolucion = averia.fecha_resolucion or timezone.now()
+        averia.resuelto_por = averia.resuelto_por or request.user
+    else:
+        averia.fecha_resolucion = None
+        averia.resuelto_por = None
+    averia.save()
+    messages.success(request, f'{averia.codigo} marcada como {averia.get_estado_display().lower()}.')
+    return redirect('monitoreo:av_detalle', pk=pk)
+
+
+@staff_member_required
+@require_POST
+def av_eliminar(request, pk):
+    from .models import ReporteAveria
+    averia = get_object_or_404(ReporteAveria, pk=pk)
+    codigo = averia.codigo
+    for foto in averia.fotos.all():
+        try: foto.imagen.delete(save=False)
+        except Exception: pass
+    averia.delete()
+    messages.success(request, f'Avería {codigo} eliminada.')
+    return redirect('monitoreo:av_lista')
+
+
+@staff_member_required
+def av_api_activo(request, activo_pk):
+    """Devuelve la unidad funcional (ubicación) de un activo. Usado por el admin."""
+    from activos.models import Activo
+    activo = get_object_or_404(Activo.objects.select_related('ubicacion'), pk=activo_pk)
+    return JsonResponse({
+        'activo': str(activo),
+        'unidad_funcional_id': activo.ubicacion_id,
+        'unidad_funcional': activo.ubicacion.get_ruta_completa() if activo.ubicacion else '',
+    })
+
+
+# ── Técnico (app móvil /app/) ────────────────────────────────
+
+@login_required
+def av_app_lista(request):
+    """Mis averías: las asignadas al usuario. Pendientes primero."""
+    ver = request.GET.get('ver', 'pendientes')
+    qs = _averias_asignadas(request.user)
+    if ver == 'resueltas':
+        qs = qs.filter(estado__in=['resuelta', 'cancelada']).order_by('-fecha_resolucion', '-fecha_hora')[:50]
+    else:
+        ver = 'pendientes'
+        qs = qs.exclude(estado__in=['resuelta', 'cancelada']).order_by('-fecha_hora')
+    return render(request, 'monitoreo/av_app_lista.html', {
+        'averias': qs,
+        'ver': ver,
+    })
+
+
+@login_required
+def av_app_detalle(request, pk):
+    from .models import ReporteAveria
+    averia = get_object_or_404(
+        ReporteAveria.objects
+            .select_related('activo', 'unidad_funcional', 'tecnico_principal', 'asignado_por', 'resuelto_por')
+            .prefetch_related('tecnicos', 'fotos'),
+        pk=pk,
+    )
+    if not averia.puede_atender(request.user):
+        messages.error(request, 'Esta avería no está asignada a ti.')
+        return redirect('monitoreo:av_app_lista')
+    return render(request, 'monitoreo/av_app_detalle.html', {
+        'averia': averia,
+    })
+
+
+@login_required
+@require_POST
+def av_app_iniciar(request, pk):
+    """El técnico inicia la atención (como 'Iniciar Tarea' de la OT)."""
+    from .models import ReporteAveria
+    averia = get_object_or_404(ReporteAveria, pk=pk)
+    if not averia.puede_atender(request.user):
+        messages.error(request, 'Esta avería no está asignada a ti.')
+        return redirect('monitoreo:av_app_lista')
+    if averia.esta_cerrada:
+        messages.warning(request, f'{averia.codigo} ya está cerrada.')
+    else:
+        averia.estado = 'en_proceso'
+        averia.fecha_inicio = averia.fecha_inicio or timezone.now()
+        averia.save(update_fields=['estado', 'fecha_inicio', 'actualizado_en'])
+        messages.success(request, f'Atención de {averia.codigo} iniciada.')
+    return redirect('monitoreo:av_app_detalle', pk=pk)
+
+
+@login_required
+@require_POST
+def av_app_guardar(request, pk):
+    """Guarda avance (diagnóstico, acciones, fotos). Si action=resolver, cierra la avería."""
+    from .models import ReporteAveria, FotoAveria
+    averia = get_object_or_404(ReporteAveria, pk=pk)
+    if not averia.puede_atender(request.user):
+        messages.error(request, 'Esta avería no está asignada a ti.')
+        return redirect('monitoreo:av_app_lista')
+    if averia.esta_cerrada:
+        messages.warning(request, f'{averia.codigo} ya está cerrada.')
+        return redirect('monitoreo:av_app_detalle', pk=pk)
+
+    post = request.POST
+    resolver = post.get('action') == 'resolver'
+
+    averia.diagnostico = post.get('diagnostico', '').strip()
+    averia.acciones_realizadas = post.get('acciones_realizadas', '').strip()
+    averia.materiales_utilizados = post.get('materiales_utilizados', '').strip()
+    op = post.get('operativo_salida', '')
+    averia.operativo_salida = True if op == '1' else (False if op == '0' else None)
+
+    if resolver:
+        faltan = []
+        if not averia.diagnostico:
+            faltan.append('diagnóstico')
+        if not averia.acciones_realizadas:
+            faltan.append('acciones realizadas')
+        if averia.operativo_salida is None:
+            faltan.append('si el equipo quedó operativo')
+        if faltan:
+            averia.save()
+            messages.error(request, 'Para resolver indica: ' + ', '.join(faltan) + '.')
+            return redirect('monitoreo:av_app_detalle', pk=pk)
+
+    with transaction.atomic():
+        ahora = timezone.now()
+        if averia.estado in ('abierta', 'asignada'):
+            averia.estado = 'en_proceso'
+            averia.fecha_inicio = averia.fecha_inicio or ahora
+        if resolver:
+            averia.estado = 'resuelta'
+            averia.fecha_resolucion = ahora
+            averia.resuelto_por = request.user
+            if averia.operativo_salida:
+                averia.equipo_parado = False
+        averia.save()
+        for img in request.FILES.getlist('fotos'):
+            FotoAveria.objects.create(averia=averia, imagen=img, subido_por=request.user,
+                                      descripcion='Evidencia del técnico')
+
+    if resolver:
+        return redirect(f"{reverse('core:mobile_dashboard')}?averia_resuelta={averia.codigo}")
+    messages.success(request, 'Avance guardado.')
+    return redirect('monitoreo:av_app_detalle', pk=pk)

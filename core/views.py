@@ -840,6 +840,16 @@ def mobile_dashboard(request):
     ots_hoy = ots_hoy.filter(asignadas_q).distinct()
     ots_proximas = ots_proximas.filter(asignadas_q).distinct()
 
+    # Averías de elevadores asignadas al usuario (responsable o apoyo), pendientes
+    from monitoreo.models import ReporteAveria
+    mis_averias_qs = (ReporteAveria.objects
+                      .filter(Q(tecnico_principal=request.user) | Q(tecnicos=request.user))
+                      .exclude(estado__in=['resuelta', 'cancelada'])
+                      .select_related('activo', 'unidad_funcional')
+                      .distinct().order_by('-fecha_hora'))
+    mis_averias_count = mis_averias_qs.count()
+    mis_averias = list(mis_averias_qs[:5])
+
     # Aplicar el recorte de seguridad al final para evitar crashes de memoria en móvil
     ots_hoy = ots_hoy[:10]
     ots_proximas = ots_proximas[:10]
@@ -935,6 +945,8 @@ def mobile_dashboard(request):
     context = {
         'ots_hoy': ots_hoy,
         'ots_proximas': ots_proximas,
+        'mis_averias': mis_averias,
+        'mis_averias_count': mis_averias_count,
         'total_activos': total_activos,
         'avisos_abiertos': avisos_abiertos,
         'planos_recientes': planos_recientes,

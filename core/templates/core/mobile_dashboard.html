@@ -573,6 +573,33 @@
             </div>
             {% endif %}
 
+            <!-- MIS AVERÍAS ASIGNADAS (elevadores, AV-XXXX) -->
+            {% if mis_averias %}
+            <div class="fiori-card" style="margin-top: 16px; border-left: 4px solid #bb0000;">
+                <div style="padding: 12px 16px; border-bottom: 1px solid var(--sap-border-color); display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin:0; font-size: 14px; font-weight: 700;">
+                        <ion-icon name="warning-outline" style="vertical-align: middle; color: #bb0000;"></ion-icon>
+                        Mis Averías <span class="fiori-badge fiori-badge-error">{{ mis_averias_count }}</span>
+                    </h3>
+                    <a href="{% url 'monitoreo:av_app_lista' %}" style="font-size: 11px; color: var(--sap-brand-color); text-decoration: none; font-weight: 600;">Ver todas</a>
+                </div>
+                <div class="fiori-list">
+                    {% for av in mis_averias %}
+                    <a href="{% url 'monitoreo:av_app_detalle' av.pk %}" class="fiori-list-item">
+                        <div class="item-icon" style="background: #fee2e2; color: #bb0000;">
+                            <ion-icon name="warning-outline"></ion-icon>
+                        </div>
+                        <div class="item-content">
+                            <h4>{{ av.codigo }} <span class="fiori-badge fiori-badge-{% if av.prioridad == 'critica' or av.prioridad == 'alta' %}error{% elif av.prioridad == 'media' %}warning{% else %}success{% endif %}">{{ av.get_prioridad_display }}</span></h4>
+                            <p>{{ av.equipo_display|truncatechars:35 }} · {{ av.unidad_funcional|default:"S/U"|truncatechars:25 }}</p>
+                        </div>
+                        <ion-icon name="chevron-forward-outline" style="color: #ccc;"></ion-icon>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- CLUSTERS DE TICKETS POR DEPARTAMENTO -->
             {% if clusters_departamento %}
             <div class="fiori-card" style="margin-top: 16px;">
@@ -794,6 +821,35 @@
                 </div>
                 <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
             </a>
+
+            <!-- Reporte de Avería -->
+            <div style="font-size:12px;font-weight:700;color:#6a6d70;text-transform:uppercase;letter-spacing:.04em;margin:18px 0 10px;">
+                Averías de Elevadores
+            </div>
+            <a href="{% url 'monitoreo:av_app_lista' %}" class="fiori-card"
+               style="display:flex;align-items:center;gap:16px;padding:20px;text-decoration:none;border-left:4px solid #bb0000;margin-bottom:12px;">
+                <div style="width:44px;height:44px;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <ion-icon name="warning-outline" style="font-size:24px;color:#bb0000;"></ion-icon>
+                </div>
+                <div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Mis Averías{% if mis_averias_count %} ({{ mis_averias_count }}){% endif %}</div>
+                    <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Averías asignadas a ti para resolver</div>
+                </div>
+                <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
+            </a>
+            {% if user.is_staff %}
+            <a href="{% url 'admin:monitoreo_reporteaveria_add' %}" class="fiori-card"
+               style="display:flex;align-items:center;gap:16px;padding:20px;text-decoration:none;">
+                <div style="width:44px;height:44px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <ion-icon name="add-circle-outline" style="font-size:24px;color:#0070f2;"></ion-icon>
+                </div>
+                <div>
+                    <div style="font-weight:700;font-size:14px;color:var(--sap-text-color);">Reportar y Asignar Avería</div>
+                    <div style="font-size:12px;color:#6a6d70;margin-top:2px;">Supervisor · se abre en el admin</div>
+                </div>
+                <ion-icon name="chevron-forward-outline" style="color:#ccc;margin-left:auto;"></ion-icon>
+            </a>
+            {% endif %}
         </div>
 
         <div style="height: 60px;"></div>
@@ -1064,6 +1120,31 @@
         } else {
             showToast();
         }
+    })();
+    </script>
+
+    <!-- Toast de confirmación al resolver una avería -->
+    <script>
+    (function () {
+        const params = new URLSearchParams(window.location.search);
+        const codigo = params.get('averia_resuelta');
+        if (!codigo) return;
+        function fire() {
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: 'Avería resuelta',
+                text: codigo + ' marcada como resuelta.', showConfirmButton: false, timer: 4000, timerProgressBar: true });
+        }
+        function show() {
+            if (typeof Swal === 'undefined') {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+                s.onload = fire;
+                document.head.appendChild(s);
+            } else { fire(); }
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete('averia_resuelta');
+        window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', show); } else { show(); }
     })();
     </script>
 
