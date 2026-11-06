@@ -963,15 +963,16 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'notificaciones@energi
 # Separados por coma si son varios: proc1@empresa.com,proc2@empresa.com
 PROCURA_EMAIL = os.environ.get('PROCURA_EMAIL', '')
 
-# ── Lectura de buzón IMAP para resultados de aprobación (Power Automate sin HTTP premium) ──
+# ── Lectura de buzón (Microsoft Graph) para resultados de aprobación ──
 # Power Automate envía un correo con asunto:
 #   [REQ-RESULTADO] <numero_requisicion> | APROBAR|RECHAZAR | <token>
-# y esta tarea periódica lo lee y actualiza la requisición.
-REQ_IMAP_HOST = os.environ.get('REQ_IMAP_HOST', 'outlook.office365.com')
-REQ_IMAP_PORT = int(os.environ.get('REQ_IMAP_PORT', 993))
-REQ_IMAP_USER = os.environ.get('REQ_IMAP_USER', '')
-REQ_IMAP_PASSWORD = os.environ.get('REQ_IMAP_PASSWORD', '')
-REQ_IMAP_FOLDER = os.environ.get('REQ_IMAP_FOLDER', 'INBOX')
+# y la tarea periódica lo lee vía Graph y actualiza la requisición.
+# Se usa Graph porque Microsoft 365 tiene deshabilitada la autenticación básica de IMAP.
+# Si no se definen, se reutiliza la app de Azure de Dynamics.
+REQ_GRAPH_TENANT_ID = os.environ.get('REQ_GRAPH_TENANT_ID') or os.environ.get('DYNAMICS_TENANT_ID', '')
+REQ_GRAPH_CLIENT_ID = os.environ.get('REQ_GRAPH_CLIENT_ID') or os.environ.get('DYNAMICS_CLIENT_ID', '')
+REQ_GRAPH_CLIENT_SECRET = os.environ.get('REQ_GRAPH_CLIENT_SECRET') or os.environ.get('DYNAMICS_CLIENT_SECRET', '')
+REQ_GRAPH_MAILBOX = os.environ.get('REQ_GRAPH_MAILBOX') or os.environ.get('REQ_IMAP_USER', '')
 # Secreto compartido con Power Automate; si está vacío, no se valida token.
 REQ_APROBACION_TOKEN = os.environ.get('REQ_APROBACION_TOKEN', '')
 
