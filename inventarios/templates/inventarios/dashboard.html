@@ -126,6 +126,8 @@
         transition: all 0.2s ease;
     }
 
+    a.stat-card, a.menu-card { text-decoration: none; color: inherit; cursor: pointer; }
+
     .stat-card:hover {
         transform: translateY(-2px);
         box-shadow: var(--card-shadow-hover);
@@ -562,55 +564,59 @@
             <p>Gestiona materiales, repuestos y suministros operativos.</p>
         </div>
         <div>
-            <button id="btn-nuevo-material-modal" class="btn-submit"
-                style="margin-top:0; background: #1e293b !important;">
+            <a href="{% url 'inventarios:material_nuevo' %}" class="btn-submit"
+                style="margin-top:0; background: #1e293b !important; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
                 <ion-icon name="add-outline"></ion-icon> Nuevo Material Rápido
-            </button>
+            </a>
         </div>
     </div>
 
     <!-- Stats Row -->
     <div class="stats-row">
-        <div class="stat-card">
+        <a href="{% url 'inventarios:master_catalog' %}" class="stat-card">
             <div class="stat-icon stat-blue"><ion-icon name="layers-outline"></ion-icon></div>
             <div class="stat-info">
                 <h3>{{ total_materiales }}</h3>
                 <p>Materiales Registrados</p>
             </div>
-        </div>
-        <div class="stat-card">
+        </a>
+        {% if es_almacen %}
+        <a href="{% url 'inventarios:mobile_gestion_salidas' %}?origen=inventarios" class="stat-card">
+        {% else %}
+        <a href="{% url 'inventarios:mobile_lista_pedidos' %}?origen=inventarios" class="stat-card">
+        {% endif %}
             <div class="stat-icon stat-indigo"><ion-icon name="hourglass-outline"></ion-icon></div>
             <div class="stat-info">
                 <h3>{{ pedidos_pendientes }}</h3>
                 <p>Pedidos en Curso</p>
             </div>
-        </div>
-        <div class="stat-card">
+        </a>
+        <a href="{% url 'inventarios:master_catalog' %}" class="stat-card">
             <div class="stat-icon stat-emerald"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
             <div class="stat-info">
                 <h3>100%</h3>
                 <p>Disponibilidad Críticos</p>
             </div>
-        </div>
+        </a>
     </div>
 
     <!-- Interactive Menu -->
     <div class="menu-grid">
-        <div class="menu-card" id="btn-nueva-solicitud">
+        <a href="{% url 'inventarios:solicitud_nueva' %}" class="menu-card">
             <ion-icon name="cart-outline"></ion-icon>
             <div class="card-content">
                 <h2>Solicitud de Materiales</h2>
                 <p>Crea un nuevo pedido de materiales para tus tareas diarias o mantenimientos.</p>
             </div>
-        </div>
+        </a>
 
-        <div class="menu-card" id="btn-ingreso-inventario" style="cursor: pointer;">
+        <a href="{% url 'inventarios:ingreso_inventario' %}" class="menu-card">
             <ion-icon name="add-circle-outline" style="color: #059669;"></ion-icon>
             <div class="card-content">
                 <h2>Ingreso de Inventario</h2>
                 <p>Registra la entrada de nuevos materiales, compras o devoluciones al almacén.</p>
             </div>
-        </div>
+        </a>
 
         <a href="{% url 'inventarios:scanner' %}" class="menu-card">
             <ion-icon name="barcode-outline"></ion-icon>
@@ -620,7 +626,7 @@
             </div>
         </a>
 
-        <a href="{% url 'inventarios:mobile_lista_pedidos' %}" class="menu-card">
+        <a href="{% url 'inventarios:mobile_lista_pedidos' %}?origen=inventarios" class="menu-card">
             <ion-icon name="list-outline"></ion-icon>
             <div class="card-content">
                 <h2>Mis Solicitudes</h2>
@@ -653,7 +659,7 @@
         </a>
 
         {% if es_almacen %}
-        <a href="{% url 'inventarios:mobile_gestion_salidas' %}" class="menu-card" id="btn-gestion-salidas" style="cursor:pointer;">
+        <a href="{% url 'inventarios:mobile_gestion_salidas' %}?origen=inventarios" class="menu-card" id="btn-gestion-salidas" style="cursor:pointer;">
             <ion-icon name="exit-outline" style="color: #d97706;"></ion-icon>
             <div class="card-content">
                 <h2>Gestión de Salidas</h2>
@@ -705,13 +711,13 @@
             </div>
         </a>
 
-        <div class="menu-card" id="btn-racks" style="cursor: pointer;">
+        <a href="{% url 'inventarios:racks_list' %}" class="menu-card">
             <ion-icon name="layers-outline" style="color: #7c3aed;"></ion-icon>
             <div class="card-content">
                 <h2>Racks / Estanterías</h2>
                 <p>Visualiza en 3D la distribución de racks, niveles y secciones por bodega.</p>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 <!-- El modal de Gestión de Salidas ahora se hereda de base_site.html para evitar duplicidad -->
@@ -1146,17 +1152,37 @@
         function enc(t){return encodeURIComponent(t||'');}
 
         // 1. Modal Logic
-        $('#btn-nueva-solicitud').on('click', () => {
+        // Cada tarjeta tiene su URL (GET). El servidor indica qué formulario abrir
+        // (modal_inicial) y al cerrarlo se vuelve al Centro de Inventarios.
+        const DASH_URL = "{% url 'inventarios:dashboard' %}";
+        const MODAL_INICIAL = "{{ modal_inicial|default:''|escapejs }}";
+
+        // Vuelve al dashboard. Si el usuario venía del dashboard usa el historial
+        // (sin duplicar entradas); si no, reemplaza la entrada actual.
+        function volverAlDashboard(reemplazar) {
+            if (location.pathname === DASH_URL) return;
+            let vinoDelDashboard = false;
+            try { vinoDelDashboard = !!document.referrer && new URL(document.referrer).pathname === DASH_URL; } catch (e) { }
+            if (!reemplazar && vinoDelDashboard && history.length > 1) history.back();
+            else location.replace(DASH_URL);
+        }
+
+        // Cierra un formulario principal; si se abrió por su propia URL, vuelve al dashboard.
+        function cerrarFormularioPrincipal(selector) {
+            $(selector).removeClass('active');
+            if (MODAL_INICIAL) volverAlDashboard(false);
+        }
+
+        $('#close-solicitud').on('click', () => cerrarFormularioPrincipal('#solicitud-modal'));
+        $('#close-ingreso').on('click', () => cerrarFormularioPrincipal('#ingreso-modal'));
+
+        if (MODAL_INICIAL === 'solicitud') {
             activeMode = 'solicitud';
             $('#solicitud-modal').addClass('active');
-        });
-        $('#close-solicitud').on('click', () => $('#solicitud-modal').removeClass('active'));
-
-        $('#btn-ingreso-inventario').on('click', () => {
+        } else if (MODAL_INICIAL === 'ingreso') {
             activeMode = 'ingreso';
             $('#ingreso-modal').addClass('active');
-        });
-        $('#close-ingreso').on('click', () => $('#ingreso-modal').removeClass('active'));
+        }
 
         {% if ot_pre %}
         // Auto-abrir solicitud con OT pre-seleccionada
@@ -1177,7 +1203,15 @@
             loadMaterials();
         });
         $('#close-catalog').on('click', () => $('#catalog-modal').removeClass('active'));
-        $('.modal-overlay').on('click', function(e) { if (e.target === this) $(this).removeClass('active'); });
+        $('.modal-overlay').on('click', function(e) {
+            if (e.target !== this) return;
+            // Formularios principales: cerrar = volver al dashboard (si tienen URL propia)
+            if (['solicitud-modal', 'ingreso-modal', 'nuevo-material-modal'].includes(this.id)) {
+                cerrarFormularioPrincipal('#' + this.id);
+            } else {
+                $(this).removeClass('active');
+            }
+        });
 
         $('#ubicacion_origen').on('change', function () {
             if (selectedMaterials.size > 0) {
@@ -1513,7 +1547,10 @@
                         });
                         const data = await res.json();
                         if (data.status === 'success') {
-                            Swal.fire('¡Éxito!', data.message, 'success').then(() => location.reload());
+                            // Post/Redirect/Get: tras guardar se vuelve al dashboard (GET), no se recarga el formulario
+                            Swal.fire('¡Éxito!', data.message, 'success').then(() => {
+                                if (MODAL_INICIAL) volverAlDashboard(true); else location.reload();
+                            });
                         } else {
                             Swal.fire('Error', data.message, 'error');
                         }
@@ -1576,7 +1613,9 @@
                         const data = await res.json();
                         if (data.status === 'success') {
                             Swal.fire('Registrado', 'El ingreso de inventario se ha procesado correctamente.', 'success')
-                                .then(() => location.reload());
+                                .then(() => {
+                                    if (MODAL_INICIAL) volverAlDashboard(true); else location.reload();
+                                });
                         } else {
                             Swal.fire('Error', data.message, 'error');
                         }
@@ -1649,10 +1688,9 @@
         const modalNuevoMaterial = $('#nuevo-material-modal');
         let nmScanner = null;
 
-        $('#btn-nuevo-material-modal').on('click', function (e) {
-            e.preventDefault();
+        if (MODAL_INICIAL === 'material') {
             modalNuevoMaterial.addClass('active');
-        });
+        }
 
         $('#close-nuevo-material').on('click', async function () {
             modalNuevoMaterial.removeClass('active');
@@ -1660,6 +1698,7 @@
                 try { await nmScanner.stop(); } catch (e) { }
             }
             $('#nm-reader-container').hide();
+            if (MODAL_INICIAL) volverAlDashboard(false);
         });
 
         $('#btn-nm-escanear').on('click', async function () {

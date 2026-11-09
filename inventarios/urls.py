@@ -14,6 +14,10 @@ app_name = 'inventarios'
 
 urlpatterns = [
     path('', views.inventario_dashboard, name='dashboard'),
+    # Una URL (GET) por tarjeta que abre su formulario: historial/recarga correctos
+    path('solicitud/nueva/', views.inventario_dashboard, {'modal_inicial': 'solicitud'}, name='solicitud_nueva'),
+    path('ingreso/', views.inventario_dashboard, {'modal_inicial': 'ingreso'}, name='ingreso_inventario'),
+    path('material/nuevo/', views.inventario_dashboard, {'modal_inicial': 'material'}, name='material_nuevo'),
     path('solicitud/<int:pk>/detalle/', views.solicitud_detalle_rapido, name='solicitud_detalle_rapido'),
     path('solicitud/<int:pk>/update/', views.solicitud_update_rapido, name='solicitud_update_rapido'),
     path('crear-solicitud/', views.crear_solicitud_dashboard, name='crear_solicitud'),
