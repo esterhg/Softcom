@@ -59,6 +59,10 @@ def inventario_dashboard(request):
         'total_materiales': total_materiales,
         'pedidos_pendientes': pedidos_pendientes,
         'es_almacen': es_almacen,
+        'es_supervisor_almacen': (
+            request.user.is_superuser
+            or request.user.groups.filter(name='Supervisor de Almacen').exists()
+        ),
         'ot_pre': ot_pre,
         'racks': racks,
         'active_tab': 'dashboard',
@@ -1960,37 +1964,90 @@ def api_list_solicitudes(request):
         count = r.articulos.count()
         results.append({
             'id': str(r.cr8ca_requisicionid),
+            'tipo': 'REQ',
             'text': f"{r.cr8ca_requisicion} | {solicitante} | {fecha_str}",
             'asunto': r.cr8ca_asunto or "Sin asunto",
             'count': count
         })
+
+    # También buscamos Órdenes de Compra (por N° de OC, requisición o proveedor)
+    if query:
+        from presupuestos.models import OrdenCompra
+        ordenes = OrdenCompra.objects.filter(
+            Q(numero_oc__icontains=query) |
+            Q(requisicion__cr8ca_requisicion__icontains=query) |
+            Q(proveedor__nombre__icontains=query)
+        ).select_related('requisicion', 'proveedor').order_by('-fecha_creacion')[:20]
+        for oc in ordenes:
+            prov = str(oc.proveedor) if oc.proveedor else "Sin proveedor"
+            req_num = oc.requisicion.cr8ca_requisicion if oc.requisicion else "S/REQ"
+            results.append({
+                'id': f"OC-{oc.pk}",
+                'tipo': 'OC',
+                'text': f"{oc.numero_oc} | {prov}",
+                'asunto': f"Orden de compra de {req_num}",
+                'count': oc.articulos.count()
+            })
     return JsonResponse({'results': results})
+
+
+_PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'%3E%3C/path%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'%3E%3C/polyline%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'%3E%3C/line%3E%3C/svg%3E"
+
 
 @login_required
 def api_get_solicitud_items(request, pk):
-    from presupuestos.models import Requisicion
-    # El pk aquí será el UUID cr8ca_requisicionid
-    requisicion = get_object_or_404(Requisicion, cr8ca_requisicionid=pk)
+    """
+    Devuelve los materiales de una Requisición (pk = UUID) o de una Orden de
+    Compra (pk = 'OC-<id>') para importarlos al ingreso de inventario.
+
+    Los artículos sin material real del catálogo (sin vincular, o vinculados a
+    un placeholder tipo 'Fuera de catálogo') se intentan resolver por nombre
+    exacto; los que no se pueden resolver se devuelven en 'sin_vincular' para
+    avisar al usuario en lugar de omitirlos en silencio.
+    """
+    from presupuestos.models import Requisicion, OrdenCompra
+    from .api_materials import _material_es_placeholder
+
+    # Lista homogénea: (material, descripcion, cantidad)
+    filas = []
+    if str(pk).startswith('OC-'):
+        oc = get_object_or_404(OrdenCompra, pk=str(pk)[3:])
+        for a in oc.articulos.select_related(
+            'material', 'articulo_requisicion', 'articulo_requisicion__material'
+        ):
+            mat = a.material
+            if (not mat or _material_es_placeholder(mat)) and a.articulo_requisicion:
+                mat_req = a.articulo_requisicion.material
+                if mat_req and not _material_es_placeholder(mat_req):
+                    mat = mat_req
+            filas.append((mat, a.descripcion, a.cantidad))
+    else:
+        requisicion = get_object_or_404(Requisicion, cr8ca_requisicionid=pk)
+        for a in requisicion.articulos.select_related('material'):
+            filas.append((a.material, a.cr8ca_articulo, a.cr8ca_cantidad))
+
     items = []
-    
-    for item in requisicion.articulos.all():
-        m = item.material
-        if m:
-            image_url = m.imagen.url if m.imagen else "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'%3E%3C/path%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'%3E%3C/polyline%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'%3E%3C/line%3E%3C/svg%3E"
-            items.append({
-                'id': m.id,
-                'nombre': m.nombre,
-                'sku': m.sku,
-                'cantidad': float(item.cr8ca_cantidad),
-                'unidad': m.unidad_medida.nombre if m.unidad_medida else 'Unidad',
-                'image_url': image_url
+    sin_vincular = []
+    for mat, descripcion, cantidad in filas:
+        if not mat or _material_es_placeholder(mat):
+            exacto = Material.objects.filter(nombre__iexact=(descripcion or '').strip()).first() if descripcion else None
+            mat = exacto if exacto and not _material_es_placeholder(exacto) else None
+        if not mat:
+            sin_vincular.append({
+                'descripcion': descripcion or 'Sin descripción',
+                'cantidad': float(cantidad or 0),
             })
-        else:
-            # Si el artículo no está vinculado a un material del catálogo, 
-            # podrías manejarlo aquí, pero el dashboard de inventario necesita materiales reales.
-            pass
-            
-    return JsonResponse({'items': items})
+            continue
+        items.append({
+            'id': mat.id,
+            'nombre': mat.nombre,
+            'sku': mat.sku,
+            'cantidad': float(cantidad or 0),
+            'unidad': mat.unidad_medida.nombre if mat.unidad_medida else 'Unidad',
+            'image_url': mat.imagen.url if mat.imagen else _PLACEHOLDER_IMG,
+        })
+
+    return JsonResponse({'items': items, 'sin_vincular': sin_vincular})
 
 
 
@@ -4934,7 +4991,7 @@ def dashboard_departamento(request):
             SolicitudMaterial.objects
             .filter(usuario__perfil__departamento=departamento)
             .exclude(estado='BORRADOR')
-            .select_related('usuario', 'orden_trabajo', 'ubicacion_origen')
+            .select_related('usuario', 'orden_trabajo', 'ticket', 'ubicacion_origen')
             .annotate(num_items=Count('items'))
             .order_by('-fecha_solicitud')
         )
@@ -4942,6 +4999,7 @@ def dashboard_departamento(request):
             salidas_qs = salidas_qs.filter(
                 Q(id__icontains=q) |
                 Q(orden_trabajo__codigo_de_orden__icontains=q) |
+                Q(ticket__folio__icontains=q) |
                 Q(comentarios_solicitud__icontains=q)
             )
         total_salidas = salidas_qs.count()
@@ -4952,7 +5010,7 @@ def dashboard_departamento(request):
         solicitudes_pendientes = (
             SolicitudMaterial.objects
             .filter(estado='PENDIENTE_AUTORIZACION', usuario__perfil__departamento=departamento)
-            .select_related('usuario', 'orden_trabajo', 'ubicacion_origen')
+            .select_related('usuario', 'orden_trabajo', 'ticket', 'ubicacion_origen')
             .prefetch_related('items__material__unidad_medida')
             .distinct()
             .order_by('-fecha_solicitud')

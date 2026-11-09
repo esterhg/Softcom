@@ -1,0 +1,127 @@
+{% extends "inventarios/base_inventarios.html" %}
+{% load i18n static %}
+
+{% block title %}Pases de salida pendientes de justificar{% endblock %}
+
+{% block extrahead %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    .pp-wrap { max-width: 1250px; margin: 0 auto; padding: 32px 40px; box-sizing: border-box; font-family: 'Artifakt Element', 'Outfit', sans-serif; }
+    .pp-head h1 { font-size: 1.6rem; font-weight: 700; color: #32363a; margin: 0; }
+    .pp-head p { color: #6a6d70; font-size: 0.92rem; margin: 4px 0 20px; }
+    .pp-card { background: #fff; border: 1px solid #d9d9d9; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+    .pp-card-title { padding: 14px 20px; background: #f0f4f8; border-bottom: 1px solid #d9d9d9; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .pp-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 16px 20px; }
+    .pp-filters label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #6a6d70; margin-bottom: 4px; }
+    .pp-filters select, .pp-filters input { padding: 7px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-family: inherit; font-size: 0.88rem; min-width: 170px; }
+    .pp-btn { padding: 8px 16px; border-radius: 4px; border: 1px solid #d9d9d9; background: #fff; color: #32363a; font-weight: 600; font-size: 0.88rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+    .pp-btn-primary { background: #0070f2; border-color: #0070f2; color: #fff; }
+    .pp-stat { padding: 18px 22px; }
+    .pp-stat .n { font-size: 2rem; font-weight: 800; color: #e9730c; }
+    .pp-stat .l { font-size: 0.8rem; color: #6a6d70; text-transform: uppercase; font-weight: 600; }
+    .pp-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .pp-table th { text-align: left; padding: 10px 14px; background: #f0f4f8; border-bottom: 2px solid #d9d9d9; font-size: 0.72rem; text-transform: uppercase; color: #6a6d70; font-weight: 700; }
+    .pp-table td { padding: 10px 14px; border-bottom: 1px solid #eef1f4; color: #32363a; vertical-align: middle; }
+    .pp-table tr:hover td { background: #f8fafc; }
+    .pp-num { text-align: right; font-weight: 600; }
+    .pp-badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; background: #fef3c7; color: #92400e; }
+    .pp-badge-info { background: #eff6ff; color: #1d4ed8; }
+    .pp-empty { padding: 40px; text-align: center; color: #6a6d70; }
+</style>
+{% endblock %}
+
+{% block inventarios_content %}
+<div class="pp-wrap">
+    <div class="pp-head">
+        <h1><i class="fas fa-file-circle-exclamation" style="color:#e9730c;"></i> Pases de salida pendientes de justificar</h1>
+        <p>Pases de salida de todos los departamentos que aún no están vinculados a una OTNP ni a un Ticket.</p>
+    </div>
+
+    <div class="pp-card">
+        <form method="get" class="pp-filters">
+            <div>
+                <label for="f-depto">Departamento</label>
+                <select name="departamento" id="f-depto">
+                    <option value="">Todos</option>
+                    <option value="none" {% if f_departamento == 'none' %}selected{% endif %}>Sin departamento</option>
+                    {% for d in departamentos %}
+                    <option value="{{ d.id }}" {% if f_departamento == d.id|stringformat:"s" %}selected{% endif %}>{{ d.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="f-desde">Desde</label>
+                <input type="date" name="desde" id="f-desde" value="{{ f_desde }}">
+            </div>
+            <div>
+                <label for="f-hasta">Hasta</label>
+                <input type="date" name="hasta" id="f-hasta" value="{{ f_hasta }}">
+            </div>
+            <button type="submit" class="pp-btn pp-btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
+            <a class="pp-btn" href="{% url 'inventarios:reporte_pases_pendientes' %}">Limpiar</a>
+            <a class="pp-btn" href="{% url 'inventarios:export_pases_pendientes_excel' %}?departamento={{ f_departamento }}&desde={{ f_desde }}&hasta={{ f_hasta }}">
+                <i class="fas fa-file-excel" style="color:#107e3e;"></i> Exportar Excel
+            </a>
+        </form>
+    </div>
+
+    <div class="pp-card">
+        <div class="pp-stat">
+            <div class="n">{{ total }}</div>
+            <div class="l">Pases pendientes de justificar</div>
+        </div>
+    </div>
+
+    <div class="pp-card">
+        <div class="pp-card-title"><i class="fas fa-building"></i> Resumen por departamento</div>
+        {% if resumen %}
+        <table class="pp-table">
+            <thead><tr><th>Departamento</th><th class="pp-num">Pases</th><th class="pp-num">Artículos</th></tr></thead>
+            <tbody>
+            {% for r in resumen %}
+                <tr><td>{{ r.departamento }}</td><td class="pp-num">{{ r.total }}</td><td class="pp-num">{{ r.items }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="pp-empty"><i class="fas fa-circle-check" style="color:#107e3e;"></i> No hay pases pendientes de justificar.</div>
+        {% endif %}
+    </div>
+
+    <div class="pp-card">
+        <div class="pp-card-title"><i class="fas fa-list"></i> Detalle</div>
+        {% if solicitudes %}
+        <div style="overflow-x:auto;">
+        <table class="pp-table">
+            <thead>
+                <tr>
+                    <th>Pase #</th><th>Fecha</th><th>Departamento</th><th>Solicitante</th>
+                    <th>Estado</th><th>OT vinculada</th><th class="pp-num">Artículos</th><th>Comentarios</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in solicitudes %}
+                <tr>
+                    <td><a href="{% url 'inventarios:solicitud_detalle_departamento' s.id %}">#{{ s.id }}</a></td>
+                    <td>{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
+                    <td>{{ s.departamento_nombre }}</td>
+                    <td>{{ s.solicitante_nombre }}</td>
+                    <td><span class="pp-badge">{{ s.get_estado_display }}</span></td>
+                    <td>
+                        {% if s.orden_trabajo %}
+                        <span class="pp-badge pp-badge-info">{{ s.orden_trabajo.codigo_de_orden|default:s.orden_trabajo.id }}</span>
+                        {% else %}<span style="color:#6a6d70;">Sin OT</span>{% endif %}
+                    </td>
+                    <td class="pp-num">{{ s.num_items }}</td>
+                    <td>{{ s.comentarios_solicitud|default:"—"|truncatechars:80 }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <div class="pp-empty">Sin resultados.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
