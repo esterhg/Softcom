@@ -4,10 +4,12 @@ ajustes, traslados) con vínculos a Activo / OT / Devolución / Ingreso, y del
 inventario actual (existencias por ubicación).
 """
 from datetime import datetime, time as dtime
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Sum
+from django.db.models import CharField, Q, Sum, Value
+from django.db.models.functions import Cast, Concat, TruncDate
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.utils import timezone
@@ -166,6 +168,9 @@ def export_movimientos_excel(request):
         qs = qs.filter(Q(ubicacion_origen_id=ubicacion_id) | Q(ubicacion_destino_id=ubicacion_id))
     if categoria_id:
         qs = qs.filter(material__categoria_id=categoria_id)
+
+    # Mismos filtros por columna que la tabla de movimientos (op_<col>/val_<col>)
+    qs = aplicar_filtros_columnas(qs, request.GET)
 
     # Mapa de activos aplicados por movimiento (vía MaterialUtilizadoOT).
     # Se construye desde TODOS los movimientos del queryset filtrado (sin límite).
@@ -628,6 +633,167 @@ def _nombre_usuario(u):
     return (u.get_full_name() or u.username) if u else ''
 
 
+# ---------------------------------------------------------------------------
+# Filtros por columna de la tabla de movimientos
+#   GET: op_<columna>=<operador>  y  val_<columna>=<texto>
+# ---------------------------------------------------------------------------
+
+OP_TEXTO = [
+    ('contiene', 'Contiene'), ('no_contiene', 'No contiene'), ('igual', 'Es igual a'),
+    ('tiene', 'Solo con datos'), ('vacio', 'Solo sin datos'),
+]
+OP_ELECCION = [('contiene', 'Contiene'), ('no_contiene', 'No contiene'), ('igual', 'Es igual a')]
+OP_NUMERO = [('igual', 'Es igual a'), ('mayor', 'Mayor que'), ('menor', 'Menor que')]
+OP_FECHA = [
+    ('igual', 'Es igual a'), ('contiene', 'Contiene'), ('mayor', 'Desde'), ('menor', 'Hasta'),
+]
+
+_OPS_SIN_VALOR = ('tiene', 'vacio')
+
+
+def _anotaciones_texto():
+    """Anotaciones auxiliares (texto) usadas por los filtros de columna."""
+    nombre = lambda base: Concat(
+        f'{base}__first_name', Value(' '), f'{base}__last_name', output_field=CharField()
+    )
+    return {
+        'ann_fecha': Cast(TruncDate('fecha_movimiento'), CharField()),
+        'ann_sol': Cast('solicitud_id', CharField()),
+        'ann_ing': Cast('ingreso_id', CharField()),
+        'ann_registro': nombre('usuario'),
+        'ann_aprobo': nombre('aprobado_por'),
+        'ann_entrego': nombre('solicitud__entregado_por'),
+    }
+
+
+def _persona(base, ann):
+    return {
+        'kind': 'texto', 'ops': OP_TEXTO,
+        'campos': [f'{base}__username', f'{base}__first_name', f'{base}__last_name', ann],
+        'anotar': [ann], 'presencia': Q(**{f'{base}__isnull': False}),
+    }
+
+
+COLUMNAS_MOVIMIENTOS = [
+    {'key': 'fecha', 'label': 'Fecha', 'kind': 'fecha', 'ops': OP_FECHA,
+     'campos': ['ann_fecha'], 'anotar': ['ann_fecha'], 'placeholder': 'AAAA-MM-DD o DD/MM/AAAA'},
+    {'key': 'tipo', 'label': 'Tipo', 'kind': 'eleccion', 'ops': OP_ELECCION,
+     'campo': 'tipo', 'opciones': MovimientoInventario.TIPO_MOVIMIENTO},
+    {'key': 'estado', 'label': 'Estado', 'kind': 'eleccion', 'ops': OP_ELECCION,
+     'campo': 'estado', 'opciones': [('PENDIENTE', 'Pendiente'), ('APROBADO', 'Aprobado / Liquidado'), ('RECHAZADO', 'Rechazado')]},
+    {'key': 'producto', 'label': 'Producto', 'kind': 'texto', 'ops': OP_TEXTO,
+     'campos': ['material__nombre', 'material__sku'], 'anotar': [],
+     'presencia': Q(material__isnull=False)},
+    {'key': 'cantidad', 'label': 'Cantidad', 'kind': 'numero', 'ops': OP_NUMERO,
+     'campo': 'cantidad', 'placeholder': 'Número'},
+    {'key': 'pase', 'label': 'Pase / Ingreso', 'kind': 'texto', 'ops': OP_TEXTO,
+     'campos': ['ann_sol', 'ann_ing'], 'anotar': ['ann_sol', 'ann_ing'],
+     'presencia': Q(solicitud__isnull=False) | Q(ingreso__isnull=False), 'placeholder': 'N° de pase o ingreso'},
+    {'key': 'ot', 'label': 'OT', 'kind': 'texto', 'ops': OP_TEXTO,
+     'campos': ['orden_trabajo__codigo_de_orden'], 'anotar': [],
+     'presencia': Q(orden_trabajo__isnull=False)},
+    dict(key='registro', label='Registró / Solicitó', **_persona('usuario', 'ann_registro')),
+    dict(key='aprobo', label='Aprobó', **_persona('aprobado_por', 'ann_aprobo')),
+    dict(key='entrego', label='Entregó', **_persona('solicitud__entregado_por', 'ann_entrego')),
+    {'key': 'origen', 'label': 'Origen', 'kind': 'texto', 'ops': OP_TEXTO,
+     'campos': ['ubicacion_origen__nombre'], 'anotar': [],
+     'presencia': Q(ubicacion_origen__isnull=False)},
+    {'key': 'destino', 'label': 'Destino', 'kind': 'texto', 'ops': OP_TEXTO,
+     'campos': ['ubicacion_destino__nombre'], 'anotar': [],
+     'presencia': Q(ubicacion_destino__isnull=False)},
+]
+
+
+def _parse_fecha_flexible(valor):
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(valor.strip(), fmt).date()
+        except (ValueError, AttributeError):
+            continue
+    return None
+
+
+def _q_campos(campos, lookup, valor):
+    q = Q()
+    for c in campos:
+        q |= Q(**{f'{c}__{lookup}': valor})
+    return q
+
+
+def aplicar_filtros_columnas(qs, params):
+    """Aplica a `qs` los filtros por columna recibidos en `params` (request.GET)."""
+    anotaciones = _anotaciones_texto()
+    for col in COLUMNAS_MOVIMIENTOS:
+        op = (params.get(f"op_{col['key']}") or '').strip()
+        valor = (params.get(f"val_{col['key']}") or '').strip()
+        if not op or op not in dict(col['ops']):
+            continue
+        if op not in _OPS_SIN_VALOR and not valor:
+            continue  # operador sin texto: no filtra
+
+        for nombre in col.get('anotar', []):
+            qs = qs.annotate(**{nombre: anotaciones[nombre]})
+
+        kind = col['kind']
+        if op == 'tiene':
+            qs = qs.filter(col['presencia'])
+        elif op == 'vacio':
+            qs = qs.exclude(col['presencia'])
+        elif kind == 'texto':
+            if op == 'contiene':
+                qs = qs.filter(_q_campos(col['campos'], 'icontains', valor))
+            elif op == 'no_contiene':
+                qs = qs.exclude(_q_campos(col['campos'], 'icontains', valor))
+            elif op == 'igual':
+                qs = qs.filter(_q_campos(col['campos'], 'iexact', valor))
+        elif kind == 'eleccion':
+            v = valor.lower()
+            if op == 'igual':
+                codigos = [c for c, l in col['opciones'] if v in (c.lower(), l.lower())]
+            else:
+                codigos = [c for c, l in col['opciones'] if v in c.lower() or v in l.lower()]
+            if op == 'no_contiene':
+                qs = qs.exclude(**{f"{col['campo']}__in": codigos})
+            else:
+                qs = qs.filter(**{f"{col['campo']}__in": codigos})
+        elif kind == 'numero':
+            try:
+                num = Decimal(valor.replace(',', '.'))
+            except InvalidOperation:
+                continue
+            lookup = {'igual': 'exact', 'mayor': 'gt', 'menor': 'lt'}[op]
+            qs = qs.filter(**{f"{col['campo']}__{lookup}": num})
+        elif kind == 'fecha':
+            if op == 'contiene':
+                qs = qs.filter(ann_fecha__icontains=valor)
+                continue
+            dia = _parse_fecha_flexible(valor)
+            if not dia:
+                continue
+            if op == 'igual':
+                qs = qs.filter(fecha_movimiento__date=dia)
+            elif op == 'mayor':
+                qs = qs.filter(fecha_movimiento__date__gte=dia)
+            elif op == 'menor':
+                qs = qs.filter(fecha_movimiento__date__lte=dia)
+    return qs
+
+
+def columnas_con_estado(params):
+    """Columnas con el operador/valor actuales (para repintar los filtros en la tabla)."""
+    placeholders = {'texto': 'Texto a buscar', 'eleccion': 'Texto a buscar', 'numero': 'Número', 'fecha': 'AAAA-MM-DD'}
+    resultado = []
+    for col in COLUMNAS_MOVIMIENTOS:
+        op = (params.get(f"op_{col['key']}") or '').strip()
+        resultado.append({
+            'key': col['key'], 'label': col['label'], 'ops': col['ops'],
+            'op': op, 'val': (params.get(f"val_{col['key']}") or '').strip(),
+            'placeholder': col.get('placeholder') or placeholders[col['kind']],
+            'sin_valor': op in _OPS_SIN_VALOR,
+        })
+    return resultado
+
+
 @supervisor_almacen_required
 def tabla_movimientos_view(request):
     """Tabla paginada de movimientos con responsables y estado, solo para el Supervisor de Almacén."""
@@ -663,6 +829,8 @@ def tabla_movimientos_view(request):
             | Q(orden_trabajo__codigo_de_orden__icontains=q)
         )
 
+    qs = aplicar_filtros_columnas(qs, request.GET)
+
     page = Paginator(qs, 50).get_page(request.GET.get('page') or 1)
 
     # Parámetros de filtro sin 'page' para los links de paginación
@@ -680,6 +848,8 @@ def tabla_movimientos_view(request):
         'f_tipo': tipo, 'f_estado': estado, 'f_q': q,
         'f_desde': request.GET.get('desde', ''), 'f_hasta': request.GET.get('hasta', ''),
         'querystring': params.urlencode(),
+        'columnas': columnas_con_estado(request.GET),
+        'hay_filtros_columna': any(c['op'] for c in columnas_con_estado(request.GET)),
         'title': 'Movimientos de Inventario',
         'active_tab': 'movimientos',
     }
