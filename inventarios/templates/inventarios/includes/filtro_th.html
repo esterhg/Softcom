@@ -1,0 +1,30 @@
+{% comment %}
+Encabezado de columna con panel "Filtrar por" (operador + valor, Aplicar / Borrar).
+Uso: {% include "inventarios/includes/filtro_th.html" with c=c %}
+Requiere: un <form id="filtros-form" method="get"> en la página y el include
+"inventarios/includes/filtros_columna_assets.html" una sola vez.
+{% endcomment %}
+<th class="fc-th{% if c.op %} fc-activo{% endif %}" data-key="{{ c.key }}">
+    <input type="hidden" name="op_{{ c.key }}" value="{{ c.op }}" form="filtros-form" data-fc-op>
+    <input type="hidden" name="val_{{ c.key }}" value="{{ c.val }}" form="filtros-form" data-fc-val>
+    <button type="button" class="fc-btn" aria-haspopup="dialog" aria-expanded="false">
+        <span>{{ c.label }}</span>
+        <i class="fas fa-chevron-down fc-chev" aria-hidden="true"></i>
+        {% if c.op %}<i class="fas fa-filter fc-ind" title="Filtro activo" aria-hidden="true"></i>{% endif %}
+    </button>
+    <div class="fc-pop" role="dialog" aria-label="Filtrar {{ c.label }}" hidden>
+        <div class="fc-pop-head">
+            <span>Filtrar por</span>
+            <button type="button" class="fc-close" aria-label="Cerrar">&times;</button>
+        </div>
+        <select class="fc-op" aria-label="Operador de filtro para {{ c.label }}">
+            {% for v, l in c.ops %}<option value="{{ v }}" {% if c.op == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <input type="text" class="fc-val" value="{{ c.val }}" placeholder="{{ c.placeholder }}"
+            autocomplete="off" aria-label="Valor de filtro para {{ c.label }}">
+        <div class="fc-actions">
+            <button type="button" class="fc-aplicar" disabled>Aplicar</button>
+            <button type="button" class="fc-borrar" {% if not c.op %}disabled{% endif %}>Borrar</button>
+        </div>
+    </div>
+</th>

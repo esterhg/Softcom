@@ -27,6 +27,7 @@
     .pp-badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; background: #fef3c7; color: #92400e; }
     .pp-badge-info { background: #eff6ff; color: #1d4ed8; }
     .pp-empty { padding: 40px; text-align: center; color: #6a6d70; }
+    .pp-hint { padding: 10px 20px; font-size: 0.8rem; color: #6a6d70; border-top: 1px solid #eef1f4; }
 </style>
 {% endblock %}
 
@@ -38,7 +39,7 @@
     </div>
 
     <div class="pp-card">
-        <form method="get" class="pp-filters">
+        <form method="get" class="pp-filters" id="filtros-form">
             <div>
                 <label for="f-depto">Departamento</label>
                 <select name="departamento" id="f-depto">
@@ -59,7 +60,7 @@
             </div>
             <button type="submit" class="pp-btn pp-btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
             <a class="pp-btn" href="{% url 'inventarios:reporte_pases_pendientes' %}">Limpiar</a>
-            <a class="pp-btn" href="{% url 'inventarios:export_pases_pendientes_excel' %}?departamento={{ f_departamento }}&desde={{ f_desde }}&hasta={{ f_hasta }}">
+            <a class="pp-btn" href="{% url 'inventarios:export_pases_pendientes_excel' %}?{{ querystring }}">
                 <i class="fas fa-file-excel" style="color:#107e3e;"></i> Exportar Excel
             </a>
         </form>
@@ -90,13 +91,11 @@
 
     <div class="pp-card">
         <div class="pp-card-title"><i class="fas fa-list"></i> Detalle</div>
-        {% if solicitudes %}
         <div style="overflow-x:auto;">
         <table class="pp-table">
             <thead>
                 <tr>
-                    <th>Pase #</th><th>Fecha</th><th>Departamento</th><th>Solicitante</th>
-                    <th>Estado</th><th>OT vinculada</th><th class="pp-num">Artículos</th><th>Comentarios</th>
+                    {% for c in columnas %}{% include "inventarios/includes/filtro_th.html" with c=c %}{% endfor %}
                 </tr>
             </thead>
             <tbody>
@@ -115,13 +114,17 @@
                     <td class="pp-num">{{ s.num_items }}</td>
                     <td>{{ s.comentarios_solicitud|default:"—"|truncatechars:80 }}</td>
                 </tr>
+            {% empty %}
+                <tr><td colspan="8" class="pp-empty">Sin resultados para los filtros seleccionados.</td></tr>
             {% endfor %}
             </tbody>
         </table>
         </div>
-        {% else %}
-        <div class="pp-empty">Sin resultados.</div>
-        {% endif %}
+        <div class="pp-hint">
+            Haz clic en el encabezado de una columna para filtrarla: elige un operador, escribe el texto y pulsa "Aplicar".
+        </div>
     </div>
 </div>
+
+{% include "inventarios/includes/filtros_columna_assets.html" %}
 {% endblock %}
