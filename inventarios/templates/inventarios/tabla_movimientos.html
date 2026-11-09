@@ -29,9 +29,6 @@
     .mv-empty { padding: 40px; text-align: center; color: #6a6d70; }
     .mv-pager { display: flex; gap: 12px; align-items: center; justify-content: flex-end; padding: 14px 20px; font-size: 0.86rem; color: #6a6d70; }
     .mv-muted { color: #6a6d70; }
-    .mv-filter-row th { background: #fff; padding: 6px 8px; border-bottom: 1px solid #d9d9d9; text-transform: none; font-weight: 400; vertical-align: top; }
-    .mv-filter-row select, .mv-filter-row input { width: 100%; min-width: 110px; box-sizing: border-box; padding: 4px 6px; margin-bottom: 4px; border: 1px solid #d9d9d9; border-radius: 4px; font-family: inherit; font-size: 0.78rem; background: #fff; }
-    .mv-filter-row .mv-filtro-activo select, .mv-filter-row .mv-filtro-activo input { border-color: #0070f2; background: #eff6ff; }
     .mv-filter-hint { padding: 10px 20px; font-size: 0.8rem; color: #6a6d70; border-top: 1px solid #eef1f4; }
 </style>
 {% endblock %}
@@ -84,23 +81,7 @@
         <table class="mv-table">
             <thead>
                 <tr>
-                    <th>Fecha</th><th>Tipo</th><th>Estado</th><th>Producto</th>
-                    <th class="mv-num">Cantidad</th><th>Pase / Ingreso</th><th>OT</th>
-                    <th>Registró / Solicitó</th><th>Aprobó</th><th>Entregó</th>
-                    <th>Origen</th><th>Destino</th>
-                </tr>
-                <tr class="mv-filter-row">
-                    {% for c in columnas %}
-                    <th class="{% if c.op %}mv-filtro-activo{% endif %}">
-                        <select name="op_{{ c.key }}" form="filtros-form" class="mv-op" aria-label="Operador de filtro para {{ c.label }}">
-                            <option value="">Sin filtro</option>
-                            {% for v, l in c.ops %}<option value="{{ v }}" {% if c.op == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
-                        </select>
-                        <input type="text" name="val_{{ c.key }}" form="filtros-form" value="{{ c.val }}"
-                            placeholder="{{ c.placeholder }}" class="mv-val" aria-label="Valor de filtro para {{ c.label }}"
-                            {% if not c.op or c.sin_valor %}style="display:none;"{% endif %}>
-                    </th>
-                    {% endfor %}
+                    {% for c in columnas %}{% include "inventarios/includes/filtro_th.html" with c=c %}{% endfor %}
                 </tr>
             </thead>
             <tbody>
@@ -141,32 +122,11 @@
             {% if page.has_next %}<a class="mv-btn" href="?{{ querystring }}&page={{ page.next_page_number }}">Siguiente</a>{% endif %}
         </div>
         <div class="mv-filter-hint">
-            Filtros por columna: elige un operador bajo el encabezado, escribe el texto y presiona Enter o "Filtrar".
+            Haz clic en el encabezado de una columna para filtrarla: elige un operador, escribe el texto y pulsa "Aplicar".
             "Solo con datos" muestra únicamente filas con ese campo lleno; "Solo sin datos", las que lo tienen vacío.
         </div>
     </div>
 </div>
 
-<script>
-(function () {
-    var form = document.getElementById('filtros-form');
-    document.querySelectorAll('.mv-op').forEach(function (sel) {
-        sel.addEventListener('change', function () {
-            var th = sel.closest('th');
-            var input = th.querySelector('.mv-val');
-            var sinValor = sel.value === 'tiene' || sel.value === 'vacio';
-            th.classList.toggle('mv-filtro-activo', !!sel.value);
-            if (!sel.value || sinValor) {
-                input.style.display = 'none';
-                input.value = '';
-                // Estos operadores no necesitan texto: se aplican de inmediato
-                form.submit();
-            } else {
-                input.style.display = '';
-                input.focus();
-            }
-        });
-    });
-})();
-</script>
+{% include "inventarios/includes/filtros_columna_assets.html" %}
 {% endblock %}
