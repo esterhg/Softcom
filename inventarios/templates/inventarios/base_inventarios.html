@@ -175,8 +175,10 @@
         .main-content {
             flex: 1;
             padding: 0;
+            /* Sin z-index: un z-index aquí crea un contexto de apilamiento que
+               impide que los modales (position: fixed, z-index alto) queden por
+               encima del header (z-index 100) y las pestañas (z-index 99). */
             position: relative;
-            z-index: 1;
         }
 
         /* Utility */
