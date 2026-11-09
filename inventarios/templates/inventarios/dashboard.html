@@ -669,6 +669,7 @@
         </a>
         {% endif %}
 
+        {% if es_supervisor_almacen %}
         <a href="{% url 'inventarios:reportes' %}" class="menu-card">
             <ion-icon name="bar-chart-outline" style="color: #107e3e;"></ion-icon>
             <div class="card-content">
@@ -676,6 +677,25 @@
                 <p>Descarga en Excel el catálogo completo de materiales y todos sus movimientos (con vínculos a OT y activos).</p>
             </div>
         </a>
+
+        <a href="{% url 'inventarios:tabla_movimientos' %}" class="menu-card">
+            <ion-icon name="swap-horizontal-outline" style="color: #0070f2;"></ion-icon>
+            <div class="card-content">
+                <h2>Movimientos</h2>
+                <p>Qué producto salió, quién lo solicitó, quién aprobó y quién entregó, con su estado.</p>
+            </div>
+        </a>
+
+        {% endif %}
+        {% if es_supervisor_almacen %}
+        <a href="{% url 'inventarios:reporte_pases_pendientes' %}" class="menu-card">
+            <ion-icon name="alert-circle-outline" style="color: #e9730c;"></ion-icon>
+            <div class="card-content">
+                <h2>Pases pendientes de justificar</h2>
+                <p>Pases de salida de todos los departamentos sin OTNP ni Ticket vinculado.</p>
+            </div>
+        </a>
+        {% endif %}
 
         <a href="/admin/inventarios/" class="menu-card">
             <ion-icon name="settings-outline"></ion-icon>
@@ -909,12 +929,12 @@
                     </div>
                     <!-- Nuevo campo para importar requisition -->
                     <div class="form-group">
-                        <label class="form-label"><ion-icon name="copy-outline"></ion-icon> Importar de Requisición
+                        <label class="form-label"><ion-icon name="copy-outline"></ion-icon> Importar de Requisición u Orden de Compra
                             (Opcional)</label>
                         <div style="position: relative; display: flex; gap: 8px;">
                             <input type="hidden" id="selectedSolicitudId">
                             <input type="text" id="solicitudSearch" class="form-control"
-                                placeholder="🔍 Buscar por Folio o Solicitante..." autocomplete="off"
+                                placeholder="🔍 Buscar por N° de Requisición, OC, Solicitante o Proveedor..." autocomplete="off"
                                 style="border-color: var(--sap-border); flex: 1;">
                             <button type="button" id="btn-scan-solicitud" class="btn-outline-custom"
                                 style="padding: 0 15px; border-color: var(--sap-border);">
@@ -1377,12 +1397,18 @@
                 const res = await fetch(`/inventarios/api/solicitudes/search/?q=${q}`);
                 const data = await res.json();
                 results.empty().show();
+                if (!data.results.length) {
+                    results.append('<div style="padding:15px; color:var(--text-muted);">Sin resultados</div>');
+                }
                 data.results.forEach(s => {
+                    const etiqueta = s.tipo === 'OC' ? 'Orden de Compra' : 'Requisición';
                     results.append(`
                         <div onclick="importSolicitud('${s.id}', decodeURIComponent('${enc(s.text)}'))" 
                              style="padding:15px; cursor:pointer; border-bottom:1px solid #f1f5f9; color: #0f172a; font-weight: 600;">
-                            <div style="color:var(--primary); font-family:monospace; font-size:1rem;">${s.text}</div>
-                            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">Asunto: ${s.asunto} | ${s.count} materiales</div>
+                            <div style="color:var(--primary); font-family:monospace; font-size:1rem;">
+                                <span style="background:#eff6ff; color:#1d4ed8; border-radius:4px; padding:1px 8px; font-size:0.7rem; margin-right:6px;">${etiqueta}</span>${s.text}
+                            </div>
+                            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">${s.asunto} | ${s.count} artículos</div>
                         </div>
                     `);
                 });
@@ -1395,14 +1421,15 @@
             $('#solicitudSearch').val(text);
 
             Swal.fire({
-                title: 'Cargando Requisición...',
+                title: 'Cargando...',
                 text: 'Extrayendo lista de materiales',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
 
             try {
-                const res = await fetch(`/inventarios/api/solicitudes/${id}/items/`);
+                const res = await fetch(`/inventarios/api/solicitudes/${encodeURIComponent(id)}/items/`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
 
                 let addedCount = 0;
@@ -1417,15 +1444,30 @@
                         addedCount++;
                     }
                 });
-
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Materiales Importados!',
-                    text: `Se han cargado ${addedCount} artículos a la lista de ingreso.`,
-                    timer: 2000,
-                    showConfirmButton: false
-                });
                 renderItems();
+
+                const sinVincular = data.sin_vincular || [];
+                if (sinVincular.length) {
+                    // Hay artículos que no están en el catálogo de materiales: avisar cuáles
+                    const lista = sinVincular.map(a =>
+                        `<li>${$('<div>').text(a.descripcion).html()} (x${a.cantidad})</li>`).join('');
+                    Swal.fire({
+                        icon: addedCount ? 'warning' : 'error',
+                        title: addedCount ? 'Importación parcial' : 'No se importó ningún material',
+                        html: `<p>Se cargaron <b>${addedCount}</b> artículos.</p>
+                               <p style="margin-top:8px;"><b>${sinVincular.length}</b> artículo(s) no están vinculados a un material del catálogo
+                               (están como texto libre o "Fuera de catálogo"). Vincúlalos o créalos con "Nuevo Material" y agrégalos manualmente:</p>
+                               <ul style="text-align:left; max-height:180px; overflow:auto; margin-top:8px;">${lista}</ul>`
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Materiales Importados!',
+                        text: `Se han cargado ${addedCount} artículos a la lista de ingreso.`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
             } catch (err) {
                 Swal.fire('Error', 'No se pudieron importar los materiales', 'error');
             }

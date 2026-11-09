@@ -4,10 +4,11 @@ ajustes, traslados) con vínculos a Activo / OT / Devolución / Ingreso, y del
 inventario actual (existencias por ubicación).
 """
 from datetime import datetime, time as dtime
+from functools import wraps
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -19,6 +20,27 @@ from .models import (
     CategoriaMaterial,
     MaterialUtilizadoOT,
 )
+
+# Grupo con acceso exclusivo (junto con superusuarios) a todos los reportes.
+GRUPO_SUPERVISOR_ALMACEN = 'Supervisor de Almacen'
+
+
+def es_supervisor_almacen(user):
+    return bool(
+        user.is_authenticated
+        and (user.is_superuser or user.groups.filter(name=GRUPO_SUPERVISOR_ALMACEN).exists())
+    )
+
+
+def supervisor_almacen_required(view):
+    """Login + pertenencia al grupo 'Supervisor de Almacen' (o superusuario)."""
+    @wraps(view)
+    @login_required
+    def _wrapped(request, *args, **kwargs):
+        if not es_supervisor_almacen(request.user):
+            return HttpResponseForbidden("Solo el Supervisor de Almacén puede ver los reportes.")
+        return view(request, *args, **kwargs)
+    return _wrapped
 
 # ---------------------------------------------------------------------------
 # Estilos reutilizables para openpyxl
@@ -76,7 +98,7 @@ def _parse_fecha(valor, fin=False):
 # Página de Reportes
 # ---------------------------------------------------------------------------
 
-@login_required
+@supervisor_almacen_required
 def reporte_inventario_view(request):
     """Página con el centro de descargas de reportes de inventario."""
     ubicaciones = Ubicacion.objects.filter(
@@ -104,7 +126,7 @@ def reporte_inventario_view(request):
 # Export: Movimientos de Inventario
 # ---------------------------------------------------------------------------
 
-@login_required
+@supervisor_almacen_required
 def export_movimientos_excel(request):
     """
     Exporta todos los movimientos de inventario a Excel.
@@ -224,7 +246,7 @@ def export_movimientos_excel(request):
 # Export: Inventario Actual (existencias)
 # ---------------------------------------------------------------------------
 
-@login_required
+@supervisor_almacen_required
 def export_inventario_actual_excel(request):
     """
     Exporta el inventario actual (existencias por ubicación) a Excel.
@@ -318,7 +340,7 @@ def export_inventario_actual_excel(request):
 # Export: Catálogo Completo (todos los materiales, con o sin stock)
 # ---------------------------------------------------------------------------
 
-@login_required
+@supervisor_almacen_required
 def export_catalogo_excel(request):
     """
     Exporta TODO el catálogo de materiales a Excel, aparezcan o no en
@@ -470,3 +492,195 @@ def export_catalogo_excel(request):
     response['Content-Disposition'] = f'attachment; filename="catalogo_completo{sufijo}_{stamp}.xlsx"'
     wb.save(response)
     return response
+
+
+# ---------------------------------------------------------------------------
+# Reporte: Pases de salida pendientes de justificar (sin OTNP ni Ticket)
+# ---------------------------------------------------------------------------
+
+def _pases_pendientes_qs(request):
+    """
+    Pases de salida (SolicitudMaterial) NO justificados: sin Ticket y sin una
+    OT de tipo No Programada (OTNP). Se excluyen borradores y rechazados.
+    """
+    from .models import SolicitudMaterial
+    from django.db.models import Count
+
+    qs = (
+        SolicitudMaterial.objects
+        .exclude(estado__in=['BORRADOR', 'RECHAZADO'])
+        .filter(ticket__isnull=True)
+        .filter(Q(orden_trabajo__isnull=True) | ~Q(orden_trabajo__tipo='NO_PROGRAMADA'))
+        .select_related(
+            'usuario', 'usuario__perfil', 'usuario__perfil__departamento',
+            'orden_trabajo', 'ubicacion_origen',
+        )
+        .annotate(num_items=Count('items'))
+        .order_by('-fecha_solicitud')
+    )
+
+    depto = request.GET.get('departamento')
+    if depto == 'none':
+        qs = qs.filter(
+            Q(usuario__perfil__isnull=True) | Q(usuario__perfil__departamento__isnull=True)
+        )
+    elif depto and depto.isdigit():
+        qs = qs.filter(usuario__perfil__departamento_id=int(depto))
+
+    desde = _parse_fecha(request.GET.get('desde'))
+    hasta = _parse_fecha(request.GET.get('hasta'), fin=True)
+    if desde:
+        qs = qs.filter(fecha_solicitud__gte=desde)
+    if hasta:
+        qs = qs.filter(fecha_solicitud__lte=hasta)
+    return qs
+
+
+def _departamento_de(solicitud):
+    perfil = getattr(solicitud.usuario, 'perfil', None)
+    depto = getattr(perfil, 'departamento', None)
+    return depto.nombre if depto else 'Sin departamento'
+
+
+@supervisor_almacen_required
+def reporte_pases_pendientes_view(request):
+    """Pases de salida pendientes de justificar con OTNP o Ticket, de todos los departamentos."""
+    from core.models import Departamento
+
+    solicitudes = list(_pases_pendientes_qs(request))
+
+    # Resumen por departamento
+    resumen = {}
+    for s in solicitudes:
+        nombre = _departamento_de(s)
+        r = resumen.setdefault(nombre, {'departamento': nombre, 'total': 0, 'items': 0})
+        r['total'] += 1
+        r['items'] += s.num_items
+        s.departamento_nombre = nombre
+    resumen = sorted(resumen.values(), key=lambda r: (-r['total'], r['departamento']))
+
+    context = {
+        'solicitudes': solicitudes,
+        'resumen': resumen,
+        'total': len(solicitudes),
+        'departamentos': Departamento.objects.order_by('nombre'),
+        'f_departamento': request.GET.get('departamento', ''),
+        'f_desde': request.GET.get('desde', ''),
+        'f_hasta': request.GET.get('hasta', ''),
+        'title': 'Pases de salida pendientes de justificar',
+        'active_tab': 'reportes',
+    }
+    return render(request, 'inventarios/reporte_pases_pendientes.html', context)
+
+
+@supervisor_almacen_required
+def export_pases_pendientes_excel(request):
+    """Exporta a Excel los pases de salida pendientes de justificar (mismos filtros que la vista)."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Pases sin justificar"
+    headers = [
+        'Pase #', 'Fecha', 'Departamento', 'Solicitante', 'Estado',
+        'Orden de Trabajo', 'Tipo OT', 'Ubicación Origen', 'Artículos',
+        'Días sin justificar', 'Comentarios',
+    ]
+    _escribir_headers(ws, headers)
+    _, _, _, border = _estilos()
+
+    ahora = timezone.now()
+    row = 2
+    for s in _pases_pendientes_qs(request).iterator(chunk_size=1000):
+        ot = s.orden_trabajo
+        valores = [
+            s.id,
+            timezone.localtime(s.fecha_solicitud).strftime('%d/%m/%Y %H:%M'),
+            _departamento_de(s),
+            s.solicitante_nombre,
+            s.get_estado_display(),
+            (ot.codigo_de_orden or f'OT-{ot.id}') if ot else '',
+            ot.get_tipo_display() if ot else '',
+            s.ubicacion_origen.nombre if s.ubicacion_origen else '',
+            s.num_items,
+            (ahora - s.fecha_solicitud).days,
+            (s.comentarios_solicitud or '')[:500],
+        ]
+        for col, val in enumerate(valores, 1):
+            ws.cell(row=row, column=col, value=val).border = border
+        row += 1
+    _autoajustar(ws, len(headers))
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    stamp = timezone.localtime(ahora).strftime('%Y%m%d_%H%M')
+    response['Content-Disposition'] = f'attachment; filename="pases_pendientes_justificar_{stamp}.xlsx"'
+    wb.save(response)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Tabla de movimientos (producto, quién registró, quién aprobó, estado)
+# ---------------------------------------------------------------------------
+
+def _nombre_usuario(u):
+    return (u.get_full_name() or u.username) if u else ''
+
+
+@supervisor_almacen_required
+def tabla_movimientos_view(request):
+    """Tabla paginada de movimientos con responsables y estado, solo para el Supervisor de Almacén."""
+    from django.core.paginator import Paginator
+
+    qs = MovimientoInventario.objects.select_related(
+        'material', 'material__unidad_medida', 'usuario', 'aprobado_por',
+        'ubicacion_origen', 'ubicacion_destino', 'orden_trabajo',
+        'solicitud', 'solicitud__entregado_por', 'solicitud__usuario',
+        'ingreso',
+    ).order_by('-fecha_movimiento')
+
+    tipo = request.GET.get('tipo', '')
+    estado = request.GET.get('estado', '')
+    q = (request.GET.get('q') or '').strip()
+    desde = _parse_fecha(request.GET.get('desde'))
+    hasta = _parse_fecha(request.GET.get('hasta'), fin=True)
+
+    if tipo:
+        qs = qs.filter(tipo=tipo)
+    if estado:
+        qs = qs.filter(estado=estado)
+    if desde:
+        qs = qs.filter(fecha_movimiento__gte=desde)
+    if hasta:
+        qs = qs.filter(fecha_movimiento__lte=hasta)
+    if q:
+        qs = qs.filter(
+            Q(material__nombre__icontains=q) | Q(material__sku__icontains=q)
+            | Q(usuario__username__icontains=q) | Q(usuario__first_name__icontains=q)
+            | Q(usuario__last_name__icontains=q)
+            | Q(aprobado_por__username__icontains=q)
+            | Q(orden_trabajo__codigo_de_orden__icontains=q)
+        )
+
+    page = Paginator(qs, 50).get_page(request.GET.get('page') or 1)
+
+    # Parámetros de filtro sin 'page' para los links de paginación
+    params = request.GET.copy()
+    params.pop('page', None)
+
+    context = {
+        'page': page,
+        'tipos_movimiento': MovimientoInventario.TIPO_MOVIMIENTO,
+        'estados_movimiento': [
+            ('PENDIENTE', 'Pendiente'),
+            ('APROBADO', 'Aprobado / Liquidado'),
+            ('RECHAZADO', 'Rechazado'),
+        ],
+        'f_tipo': tipo, 'f_estado': estado, 'f_q': q,
+        'f_desde': request.GET.get('desde', ''), 'f_hasta': request.GET.get('hasta', ''),
+        'querystring': params.urlencode(),
+        'title': 'Movimientos de Inventario',
+        'active_tab': 'movimientos',
+    }
+    return render(request, 'inventarios/tabla_movimientos.html', context)
