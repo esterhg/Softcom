@@ -23,10 +23,26 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import CategoriaMaterial
 from .utils_n8n import notify_n8n_solicitud_material
 
+def _url_regreso(request, default_name):
+    """
+    URL del botón "volver" de las páginas de destino de las tarjetas.
+    Si el usuario llegó desde el Centro de Inventarios (?origen=inventarios)
+    vuelve ahí; si no, conserva el destino original (p. ej. la app móvil).
+    """
+    from django.urls import reverse
+    if request.GET.get('origen') == 'inventarios':
+        return reverse('inventarios:dashboard')
+    return reverse(default_name)
+
+
 @login_required
-def inventario_dashboard(request):
+def inventario_dashboard(request, modal_inicial=None):
     """
     Menú interactivo y centro de control para la aplicación de Inventarios.
+
+    `modal_inicial` ('solicitud' | 'ingreso' | 'material') abre ese formulario
+    al cargar. Cada tarjeta tiene así su propia URL (GET) que respeta el
+    historial del navegador y se puede compartir o recargar.
     """
     from activos.models import Ubicacion
     from .models import CategoriaMaterial, Rack
@@ -65,6 +81,7 @@ def inventario_dashboard(request):
         ),
         'ot_pre': ot_pre,
         'racks': racks,
+        'modal_inicial': modal_inicial,
         'active_tab': 'dashboard',
         'title': 'Gestión de Inventarios'
     }
@@ -762,7 +779,10 @@ def scanner_view(request):
 def mobile_lista_pedidos(request):
     """Listado móvil de solicitudes de material para el usuario actual."""
     pedidos = SolicitudMaterial.objects.filter(usuario=request.user).order_by('-fecha_solicitud')
-    return render(request, 'inventarios/mobile_lista_pedidos.html', {'pedidos': pedidos})
+    return render(request, 'inventarios/mobile_lista_pedidos.html', {
+        'pedidos': pedidos,
+        'back_url': _url_regreso(request, 'core:mobile_dashboard'),
+    })
 
 @login_required
 def api_pedidos_pendientes_almacen(request):
@@ -1260,6 +1280,7 @@ def mobile_gestion_salidas_view(request):
     context = {
         'pedidos_pendientes': pedidos_pendientes,
         'solicitud_directa': solicitud_directa,
+        'back_url': _url_regreso(request, 'inventarios:mobile_dashboard'),
         'title': 'Gestión de Salidas'
     }
     return render(request, 'inventarios/mobile_gestion_salidas.html', context)

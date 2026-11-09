@@ -194,6 +194,11 @@
 {% block content %}
 <div class="label-selector-container">
 
+    <a href="{% url 'inventarios:dashboard' %}"
+        style="display:inline-flex; align-items:center; gap:6px; margin-bottom:16px; color:#0070f2; text-decoration:none; font-weight:600;">
+        &larr; Volver al Centro de Inventarios
+    </a>
+
     <div style="display: grid; grid-template-columns: 2fr 1.5fr; gap: 20px; align-items: start;">
         <!-- Left: Material Selector -->
         <div class="card">

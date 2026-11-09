@@ -1,0 +1,10 @@
+{% extends "admin/app_index.html" %}
+
+{% block content %}
+<p>
+    <a href="{% url 'inventarios:dashboard' %}" class="btn btn-sm btn-outline-secondary" style="text-decoration:none;">
+        &larr; Volver al Centro de Inventarios
+    </a>
+</p>
+{{ block.super }}
+{% endblock %}
