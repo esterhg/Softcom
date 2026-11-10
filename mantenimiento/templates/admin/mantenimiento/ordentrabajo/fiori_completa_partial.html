@@ -580,6 +580,10 @@
                             <div id="fc-personal-results" class="fc-dropdown"></div>
                         </div>
                         <div class="fc-field">
+                            <label class="fc-label">Técnico Responsable (nombre en el PDF)</label>
+                            <input type="text" name="tecnico_nombre" class="fc-input" maxlength="150" placeholder="Nombre del técnico" value="{{ ot.firma_tecnico_nombre|default:'' }}">
+                        </div>
+                        <div class="fc-field">
                             <label class="fc-label">Supervisor</label>
                             <select name="supervisor" class="fc-select">
                                 <option value="">-- Sin asignar --</option>

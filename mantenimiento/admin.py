@@ -2283,6 +2283,11 @@ class OrdenTrabajoAdmin(admin.ModelAdmin):
             elif tp_id == '':
                 ot.tecnico_puesto = None
 
+            # ── Técnico Responsable: nombre libre que se imprime en el PDF ──
+            tecnico_nombre = request.POST.get('tecnico_nombre')
+            if tecnico_nombre is not None:
+                ot.firma_tecnico_nombre = tecnico_nombre.strip()[:150] or None
+
             # ── FK: Supervisor (User) ──
             sup_id = request.POST.get('supervisor')
             if sup_id and sup_id != '':
