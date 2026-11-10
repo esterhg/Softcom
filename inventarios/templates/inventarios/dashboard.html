@@ -658,6 +658,18 @@
             </div>
         </a>
 
+        {% if puede_aprobar_altas %}
+        <a href="{% url 'presupuestos:bandeja_altas' %}?tab=materiales" class="menu-card" id="btn-altas-material" style="cursor:pointer;">
+            <ion-icon name="add-circle-outline" style="color: #0070f2;"></ion-icon>
+            <div class="card-content">
+                <h2>Solicitudes de alta de material
+                    {% if altas_material_pendientes %}<span style="background:#bb0000;color:#fff;border-radius:10px;padding:0 8px;font-size:12px;margin-left:6px;">{{ altas_material_pendientes }}</span>{% endif %}
+                </h2>
+                <p>Materiales nuevos pedidos desde Requisiciones. Apruébalos con su SKU o recházalos con motivo.</p>
+            </div>
+        </a>
+        {% endif %}
+
         {% if es_almacen %}
         <a href="{% url 'inventarios:mobile_gestion_salidas' %}?origen=inventarios" class="menu-card" id="btn-gestion-salidas" style="cursor:pointer;">
             <ion-icon name="exit-outline" style="color: #d97706;"></ion-icon>

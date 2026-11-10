@@ -385,7 +385,14 @@
                                 data: formData,
                                 processData: false,
                                 contentType: false,
-                                success: function () {
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                success: function (resp) {
+                                    // El servidor responde JSON; si no es success, no se envía
+                                    if (!resp || resp.success !== true) {
+                                        $('#final_save').val('');
+                                        Swal.fire('Requisición incompleta', 'Revise los datos antes de enviar.', 'warning');
+                                        return;
+                                    }
                                     // Ahora solicitar autorización
                                     const urlTemplate = "{% url 'presupuestos:requisicion_autorizar' pk='00000000-0000-0000-0000-000000000000' %}";
                                     const url = urlTemplate.replace('00000000-0000-0000-0000-000000000000', pk);
@@ -404,8 +411,17 @@
                                         }
                                     });
                                 },
-                                error: function () {
-                                    Swal.fire('Error', 'Error al guardar la requisición.', 'error');
+                                error: function (xhr) {
+                                    $('#final_save').val('');
+                                    const r = xhr.responseJSON;
+                                    if (r && r.errors && r.errors.length) {
+                                        const ul = document.createElement('ul');
+                                        ul.style.textAlign = 'left';
+                                        r.errors.forEach(e => { const li = document.createElement('li'); li.textContent = e; ul.appendChild(li); });
+                                        Swal.fire({ icon: 'warning', title: r.message || 'Requisición incompleta', html: ul.outerHTML });
+                                    } else {
+                                        Swal.fire('Error', 'Error al guardar la requisición.', 'error');
+                                    }
                                 }
                             });
                         }

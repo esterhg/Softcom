@@ -1,101 +1,76 @@
 """
-Reportes de Inventario: exportación a Excel de movimientos (entradas, salidas,
-ajustes, traslados) con vínculos a Activo / OT / Devolución / Ingreso, y del
-inventario actual (existencias por ubicación).
-"""
-from datetime import datetime, time as dtime
-from decimal import Decimal, InvalidOperation
-from functools import wraps
+Vistas de los reportes de inventario.
 
-from django.contrib.auth.decorators import login_required
-from django.db.models import CharField, Q, Sum, Value
-from django.db.models.functions import Cast, Concat, TruncDate
-from django.http import HttpResponse, HttpResponseForbidden
+Capa de vistas (HTTP): leen ``request.GET``, delegan las consultas a
+``inventarios.selectors.reportes`` y la lógica/armado de Excel a
+``inventarios.services.reportes``, y devuelven la respuesta.
+
+Rutas: ``inventarios/urls_reportes.py``.
+Permisos: ``inventarios/permissions.py``.
+
+Pendiente de migrar a capas (fuera del paso 1): centro de reportes,
+inventario actual y catálogo completo; por eso siguen aquí con su lógica.
+"""
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 from activos.models import Ubicacion
+from core import filtros_columna
+from core.excel import autoajustar, escribir_headers, estilos, respuesta_xlsx
+from core.fechas import parse_fecha_iso
+from core.navegacion import querystring_sin
 from .models import (
     Material,
     MovimientoInventario,
     StockRecord,
     CategoriaMaterial,
-    MaterialUtilizadoOT,
-    SolicitudMaterial,
 )
-
-# Grupo con acceso exclusivo (junto con superusuarios) a todos los reportes.
-GRUPO_SUPERVISOR_ALMACEN = 'Supervisor de Almacen'
-
-
-def es_supervisor_almacen(user):
-    return bool(
-        user.is_authenticated
-        and (user.is_superuser or user.groups.filter(name=GRUPO_SUPERVISOR_ALMACEN).exists())
-    )
-
-
-def supervisor_almacen_required(view):
-    """Login + pertenencia al grupo 'Supervisor de Almacen' (o superusuario)."""
-    @wraps(view)
-    @login_required
-    def _wrapped(request, *args, **kwargs):
-        if not es_supervisor_almacen(request.user):
-            return HttpResponseForbidden("Solo el Supervisor de Almacén puede ver los reportes.")
-        return view(request, *args, **kwargs)
-    return _wrapped
+from .permissions import (  # noqa: F401  (reexportados por compatibilidad)
+    GRUPO_SUPERVISOR_ALMACEN,
+    es_supervisor_almacen,
+    supervisor_almacen_required,
+)
+from .selectors import reportes as sel
+from .services import reportes as svc
 
 # ---------------------------------------------------------------------------
-# Estilos reutilizables para openpyxl
+# Compatibilidad: nombres que existían en este módulo antes de separar capas.
+# Los usan los exports que aún no se migran (inventario actual, catálogo).
 # ---------------------------------------------------------------------------
+_estilos = estilos
+_escribir_headers = escribir_headers
+_autoajustar = autoajustar
+_parse_fecha = parse_fecha_iso
 
-def _estilos():
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-
-    header_font = Font(name='Arial', bold=True, size=11, color='FFFFFF')
-    header_fill = PatternFill(start_color='0070F2', end_color='0070F2', fill_type='solid')
-    header_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    thin = Side(style='thin', color='D9D9D9')
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    return header_font, header_fill, header_align, border
+COLUMNAS_MOVIMIENTOS = sel.COLUMNAS_MOVIMIENTOS
+COLUMNAS_PASES = sel.COLUMNAS_PASES
+aplicar_filtros = filtros_columna.aplicar_filtros
 
 
-def _escribir_headers(ws, headers):
-    header_font, header_fill, header_align, border = _estilos()
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-        cell.border = border
-    ws.freeze_panes = 'A2'
+def aplicar_filtros_columnas(qs, params):
+    """Compatibilidad: filtros por columna de la tabla de movimientos."""
+    return filtros_columna.aplicar_filtros(qs, params, sel.COLUMNAS_MOVIMIENTOS)
 
 
-def _autoajustar(ws, num_cols, max_width=55):
-    from openpyxl.utils import get_column_letter
-    for i in range(1, num_cols + 1):
-        letter = get_column_letter(i)
-        max_length = 0
-        for cell in ws[letter]:
-            if cell.value is not None:
-                max_length = max(max_length, len(str(cell.value)))
-        ws.column_dimensions[letter].width = min(max_length + 2, max_width)
+def columnas_con_estado(params, columnas=None):
+    """Compatibilidad: por defecto usa las columnas de movimientos."""
+    columnas = sel.COLUMNAS_MOVIMIENTOS if columnas is None else columnas
+    return filtros_columna.columnas_con_estado(params, columnas)
 
 
-def _parse_fecha(valor, fin=False):
-    """Convierte 'YYYY-MM-DD' en datetime aware. fin=True -> 23:59:59."""
-    if not valor:
-        return None
-    try:
-        d = datetime.strptime(valor, '%Y-%m-%d').date()
-    except (ValueError, TypeError):
-        return None
-    t = dtime.max if fin else dtime.min
-    naive = datetime.combine(d, t)
-    if timezone.is_aware(timezone.now()):
-        return timezone.make_aware(naive)
-    return naive
+def _pases_pendientes_qs(request):
+    """Compatibilidad: ver ``inventarios.selectors.reportes.pases_pendientes``."""
+    return sel.pases_pendientes(request.GET)
 
+
+_departamento_de = sel.departamento_de
+
+
+def _nombre_usuario(u):
+    return (u.get_full_name() or u.username) if u else ''
 
 # ---------------------------------------------------------------------------
 # Página de Reportes
@@ -140,112 +115,11 @@ def export_movimientos_excel(request):
       - estado=PENDIENTE|APROBADO|RECHAZADO
       - ubicacion=<id>  (origen o destino)
       - categoria=<id>  (categoría del material)
+      - op_<col>/val_<col>  (filtros por columna de la tabla de movimientos)
     """
-    import openpyxl
-
-    qs = MovimientoInventario.objects.select_related(
-        'material', 'material__categoria', 'material__unidad_medida',
-        'lote', 'ubicacion_origen', 'ubicacion_destino',
-        'orden_trabajo', 'usuario', 'aprobado_por',
-        'solicitud', 'ingreso', 'devolucion',
-    ).order_by('-fecha_movimiento')
-
-    desde = _parse_fecha(request.GET.get('desde'))
-    hasta = _parse_fecha(request.GET.get('hasta'), fin=True)
-    tipo = request.GET.get('tipo')
-    estado = request.GET.get('estado')
-    ubicacion_id = request.GET.get('ubicacion')
-    categoria_id = request.GET.get('categoria')
-
-    if desde:
-        qs = qs.filter(fecha_movimiento__gte=desde)
-    if hasta:
-        qs = qs.filter(fecha_movimiento__lte=hasta)
-    if tipo:
-        qs = qs.filter(tipo=tipo)
-    if estado:
-        qs = qs.filter(estado=estado)
-    if ubicacion_id:
-        qs = qs.filter(Q(ubicacion_origen_id=ubicacion_id) | Q(ubicacion_destino_id=ubicacion_id))
-    if categoria_id:
-        qs = qs.filter(material__categoria_id=categoria_id)
-
-    # Mismos filtros por columna que la tabla de movimientos (op_<col>/val_<col>)
-    qs = aplicar_filtros_columnas(qs, request.GET)
-
-    # Mapa de activos aplicados por movimiento (vía MaterialUtilizadoOT).
-    # Se construye desde TODOS los movimientos del queryset filtrado (sin límite).
-    activos_por_mov = {}
-    usos = MaterialUtilizadoOT.objects.filter(
-        movimiento__in=qs, activo__isnull=False
-    ).select_related('activo').values_list(
-        'movimiento_id', 'activo__nombre', 'activo__codigo_interno', 'activo_id'
-    )
-    for mov_id, act_nombre, act_codigo, act_id in usos.iterator(chunk_size=2000):
-        activos_por_mov.setdefault(mov_id, []).append(
-            f"{act_nombre} ({act_codigo or act_id})"
-        )
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Movimientos"
-
-    headers = [
-        'ID', 'Fecha', 'Tipo', 'Estado', 'SKU', 'Material', 'Categoría',
-        'Unidad', 'Lote', 'Cantidad', 'Cant. Solicitada',
-        'Ubicación Origen', 'Ubicación Destino', 'Ubic. Específica',
-        'Orden de Trabajo', 'Activo(s) Vinculado(s)', 'Solicitud',
-        'Ingreso', 'Devolución', 'Usuario', 'Aprobado Por',
-        'Fecha Aprobación', 'Inconsistente', 'Comentarios',
-    ]
-    _escribir_headers(ws, headers)
-
-    _, _, _, border = _estilos()
-    tipo_display = dict(MovimientoInventario.TIPO_MOVIMIENTO)
-
-    row = 2
-    for m in qs.iterator(chunk_size=1000):
-        activos = ', '.join(activos_por_mov.get(m.id, []))
-        valores = [
-            m.id,
-            timezone.localtime(m.fecha_movimiento).strftime('%d/%m/%Y %H:%M') if m.fecha_movimiento else '',
-            tipo_display.get(m.tipo, m.tipo),
-            m.get_estado_display(),
-            m.material.sku if m.material else '',
-            m.material.nombre if m.material else '',
-            m.material.categoria.nombre if m.material and m.material.categoria else '',
-            (m.material.unidad_medida.abreviatura if m.material and m.material.unidad_medida else ''),
-            m.lote.codigo if m.lote else '',
-            float(m.cantidad) if m.cantidad is not None else 0,
-            float(m.cantidad_solicitada) if m.cantidad_solicitada is not None else 0,
-            m.ubicacion_origen.nombre if m.ubicacion_origen else '',
-            m.ubicacion_destino.nombre if m.ubicacion_destino else '',
-            m.ubicacion_especifica or '',
-            m.orden_trabajo.codigo_de_orden if m.orden_trabajo else '',
-            activos,
-            str(m.solicitud_id) if m.solicitud_id else '',
-            str(m.ingreso_id) if m.ingreso_id else '',
-            str(m.devolucion_id) if m.devolucion_id else '',
-            m.usuario.get_full_name() or m.usuario.username if m.usuario else '',
-            m.aprobado_por.get_full_name() or m.aprobado_por.username if m.aprobado_por else '',
-            timezone.localtime(m.fecha_aprobacion).strftime('%d/%m/%Y %H:%M') if m.fecha_aprobacion else '',
-            'Sí' if m.es_inconsistente else 'No',
-            (m.comentarios or '')[:500],
-        ]
-        for col, val in enumerate(valores, 1):
-            cell = ws.cell(row=row, column=col, value=val)
-            cell.border = border
-        row += 1
-
-    _autoajustar(ws, len(headers))
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    stamp = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M')
-    response['Content-Disposition'] = f'attachment; filename="movimientos_inventario_{stamp}.xlsx"'
-    wb.save(response)
-    return response
+    qs = sel.movimientos_export(request.GET)
+    wb = svc.libro_excel_movimientos(qs, sel.activos_por_movimiento(qs))
+    return respuesta_xlsx(wb, 'movimientos_inventario')
 
 
 # ---------------------------------------------------------------------------
@@ -504,67 +378,13 @@ def export_catalogo_excel(request):
 # Reporte: Pases de salida pendientes de justificar (sin OTNP ni Ticket)
 # ---------------------------------------------------------------------------
 
-def _pases_pendientes_qs(request):
-    """
-    Pases de salida (SolicitudMaterial) NO justificados: sin Ticket y sin una
-    OT de tipo No Programada (OTNP). Se excluyen borradores y rechazados.
-    """
-    from .models import SolicitudMaterial
-    from django.db.models import Count
-
-    qs = (
-        SolicitudMaterial.objects
-        .exclude(estado__in=['BORRADOR', 'RECHAZADO'])
-        .filter(ticket__isnull=True)
-        .filter(Q(orden_trabajo__isnull=True) | ~Q(orden_trabajo__tipo='NO_PROGRAMADA'))
-        .select_related(
-            'usuario', 'usuario__perfil', 'usuario__perfil__departamento',
-            'orden_trabajo', 'ubicacion_origen',
-        )
-        .annotate(num_items=Count('items'))
-        .order_by('-fecha_solicitud')
-    )
-
-    depto = request.GET.get('departamento')
-    if depto == 'none':
-        qs = qs.filter(
-            Q(usuario__perfil__isnull=True) | Q(usuario__perfil__departamento__isnull=True)
-        )
-    elif depto and depto.isdigit():
-        qs = qs.filter(usuario__perfil__departamento_id=int(depto))
-
-    desde = _parse_fecha(request.GET.get('desde'))
-    hasta = _parse_fecha(request.GET.get('hasta'), fin=True)
-    if desde:
-        qs = qs.filter(fecha_solicitud__gte=desde)
-    if hasta:
-        qs = qs.filter(fecha_solicitud__lte=hasta)
-    # Filtros por columna (panel "Filtrar por" de cada encabezado)
-    return aplicar_filtros(qs, request.GET, COLUMNAS_PASES)
-
-
-def _departamento_de(solicitud):
-    perfil = getattr(solicitud.usuario, 'perfil', None)
-    depto = getattr(perfil, 'departamento', None)
-    return depto.nombre if depto else 'Sin departamento'
-
-
 @supervisor_almacen_required
 def reporte_pases_pendientes_view(request):
     """Pases de salida pendientes de justificar con OTNP o Ticket, de todos los departamentos."""
     from core.models import Departamento
 
-    solicitudes = list(_pases_pendientes_qs(request))
-
-    # Resumen por departamento
-    resumen = {}
-    for s in solicitudes:
-        nombre = _departamento_de(s)
-        r = resumen.setdefault(nombre, {'departamento': nombre, 'total': 0, 'items': 0})
-        r['total'] += 1
-        r['items'] += s.num_items
-        s.departamento_nombre = nombre
-    resumen = sorted(resumen.values(), key=lambda r: (-r['total'], r['departamento']))
+    solicitudes = list(sel.pases_pendientes(request.GET))
+    resumen = svc.resumen_por_departamento(solicitudes)
 
     context = {
         'solicitudes': solicitudes,
@@ -574,8 +394,9 @@ def reporte_pases_pendientes_view(request):
         'f_departamento': request.GET.get('departamento', ''),
         'f_desde': request.GET.get('desde', ''),
         'f_hasta': request.GET.get('hasta', ''),
-        'columnas': columnas_con_estado(request.GET, COLUMNAS_PASES),
-        'querystring': request.GET.urlencode(),
+        'columnas': filtros_columna.columnas_con_estado(request.GET, sel.COLUMNAS_PASES),
+        # Estado completo de la pantalla para el enlace de exportación
+        'querystring': querystring_sin(request.GET),
         'title': 'Pases de salida pendientes de justificar',
         'active_tab': 'reportes',
     }
@@ -585,296 +406,32 @@ def reporte_pases_pendientes_view(request):
 @supervisor_almacen_required
 def export_pases_pendientes_excel(request):
     """Exporta a Excel los pases de salida pendientes de justificar (mismos filtros que la vista)."""
-    import openpyxl
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Pases sin justificar"
-    headers = [
-        'Pase #', 'Fecha', 'Departamento', 'Solicitante', 'Estado',
-        'Orden de Trabajo', 'Tipo OT', 'Ubicación Origen', 'Artículos',
-        'Días sin justificar', 'Comentarios',
-    ]
-    _escribir_headers(ws, headers)
-    _, _, _, border = _estilos()
-
     ahora = timezone.now()
-    row = 2
-    for s in _pases_pendientes_qs(request).iterator(chunk_size=1000):
-        ot = s.orden_trabajo
-        valores = [
-            s.id,
-            timezone.localtime(s.fecha_solicitud).strftime('%d/%m/%Y %H:%M'),
-            _departamento_de(s),
-            s.solicitante_nombre,
-            s.get_estado_display(),
-            (ot.codigo_de_orden or f'OT-{ot.id}') if ot else '',
-            ot.get_tipo_display() if ot else '',
-            s.ubicacion_origen.nombre if s.ubicacion_origen else '',
-            s.num_items,
-            (ahora - s.fecha_solicitud).days,
-            (s.comentarios_solicitud or '')[:500],
-        ]
-        for col, val in enumerate(valores, 1):
-            ws.cell(row=row, column=col, value=val).border = border
-        row += 1
-    _autoajustar(ws, len(headers))
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    stamp = timezone.localtime(ahora).strftime('%Y%m%d_%H%M')
-    response['Content-Disposition'] = f'attachment; filename="pases_pendientes_justificar_{stamp}.xlsx"'
-    wb.save(response)
-    return response
+    wb = svc.libro_excel_pases(sel.pases_pendientes(request.GET), ahora)
+    return respuesta_xlsx(wb, 'pases_pendientes_justificar', ahora)
 
 
 # ---------------------------------------------------------------------------
 # Tabla de movimientos (producto, quién registró, quién aprobó, estado)
 # ---------------------------------------------------------------------------
 
-def _nombre_usuario(u):
-    return (u.get_full_name() or u.username) if u else ''
-
-
-# ---------------------------------------------------------------------------
-# Filtros por columna (panel "Filtrar por": operador + valor, Aplicar / Borrar)
-#   GET: op_<columna>=<operador>  y  val_<columna>=<texto>
-# Motor genérico: cada página define su lista de columnas (ver COLUMNAS_*).
-# ---------------------------------------------------------------------------
-
-OP_BASICO = [('igual', 'Es igual a'), ('contiene', 'Contiene'), ('no_contiene', 'No contiene')]
-OP_TEXTO = OP_BASICO + [('tiene', 'Solo con datos'), ('vacio', 'Solo sin datos')]
-OP_NUMERO = [('igual', 'Es igual a'), ('mayor', 'Mayor que'), ('menor', 'Menor que')]
-OP_FECHA = [('igual', 'Es igual a'), ('mayor', 'Desde'), ('menor', 'Hasta'), ('contiene', 'Contiene')]
-
-_OPS_SIN_VALOR = ('tiene', 'vacio')
-
-
-# Fábricas de anotaciones auxiliares (se crean al usarse, no al importar)
-def _a_texto(campo):
-    return lambda: Cast(campo, CharField())
-
-
-def _fecha_texto(campo):
-    return lambda: Cast(TruncDate(campo), CharField())
-
-
-def _nombre_completo(base):
-    return lambda: Concat(
-        f'{base}__first_name', Value(' '), f'{base}__last_name', output_field=CharField()
-    )
-
-
-def _no_vacio(campo):
-    return Q(**{f'{campo}__isnull': False}) & ~Q(**{campo: ''})
-
-
-def _persona(base, ann):
-    return {
-        'kind': 'texto', 'ops': OP_TEXTO,
-        'campos': [f'{base}__username', f'{base}__first_name', f'{base}__last_name', ann],
-        'anotar': {ann: _nombre_completo(base)}, 'presencia': Q(**{f'{base}__isnull': False}),
-    }
-
-
-COLUMNAS_MOVIMIENTOS = [
-    {'key': 'fecha', 'label': 'Fecha', 'kind': 'fecha', 'ops': OP_FECHA,
-     'campo': 'fecha_movimiento', 'ann': 'ann_fecha',
-     'anotar': {'ann_fecha': _fecha_texto('fecha_movimiento')}},
-    {'key': 'tipo', 'label': 'Tipo', 'kind': 'eleccion', 'ops': OP_BASICO,
-     'campo': 'tipo', 'opciones': MovimientoInventario.TIPO_MOVIMIENTO},
-    {'key': 'estado', 'label': 'Estado', 'kind': 'eleccion', 'ops': OP_BASICO,
-     'campo': 'estado',
-     'opciones': [('PENDIENTE', 'Pendiente'), ('APROBADO', 'Aprobado / Liquidado'), ('RECHAZADO', 'Rechazado')]},
-    {'key': 'producto', 'label': 'Producto', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['material__nombre', 'material__sku'], 'presencia': Q(material__isnull=False)},
-    {'key': 'cantidad', 'label': 'Cantidad', 'kind': 'numero', 'ops': OP_NUMERO, 'campo': 'cantidad'},
-    {'key': 'pase', 'label': 'Pase / Ingreso', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['ann_sol', 'ann_ing'],
-     'anotar': {'ann_sol': _a_texto('solicitud_id'), 'ann_ing': _a_texto('ingreso_id')},
-     'presencia': Q(solicitud__isnull=False) | Q(ingreso__isnull=False), 'placeholder': 'N° de pase o ingreso'},
-    {'key': 'ot', 'label': 'OT', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['orden_trabajo__codigo_de_orden'], 'presencia': Q(orden_trabajo__isnull=False)},
-    dict(key='registro', label='Registró / Solicitó', **_persona('usuario', 'ann_registro')),
-    dict(key='aprobo', label='Aprobó', **_persona('aprobado_por', 'ann_aprobo')),
-    dict(key='entrego', label='Entregó', **_persona('solicitud__entregado_por', 'ann_entrego')),
-    {'key': 'origen', 'label': 'Origen', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['ubicacion_origen__nombre'], 'presencia': Q(ubicacion_origen__isnull=False)},
-    {'key': 'destino', 'label': 'Destino', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['ubicacion_destino__nombre'], 'presencia': Q(ubicacion_destino__isnull=False)},
-]
-
-# Columnas del reporte de pases pendientes (modelo SolicitudMaterial).
-# 'num_items' es una anotación Count definida en _pases_pendientes_qs.
-COLUMNAS_PASES = [
-    {'key': 'pase', 'label': 'Pase #', 'kind': 'texto', 'ops': OP_BASICO,
-     'campos': ['ann_pase'], 'anotar': {'ann_pase': _a_texto('id')}, 'placeholder': 'N° de pase'},
-    {'key': 'fecha', 'label': 'Fecha', 'kind': 'fecha', 'ops': OP_FECHA,
-     'campo': 'fecha_solicitud', 'ann': 'ann_fecha',
-     'anotar': {'ann_fecha': _fecha_texto('fecha_solicitud')}},
-    {'key': 'departamento', 'label': 'Departamento', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['usuario__perfil__departamento__nombre'],
-     'presencia': Q(usuario__perfil__departamento__isnull=False)},
-    dict(key='solicitante', label='Solicitante', **_persona('usuario', 'ann_solicitante')),
-    {'key': 'estado', 'label': 'Estado', 'kind': 'eleccion', 'ops': OP_BASICO, 'campo': 'estado',
-     'opciones': [(c, l) for c, l in SolicitudMaterial.ESTADO_CHOICES if c not in ('BORRADOR', 'RECHAZADO')]},
-    {'key': 'ot', 'label': 'OT vinculada', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['orden_trabajo__codigo_de_orden'], 'presencia': Q(orden_trabajo__isnull=False)},
-    {'key': 'articulos', 'label': 'Artículos', 'kind': 'numero', 'ops': OP_NUMERO, 'campo': 'num_items'},
-    {'key': 'comentarios', 'label': 'Comentarios', 'kind': 'texto', 'ops': OP_TEXTO,
-     'campos': ['comentarios_solicitud'], 'presencia': _no_vacio('comentarios_solicitud')},
-]
-
-
-def _parse_fecha_flexible(valor):
-    for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
-        try:
-            return datetime.strptime(valor.strip(), fmt).date()
-        except (ValueError, AttributeError):
-            continue
-    return None
-
-
-def _q_campos(campos, lookup, valor):
-    q = Q()
-    for c in campos:
-        q |= Q(**{f'{c}__{lookup}': valor})
-    return q
-
-
-def aplicar_filtros(qs, params, columnas):
-    """Aplica a `qs` los filtros por columna (op_<col>/val_<col>) de `params`."""
-    for col in columnas:
-        op = (params.get(f"op_{col['key']}") or '').strip()
-        valor = (params.get(f"val_{col['key']}") or '').strip()
-        if not op or op not in dict(col['ops']):
-            continue
-        if op not in _OPS_SIN_VALOR and not valor:
-            continue  # operador sin texto: no filtra
-
-        for nombre, fabrica in col.get('anotar', {}).items():
-            qs = qs.annotate(**{nombre: fabrica()})
-
-        kind = col['kind']
-        if op == 'tiene':
-            qs = qs.filter(col['presencia'])
-        elif op == 'vacio':
-            qs = qs.exclude(col['presencia'])
-        elif kind == 'texto':
-            if op == 'contiene':
-                qs = qs.filter(_q_campos(col['campos'], 'icontains', valor))
-            elif op == 'no_contiene':
-                qs = qs.exclude(_q_campos(col['campos'], 'icontains', valor))
-            elif op == 'igual':
-                qs = qs.filter(_q_campos(col['campos'], 'iexact', valor))
-        elif kind == 'eleccion':
-            v = valor.lower()
-            if op == 'igual':
-                codigos = [c for c, l in col['opciones'] if v in (c.lower(), l.lower())]
-            else:
-                codigos = [c for c, l in col['opciones'] if v in c.lower() or v in l.lower()]
-            if op == 'no_contiene':
-                qs = qs.exclude(**{f"{col['campo']}__in": codigos})
-            else:
-                qs = qs.filter(**{f"{col['campo']}__in": codigos})
-        elif kind == 'numero':
-            try:
-                num = Decimal(valor.replace(',', '.'))
-            except InvalidOperation:
-                continue
-            lookup = {'igual': 'exact', 'mayor': 'gt', 'menor': 'lt'}[op]
-            qs = qs.filter(**{f"{col['campo']}__{lookup}": num})
-        elif kind == 'fecha':
-            if op == 'contiene':
-                qs = qs.filter(**{f"{col['ann']}__icontains": valor})
-                continue
-            dia = _parse_fecha_flexible(valor)
-            if not dia:
-                continue
-            lookup = {'igual': '__date', 'mayor': '__date__gte', 'menor': '__date__lte'}[op]
-            qs = qs.filter(**{f"{col['campo']}{lookup}": dia})
-    return qs
-
-
-def aplicar_filtros_columnas(qs, params):
-    """Filtros por columna de la tabla de movimientos."""
-    return aplicar_filtros(qs, params, COLUMNAS_MOVIMIENTOS)
-
-
-def columnas_con_estado(params, columnas=None):
-    """Columnas con operador/valor actuales, para repintar los paneles de filtro."""
-    columnas = COLUMNAS_MOVIMIENTOS if columnas is None else columnas
-    placeholders = {'texto': 'Texto a buscar', 'eleccion': 'Texto a buscar',
-                    'numero': 'Número', 'fecha': 'AAAA-MM-DD o DD/MM/AAAA'}
-    resultado = []
-    for col in columnas:
-        op = (params.get(f"op_{col['key']}") or '').strip()
-        resultado.append({
-            'key': col['key'], 'label': col['label'], 'ops': col['ops'],
-            'op': op if op in dict(col['ops']) else '',
-            'val': (params.get(f"val_{col['key']}") or '').strip(),
-            'placeholder': col.get('placeholder') or placeholders[col['kind']],
-        })
-    return resultado
-
-
-
 @supervisor_almacen_required
 def tabla_movimientos_view(request):
     """Tabla paginada de movimientos con responsables y estado, solo para el Supervisor de Almacén."""
-    from django.core.paginator import Paginator
-
-    qs = MovimientoInventario.objects.select_related(
-        'material', 'material__unidad_medida', 'usuario', 'aprobado_por',
-        'ubicacion_origen', 'ubicacion_destino', 'orden_trabajo',
-        'solicitud', 'solicitud__entregado_por', 'solicitud__usuario',
-        'ingreso',
-    ).order_by('-fecha_movimiento')
-
-    tipo = request.GET.get('tipo', '')
-    estado = request.GET.get('estado', '')
-    q = (request.GET.get('q') or '').strip()
-    desde = _parse_fecha(request.GET.get('desde'))
-    hasta = _parse_fecha(request.GET.get('hasta'), fin=True)
-
-    if tipo:
-        qs = qs.filter(tipo=tipo)
-    if estado:
-        qs = qs.filter(estado=estado)
-    if desde:
-        qs = qs.filter(fecha_movimiento__gte=desde)
-    if hasta:
-        qs = qs.filter(fecha_movimiento__lte=hasta)
-    if q:
-        qs = qs.filter(
-            Q(material__nombre__icontains=q) | Q(material__sku__icontains=q)
-            | Q(usuario__username__icontains=q) | Q(usuario__first_name__icontains=q)
-            | Q(usuario__last_name__icontains=q)
-            | Q(aprobado_por__username__icontains=q)
-            | Q(orden_trabajo__codigo_de_orden__icontains=q)
-        )
-
-    qs = aplicar_filtros_columnas(qs, request.GET)
-
+    qs = sel.movimientos_tabla(request.GET)
     page = Paginator(qs, 50).get_page(request.GET.get('page') or 1)
-
-    # Parámetros de filtro sin 'page' para los links de paginación
-    params = request.GET.copy()
-    params.pop('page', None)
 
     context = {
         'page': page,
         'tipos_movimiento': MovimientoInventario.TIPO_MOVIMIENTO,
-        'estados_movimiento': [
-            ('PENDIENTE', 'Pendiente'),
-            ('APROBADO', 'Aprobado / Liquidado'),
-            ('RECHAZADO', 'Rechazado'),
-        ],
-        'f_tipo': tipo, 'f_estado': estado, 'f_q': q,
+        'estados_movimiento': sel.ESTADOS_MOVIMIENTO,
+        'f_tipo': request.GET.get('tipo', ''),
+        'f_estado': request.GET.get('estado', ''),
+        'f_q': (request.GET.get('q') or '').strip(),
         'f_desde': request.GET.get('desde', ''), 'f_hasta': request.GET.get('hasta', ''),
-        'querystring': params.urlencode(),
-        'columnas': columnas_con_estado(request.GET),
+        # Filtros actuales sin 'page' para los enlaces de paginación y exportación
+        'querystring': querystring_sin(request.GET, 'page'),
+        'columnas': filtros_columna.columnas_con_estado(request.GET, sel.COLUMNAS_MOVIMIENTOS),
         'title': 'Movimientos de Inventario',
         'active_tab': 'movimientos',
     }

@@ -93,6 +93,17 @@ def requisicion_autorizar(request, pk):
 
         # ── Flujo normal: enviar a Power Automate ──────────────────────────────
 
+        # Validación obligatoria: proveedor, materiales del catálogo y lugar del servicio
+        from .validaciones import errores_requisicion, asignar_proveedor_por_defecto
+        asignar_proveedor_por_defecto(requisicion)
+        errores = errores_requisicion(requisicion)
+        if errores:
+            return JsonResponse({
+                'success': False,
+                'message': 'La requisición está incompleta: ' + ' '.join(errores),
+                'errors': errores,
+            }, status=400)
+
         # 1. Información del Solicitante, Responsable y Aprobador
         solicitante = requisicion.usuario_solicitante
         perfil_sol = getattr(solicitante, 'perfil', None) if solicitante else None

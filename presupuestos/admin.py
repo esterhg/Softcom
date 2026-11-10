@@ -640,8 +640,9 @@ class OrdenCompraArticuloInline(admin.TabularInline):
     model = OrdenCompraArticulo
     extra = 0
     readonly_fields = ['subtotal']
-    fields = ['articulo_requisicion', 'descripcion', 'cantidad', 'costo_unitario', 'subtotal']
+    fields = ['articulo_requisicion', 'material', 'descripcion', 'cantidad', 'costo_unitario', 'subtotal']
     autocomplete_fields = ['articulo_requisicion']
+    raw_id_fields = ['material']
     classes = ['collapse']
     verbose_name = "Artículo de OC"
     verbose_name_plural = "Artículos de la OC"

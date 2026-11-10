@@ -227,6 +227,23 @@
                             </div>
                         </div>
 
+                        <!-- Lugar del servicio (obligatorio si Tipo = Servicio) -->
+                        {{ form.nivel }}{{ form.ubicacion }}
+                        <div id="servicio-lugar-group" style="display:none; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label class="form-label" for="id_edificio">Edificio <span style="color:#bb0000;">*</span></label>
+                                {{ form.edificio }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="sel_nivel">Nivel <span style="color:#bb0000;">*</span></label>
+                                <select id="sel_nivel" class="form-control"><option value="">— Seleccionar nivel —</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="sel_ubicacion">Ubicación <span style="color:#bb0000;">*</span></label>
+                                <select id="sel_ubicacion" class="form-control"><option value="">— Seleccionar ubicación —</option></select>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label class="form-label">Presupuesto Anual</label>
                             <select id="id_presupuesto_anual" class="form-control" onchange="filterPartidasByPresupuesto(this.value)">
@@ -292,9 +309,9 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Proveedor Asignado / Principal</label>
+                            <label class="form-label">Proveedor Asignado / Principal <span style="color:#bb0000;">*</span></label>
                             {{ form.proveedor }}
-                            <small class="form-hint">Si ya tiene un proveedor definido, selecciónelo aquí.</small>
+                            <small class="form-hint">Obligatorio. Los artículos sin proveedor tomarán este.</small>
                         </div>
 
                         <div class="form-group">
@@ -912,6 +929,56 @@
         toggleFPE();
         tipoSelect.addEventListener('change', toggleFPE);
     }
+
+    // ─── Lugar del servicio: Edificio → Nivel → Ubicación ───────────────────
+    (function () {
+        const grupo = document.getElementById('servicio-lugar-group');
+        const selEdif = document.getElementById('id_edificio');
+        const selNivel = document.getElementById('sel_nivel');
+        const selUbi = document.getElementById('sel_ubicacion');
+        const hidNivel = document.getElementById('id_nivel');
+        const hidUbi = document.getElementById('id_ubicacion');
+        if (!grupo || !selEdif || !selNivel || !selUbi || !hidNivel || !hidUbi) return;
+        const URL_HIJOS = "{% url 'inventarios:api_niveles_edificio' %}";
+
+        function toggleLugar() {
+            grupo.style.display = (tipoSelect && tipoSelect.value === 'SERVICIO') ? 'grid' : 'none';
+        }
+        function cargar(select, padreId, placeholder, valorActual) {
+            select.innerHTML = '';
+            const op0 = document.createElement('option');
+            op0.value = ''; op0.textContent = placeholder;
+            select.appendChild(op0);
+            if (!padreId) return Promise.resolve();
+            return fetch(URL_HIJOS + '?edificio_id=' + encodeURIComponent(padreId))
+                .then(r => r.json())
+                .then(data => {
+                    (data.results || []).forEach(u => {
+                        const op = document.createElement('option');
+                        op.value = u.id; op.textContent = u.nombre;
+                        if (String(u.id) === String(valorActual)) op.selected = true;
+                        select.appendChild(op);
+                    });
+                })
+                .catch(() => {});
+        }
+        selEdif.addEventListener('change', () => {
+            hidNivel.value = ''; hidUbi.value = '';
+            cargar(selNivel, selEdif.value, '— Seleccionar nivel —', '');
+            cargar(selUbi, null, '— Seleccionar ubicación —', '');
+        });
+        selNivel.addEventListener('change', () => {
+            hidNivel.value = selNivel.value; hidUbi.value = '';
+            cargar(selUbi, selNivel.value, '— Seleccionar ubicación —', '');
+        });
+        selUbi.addEventListener('change', () => { hidUbi.value = selUbi.value; });
+
+        // Estado inicial (valores guardados)
+        cargar(selNivel, selEdif.value, '— Seleccionar nivel —', hidNivel.value)
+            .then(() => cargar(selUbi, hidNivel.value, '— Seleccionar ubicación —', hidUbi.value));
+        if (tipoSelect) tipoSelect.addEventListener('change', toggleLugar);
+        toggleLugar();
+    })();
 
     // ─── Filtrar Partidas por Presupuesto Anual ─────────────────────────────
     // Guardar todas las opciones originales del select de partida

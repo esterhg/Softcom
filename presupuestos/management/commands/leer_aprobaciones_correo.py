@@ -1,10 +1,13 @@
 """
-Lee un buzón de Microsoft 365 vía Microsoft Graph buscando correos de
-resultado de aprobación enviados por Power Automate (alternativa gratuita a
-la acción HTTP premium) y actualiza las requisiciones correspondientes.
+Lee un buzón buscando correos de resultado de aprobación enviados por
+Power Automate (alternativa gratuita a la acción HTTP premium) y actualiza
+las requisiciones correspondientes.
 
-Se usa Graph (OAuth2 client credentials) porque Microsoft 365 tiene la
-autenticación básica de IMAP deshabilitada.
+Dos backends, se elige automáticamente según las variables configuradas:
+  - Microsoft Graph (si hay REQ_GRAPH_*): para buzones de Microsoft 365,
+    que tienen la autenticación básica de IMAP deshabilitada.
+  - IMAP (si hay REQ_IMAP_*): para buzones que sí la permiten, por ejemplo
+    Gmail con contraseña de aplicación (imap.gmail.com).
 
 Formato esperado del ASUNTO del correo que envía Power Automate:
 
@@ -16,7 +19,14 @@ Ejemplo:
 El TOKEN es un secreto compartido (settings.REQ_APROBACION_TOKEN) para evitar
 que un correo falsificado dispare cambios de estado.
 
-Settings / variables de entorno:
+Settings / variables de entorno (IMAP):
+    REQ_IMAP_HOST            ej. imap.gmail.com
+    REQ_IMAP_PORT            por defecto 993
+    REQ_IMAP_USER            dirección del buzón
+    REQ_IMAP_PASSWORD        contraseña de aplicación
+    REQ_IMAP_FOLDER          por defecto INBOX
+
+Settings / variables de entorno (Graph):
     REQ_GRAPH_TENANT_ID      (fallback: DYNAMICS_TENANT_ID)
     REQ_GRAPH_CLIENT_ID      (fallback: DYNAMICS_CLIENT_ID)
     REQ_GRAPH_CLIENT_SECRET  (fallback: DYNAMICS_CLIENT_SECRET)
@@ -38,11 +48,8 @@ import msal
 import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
-from presupuestos.models import Requisicion
-from presupuestos.utils_documentos import generate_requisicion_pdf
-from presupuestos.views_import import _registrar_historial
+from presupuestos.services.aprobaciones import aplicar_resultado_aprobacion
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +101,123 @@ class Command(BaseCommand):
         mailbox = getattr(settings, "REQ_GRAPH_MAILBOX", "")
         token_esperado = getattr(settings, "REQ_APROBACION_TOKEN", "")
 
-        if not (tenant_id and client_id and client_secret and mailbox):
+        graph_ok = bool(tenant_id and client_id and client_secret and mailbox)
+        imap_ok = bool(
+            getattr(settings, "REQ_IMAP_HOST", "")
+            and getattr(settings, "REQ_IMAP_USER", "")
+            and getattr(settings, "REQ_IMAP_PASSWORD", "")
+        )
+
+        if graph_ok:
+            self._handle_graph(tenant_id, client_id, client_secret, mailbox, token_esperado, dry_run)
+        elif imap_ok:
+            self._handle_imap(token_esperado, dry_run)
+        else:
             self.stderr.write(
-                "Faltan credenciales de Graph (REQ_GRAPH_TENANT_ID / REQ_GRAPH_CLIENT_ID / "
+                "Faltan credenciales. Configura IMAP (REQ_IMAP_HOST / REQ_IMAP_USER / "
+                "REQ_IMAP_PASSWORD) o Graph (REQ_GRAPH_TENANT_ID / REQ_GRAPH_CLIENT_ID / "
                 "REQ_GRAPH_CLIENT_SECRET / REQ_GRAPH_MAILBOX). Abortando."
             )
+
+    # ------------------------------------------------------------------ #
+    # Backend IMAP (ej. Gmail con contraseña de aplicación)
+    # ------------------------------------------------------------------ #
+    def _handle_imap(self, token_esperado, dry_run):
+        import email
+        import imaplib
+        from email.header import decode_header
+
+        host = settings.REQ_IMAP_HOST
+        port = int(getattr(settings, "REQ_IMAP_PORT", 993))
+        user = settings.REQ_IMAP_USER
+        password = settings.REQ_IMAP_PASSWORD
+        folder = getattr(settings, "REQ_IMAP_FOLDER", "INBOX") or "INBOX"
+
+        def decode_subject(raw):
+            if not raw:
+                return ""
+            out = ""
+            for texto, charset in decode_header(raw):
+                if isinstance(texto, bytes):
+                    try:
+                        out += texto.decode(charset or "utf-8", errors="replace")
+                    except (LookupError, TypeError):
+                        out += texto.decode("utf-8", errors="replace")
+                else:
+                    out += texto
+            return out
+
+        try:
+            conn = imaplib.IMAP4_SSL(host, port)
+            conn.login(user, password)
+        except Exception as e:
+            self.stderr.write(f"No se pudo conectar/autenticar al buzón IMAP: {e}")
+            logger.error(f"[correo-aprobacion] Error conexión IMAP: {e}")
             return
 
+        procesados = ignorados = 0
+        try:
+            conn.select(folder)
+            status, data = conn.search(None, "UNSEEN")
+            if status != "OK":
+                self.stdout.write("No se pudieron buscar correos (SEARCH falló).")
+                return
+            ids = data[0].split()
+            if not ids:
+                self.stdout.write("No hay correos nuevos.")
+                return
+
+            for msg_id in ids:
+                # BODY.PEEK no marca el correo como leído al descargarlo
+                status, msg_data = conn.fetch(msg_id, "(BODY.PEEK[HEADER])")
+                if status != "OK":
+                    continue
+                mensaje = email.message_from_bytes(msg_data[0][1])
+                asunto = decode_subject(mensaje.get("Subject"))
+                remitente = mensaje.get("From", "")
+
+                resultado = self._procesar_asunto(asunto, remitente, token_esperado, dry_run)
+                if resultado == "procesado":
+                    if not dry_run:
+                        conn.store(msg_id, "+FLAGS", "\\Seen")
+                    procesados += 1
+                else:
+                    ignorados += 1
+        finally:
+            for fn in (conn.close, conn.logout):
+                try:
+                    fn()
+                except Exception:
+                    pass
+
+        self.stdout.write(self.style.SUCCESS(
+            f"{'[DRY RUN] ' if dry_run else ''}Hecho (IMAP). Procesados: {procesados}, ignorados: {ignorados}."
+        ))
+
+    def _procesar_asunto(self, asunto, remitente, token_esperado, dry_run):
+        """Valida el asunto y aplica el resultado. Devuelve 'procesado' o 'ignorado'."""
+        m = _ASUNTO_RE.search(asunto or "")
+        if not m:
+            return "ignorado"
+
+        numero = m.group("numero").strip()
+        accion = m.group("accion").upper().strip()
+        token = (m.group("token") or "").strip()
+
+        if token_esperado and token != token_esperado:
+            self.stderr.write(f"Token inválido en correo para {numero} (de {remitente}). Ignorado.")
+            logger.warning(f"[correo-aprobacion] Token inválido para {numero} de {remitente}")
+            return "ignorado"
+
+        self.stdout.write(f"Procesando: {numero} -> {accion} (de {remitente})")
+        if dry_run:
+            return "procesado"
+        return "procesado" if self._aplicar_resultado(numero, accion, remitente) else "ignorado"
+
+    # ------------------------------------------------------------------ #
+    # Backend Microsoft Graph
+    # ------------------------------------------------------------------ #
+    def _handle_graph(self, tenant_id, client_id, client_secret, mailbox, token_esperado, dry_run):
         try:
             access_token = _get_graph_token(tenant_id, client_id, client_secret)
         except Exception as e:
@@ -144,43 +261,17 @@ class Command(BaseCommand):
                 (msg.get("from") or {}).get("emailAddress", {}).get("address", "")
             )
 
-            m = _ASUNTO_RE.search(asunto)
-            if not m:
-                # No es un correo de resultado; no lo tocamos.
-                ignorados += 1
-                continue
-
-            numero = m.group("numero").strip()
-            accion = m.group("accion").upper().strip()
-            token = (m.group("token") or "").strip()
-
-            if token_esperado and token != token_esperado:
-                self.stderr.write(
-                    f"Token inválido en correo para {numero} (de {remitente}). Ignorado."
-                )
-                logger.warning(
-                    f"[correo-aprobacion] Token inválido para {numero} de {remitente}"
-                )
-                ignorados += 1
-                continue
-
-            self.stdout.write(f"Procesando: {numero} -> {accion} (de {remitente})")
-
-            if dry_run:
-                procesados += 1
-                continue
-
-            aplicado = self._aplicar_resultado(numero, accion, remitente)
-
-            if aplicado:
-                self._marcar_leido(mailbox, msg["id"], headers)
+            resultado = self._procesar_asunto(asunto, remitente, token_esperado, dry_run)
+            if resultado == "procesado":
+                if not dry_run:
+                    self._marcar_leido(mailbox, msg["id"], headers)
                 procesados += 1
             else:
                 ignorados += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"{'[DRY RUN] ' if dry_run else ''}Hecho. Procesados: {procesados}, ignorados: {ignorados}."
+                f"{'[DRY RUN] ' if dry_run else ''}Hecho (Graph). Procesados: {procesados}, ignorados: {ignorados}."
             )
         )
 
@@ -201,77 +292,9 @@ class Command(BaseCommand):
             logger.warning(f"[correo-aprobacion] Error marcando como leído: {e}")
 
     def _aplicar_resultado(self, numero_requisicion, accion, remitente):
-        """
-        Aplica el resultado a la requisición. Reproduce la lógica del webhook
-        requisicion_webhook_update (estado, historial, PDF, notificación).
-        Devuelve True si se aplicó (o no hay nada más que hacer), False si no.
-        """
-        requisicion = Requisicion.objects.filter(
-            cr8ca_requisicion=numero_requisicion
-        ).first()
-        if not requisicion:
-            self.stderr.write(f"Requisición {numero_requisicion} no encontrada. Ignorada.")
-            logger.warning(f"[correo-aprobacion] {numero_requisicion} no existe")
-            return False
-
-        if accion == "APROBAR":
-            nuevo_estado = "AUTORIZADO"
-        elif accion in ("RECHAZAR", "DENEGAR"):
-            nuevo_estado = "RECHAZADO"
-        else:
-            self.stderr.write(f"Acción desconocida '{accion}' para {numero_requisicion}.")
-            return False
-
-        # Idempotencia: ya está en el estado final
-        if requisicion.estado_requisicion == nuevo_estado:
-            logger.info(
-                f"[correo-aprobacion] {numero_requisicion} ya estaba en {nuevo_estado}, ignorando."
-            )
-            return True
-
-        # Solo desde estados válidos
-        if requisicion.estado_requisicion not in ("BORRADOR", "PENDIENTE", "EN_REVISION"):
-            self.stdout.write(
-                f"{numero_requisicion} está en {requisicion.estado_requisicion}; no se puede {accion}."
-            )
-            logger.warning(
-                f"[correo-aprobacion] {numero_requisicion} en estado "
-                f"{requisicion.estado_requisicion}, no se puede {accion}."
-            )
-            return True  # marcar como leído para no insistir
-
-        estado_anterior = requisicion.estado_requisicion
-        descripcion = f"Correo Power Automate: {accion} (remitente {remitente})"
-
-        _registrar_historial(requisicion, nuevo_estado, descripcion=descripcion)
-        requisicion.estado_requisicion = nuevo_estado
-
-        if nuevo_estado == "AUTORIZADO":
-            requisicion.fecha_aprobacion = timezone.now()
-
-        # save() dispara la señal post_save -> correo a Procura / Procura_Tecnica
-        requisicion.save()
-
-        if nuevo_estado == "AUTORIZADO":
-            try:
-                generate_requisicion_pdf(requisicion)
-            except Exception as e:
-                logger.error(f"[correo-aprobacion] Error generando PDF {numero_requisicion}: {e}")
-
-        if requisicion.usuario_solicitante:
-            try:
-                from mantenimiento.models import NotificacionMantenimiento
-                msj = "aprobada" if nuevo_estado == "AUTORIZADO" else "rechazada"
-                tipo = "SUCCESS" if nuevo_estado == "AUTORIZADO" else "ERROR"
-                NotificacionMantenimiento.objects.create(
-                    user=requisicion.usuario_solicitante,
-                    mensaje=f"Tu requisición {numero_requisicion} ha sido {msj}.",
-                    tipo=tipo,
-                )
-            except Exception as e:
-                logger.error(f"[correo-aprobacion] Error notificación {numero_requisicion}: {e}")
-
-        logger.info(
-            f"[correo-aprobacion] {numero_requisicion}: {estado_anterior} -> {nuevo_estado}"
+        """Delegar en el service; aquí solo se reporta en consola."""
+        consumido, mensaje = aplicar_resultado_aprobacion(
+            numero_requisicion, accion, origen=remitente
         )
-        return True
+        (self.stdout if consumido else self.stderr).write(mensaje)
+        return consumido

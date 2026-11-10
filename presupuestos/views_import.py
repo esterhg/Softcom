@@ -396,6 +396,8 @@ def requisicion_upsert(request, pk=None):
         elif current_step == 2:
             if (articulo_formset.is_valid() or going_back):
                 articulo_formset.save()
+                from .validaciones import asignar_proveedor_por_defecto
+                asignar_proveedor_por_defecto(instance)
                 # Save ISV directly from POST to avoid full form validation
                 isv_value = request.POST.get('isv')
                 if isv_value is not None and str(isv_value).strip() != '':
@@ -448,8 +450,22 @@ def requisicion_upsert(request, pk=None):
         elif current_step == 4:
             success = True
 
+        es_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
         if success or going_back:
             if is_final_save and success:
+                # Validación completa antes de enviar (proveedor, materiales, lugar del servicio)
+                from .validaciones import errores_requisicion
+                errores_envio = errores_requisicion(instance)
+                if errores_envio:
+                    if es_ajax:
+                        return JsonResponse({'success': False, 'errors': errores_envio,
+                                             'message': 'La requisición está incompleta.'}, status=400)
+                    for err in errores_envio:
+                        messages.error(request, err)
+                    url = reverse('presupuestos:requisicion_editar', kwargs={'pk': instance.pk})
+                    return redirect(f"{url}?step={current_step}")
+
                 # Cambiar a estado PENDIENTE si estaba en BORRADOR (lógica de flujo)
                 if instance.estado_requisicion == 'BORRADOR':
                     _registrar_historial(instance, 'PENDIENTE', usuario=request.user)
@@ -466,6 +482,8 @@ def requisicion_upsert(request, pk=None):
                 # Disparar Webhook
                 notify_requisicion_finalizada(instance)
                 
+                if es_ajax:
+                    return JsonResponse({'success': True})
                 messages.success(request, f"Requisición {instance.cr8ca_requisicion} finalizada correctamente.")
                 return redirect('presupuestos:requisicion_dashboard')
             
@@ -497,6 +515,10 @@ def requisicion_upsert(request, pk=None):
                 if documento_formset.non_form_errors():
                     error_messages.extend(documento_formset.non_form_errors())
             
+            if es_ajax:
+                return JsonResponse({'success': False,
+                                     'errors': error_messages or ['Por favor corrige los errores para continuar.'],
+                                     'message': 'La requisición tiene errores.'}, status=400)
             if error_messages:
                 for error_msg in error_messages:
                     messages.error(request, error_msg)
@@ -1298,6 +1320,44 @@ def finalizar_procesamiento(request, pk):
         if not articulos_data:
             return JsonResponse({'success': False, 'message': 'No hay artículos para procesar.'}, status=400)
 
+        # La OC debe llevar TODO lo pedido en la requisición: cada artículo, con su
+        # material/servicio del catálogo y una cantidad mayor a 0.
+        from .models import ArticuloRequisicion
+        arts_req = {str(a.pk): a for a in ArticuloRequisicion.objects.filter(requisicion=requisicion).select_related('material', 'material__unidad_medida')}
+        ids_payload = set()
+        for art_data in articulos_data:
+            art_id = str(art_data.get('id') or '')
+            art_req = arts_req.get(art_id)
+            if not art_req:
+                return JsonResponse({'success': False, 'message': f'El artículo "{art_data.get("descripcion", "")}" no pertenece a esta requisición.'}, status=400)
+            if not art_req.material_id:
+                return JsonResponse({'success': False, 'message': f'"{art_req.cr8ca_articulo[:60]}" no está vinculado a un material o servicio del catálogo. Vincúlelo antes de generar la OC.'}, status=400)
+            try:
+                cant = Decimal(str(art_data.get('cantidad', 0)))
+            except Exception:
+                cant = Decimal('0')
+            if cant <= 0:
+                return JsonResponse({'success': False, 'message': f'"{art_req.cr8ca_articulo[:60]}": la cantidad debe ser mayor a 0.'}, status=400)
+            ids_payload.add(art_id)
+        faltantes = [a.cr8ca_articulo[:60] for k, a in arts_req.items() if k not in ids_payload]
+        if faltantes:
+            return JsonResponse({'success': False, 'message': 'Faltan artículos de la requisición en la OC: ' + ', '.join(faltantes)}, status=400)
+
+        # Datos que se heredan de la requisición
+        if not tipo_contrato and requisicion.tipo == 'SERVICIO':
+            tipo_contrato = 'CONTRATO_SERVICIO'
+        notas_oc = []
+        if requisicion.cr8ca_motivo:
+            notas_oc.append(f"Motivo: {requisicion.cr8ca_motivo}")
+        if requisicion.tipo == 'SERVICIO':
+            lugar = ' / '.join(u.nombre for u in (requisicion.edificio, requisicion.nivel, requisicion.ubicacion) if u)
+            if lugar:
+                notas_oc.append(f"Lugar del servicio: {lugar}")
+        if data.get('notas'):
+            notas_oc.append(str(data.get('notas')))
+        notas_oc = '\n'.join(notas_oc) or None
+        fecha_entrega_oc = data.get('fecha_entrega_estimada') or requisicion.fecha_probable_entrega
+
         # Agrupar artículos por proveedor
         oc_articulos_por_proveedor = {}
         for art_data in articulos_data:
@@ -1334,6 +1394,8 @@ def finalizar_procesamiento(request, pk):
                 tipo_contrato=tipo_contrato,
                 centro_costo_id=centro_costo_id,
                 creado_por=request.user,
+                notas=notas_oc,
+                fecha_entrega_estimada=fecha_entrega_oc or None,
                 doc_factura=doc_checklist.get('doc_factura', False),
                 doc_estimacion=doc_checklist.get('doc_estimacion', False),
                 doc_respaldo=doc_checklist.get('doc_respaldo', False),
@@ -1365,10 +1427,7 @@ def finalizar_procesamiento(request, pk):
                     )
 
             for art_data in articulos_prov:
-                from .models import ArticuloRequisicion
-                art_req = ArticuloRequisicion.objects.filter(
-                    cr8ca_itemderequisicionid=art_data.get('id')
-                ).first()
+                art_req = arts_req.get(str(art_data.get('id') or ''))
 
                 cantidad = Decimal(str(art_data.get('cantidad', 0)))
                 costo = Decimal(str(art_data.get('costo_unitario', 0)))
@@ -1376,7 +1435,9 @@ def finalizar_procesamiento(request, pk):
                 OrdenCompraArticulo.objects.create(
                     orden_compra=oc,
                     articulo_requisicion=art_req,
-                    descripcion=art_data.get('descripcion', ''),
+                    material=art_req.material if art_req else None,
+                    descripcion=(art_data.get('descripcion') or (art_req.cr8ca_articulo if art_req else '')
+                                 or (art_req.material.nombre if art_req and art_req.material else '')),
                     cantidad=cantidad,
                     costo_unitario=costo,
                     subtotal=cantidad * costo,
@@ -1456,18 +1517,26 @@ def detalle_orden_compra(request, pk):
         oc = get_object_or_404(OrdenCompra, pk=pk)
 
         articulos = []
-        for art in oc.articulos.select_related('articulo_requisicion__material__codigo_exoneracion').all():
+        for art in oc.articulos.select_related(
+                'material__codigo_exoneracion', 'material__unidad_medida',
+                'articulo_requisicion__material__codigo_exoneracion',
+                'articulo_requisicion__material__unidad_medida').all():
             cod_exo = ''
             sku = ''
             art_req = art.articulo_requisicion
-            if art_req and art_req.material_id:
-                sku = art_req.material.sku or ''
-                if art_req.material.codigo_exoneracion_id:
-                    cod_exo = art_req.material.codigo_exoneracion.codigo or ''
+            mat = art.material or (art_req.material if art_req and art_req.material_id else None)
+            if mat:
+                sku = mat.sku or ''
+                if mat.codigo_exoneracion_id:
+                    cod_exo = mat.codigo_exoneracion.codigo or ''
             articulos.append({
                 'id': art.id,
                 'articulo_requisicion_id': str(art.articulo_requisicion_id) if art.articulo_requisicion_id else None,
                 'descripcion': art.descripcion,
+                'material_id': mat.id if mat else None,
+                'material_nombre': mat.nombre if mat else '',
+                'tipo_material': mat.get_tipo_material_display() if mat else '',
+                'unidad': (mat.unidad_medida.abreviatura if mat and mat.unidad_medida else ''),
                 'sku': sku,
                 'codigo_exoneracion': cod_exo,
                 'cantidad': float(art.cantidad),
@@ -1518,6 +1587,10 @@ def detalle_orden_compra(request, pk):
             'tipo_contrato': oc.tipo_contrato or '',
             'tipo_contrato_display': oc.get_tipo_contrato_display() if oc.tipo_contrato else '',
             'requisicion_asunto': oc.requisicion.cr8ca_asunto if oc.requisicion else '',
+            'requisicion_tipo': oc.requisicion.get_tipo_display() if oc.requisicion else '',
+            'lugar_servicio': ' / '.join(
+                u.nombre for u in (oc.requisicion.edificio, oc.requisicion.nivel, oc.requisicion.ubicacion) if u
+            ) if oc.requisicion else '',
             'doc_factura': oc.doc_factura,
             'doc_estimacion': oc.doc_estimacion,
             'doc_respaldo': oc.doc_respaldo,

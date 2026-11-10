@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 from . import views
 from .views import mobile_crear_solicitud
 from .api_materials import api_list_materials, api_list_categories, api_master_sync, api_precios_historicos, api_create_material, api_material_detail, api_material_update, api_search_codigos_exoneracion, api_export_materials_excel
@@ -7,8 +7,6 @@ from .api_mobile_sync import (
     api_mobile_aprobaciones, api_mobile_aprobar, api_mobile_despachos, api_mobile_despachar,
     api_mobile_confirmar_entrega, api_mobile_mis_solicitudes, api_mobile_solicitud_detalle, api_mobile_push_token,
 )
-from .reportes import reporte_inventario_view, export_movimientos_excel, export_inventario_actual_excel, export_catalogo_excel
-from .reportes import reporte_pases_pendientes_view, export_pases_pendientes_excel, tabla_movimientos_view
 
 app_name = 'inventarios'
 
@@ -48,14 +46,8 @@ urlpatterns = [
     path('api/materials/export/', api_export_materials_excel, name='api_export_materials_excel'),
     path('catalogo/', views.master_catalog, name='master_catalog'),
 
-    # Reportes de Inventario
-    path('reportes/', reporte_inventario_view, name='reportes'),
-    path('reportes/movimientos/', tabla_movimientos_view, name='tabla_movimientos'),
-    path('reportes/pases-pendientes/', reporte_pases_pendientes_view, name='reporte_pases_pendientes'),
-    path('reportes/pases-pendientes/excel/', export_pases_pendientes_excel, name='export_pases_pendientes_excel'),
-    path('reportes/movimientos/excel/', export_movimientos_excel, name='export_movimientos_excel'),
-    path('reportes/inventario/excel/', export_inventario_actual_excel, name='export_inventario_actual_excel'),
-    path('reportes/catalogo/excel/', export_catalogo_excel, name='export_catalogo_excel'),
+    # Reportes de Inventario (rutas en urls_reportes.py; mismos nombres inventarios:*)
+    path('', include('inventarios.urls_reportes')),
     path('nuevos-materiales/', views.solicitud_nuevos_materiales, name='solicitud_nuevos_materiales'),
     path('admin-catalogos/', views.admin_catalogos, name='admin_catalogos'),
     path('categorias/', views.categorias_visualizer, name='categorias_visualizer'),

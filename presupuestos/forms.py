@@ -38,7 +38,8 @@ class RequisicionForm(forms.ModelForm):
             'cr8ca_requisicion', 'fecha', 'fecha_aprobacion', 'partida', 'item_presupuesto', 'usuario_solicitante', 'usuario_en_nombre_de', 'aprobador', 'cr8ca_asunto', 'cr8ca_prioridad',
             'cr8ca_motivo', 'cr8ca_comentarios', 'cr8ca_id_oc', 'wizard_step', 'estado_requisicion', 'cr8ca_totalenarticulos', 'isv',
             'moneda_req',
-            'proveedor', 'proveedores_sugeridos', 'proveedores_sugeridos_notas', 'tipo', 'grupo', 'forma_pago'
+            'proveedor', 'proveedores_sugeridos', 'proveedores_sugeridos_notas', 'tipo', 'grupo', 'forma_pago',
+            'edificio', 'nivel', 'ubicacion',
         ]
         widgets = {
             'cr8ca_requisicion': forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
@@ -74,6 +75,14 @@ class RequisicionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        # Lugar del servicio: edificio (select), nivel y ubicación se cargan por JS
+        if 'edificio' in self.fields:
+            from activos.models import Ubicacion
+            self.fields['edificio'].queryset = Ubicacion.objects.filter(tipo='EDIFICIO').order_by('nombre')
+            self.fields['edificio'].widget.attrs.update({'class': 'form-control', 'id': 'id_edificio'})
+            self.fields['edificio'].empty_label = '— Seleccionar edificio —'
+            for f in ('nivel', 'ubicacion'):
+                self.fields[f].widget = forms.HiddenInput(attrs={'id': f'id_{f}'})
         if 'cr8ca_requisicion' in self.fields:
             self.fields['cr8ca_requisicion'].required = False
         if 'estado_requisicion' in self.fields:
@@ -151,6 +160,21 @@ class RequisicionForm(forms.ModelForm):
                 self.fields['partida'].widget.choices = self.fields['partida'].choices
 
 
+    def clean(self):
+        cleaned = super().clean()
+        # Proveedor obligatorio, salvo en servicios (si no existe, se solicita su alta a Procura)
+        if cleaned.get('tipo') != 'SERVICIO' and not cleaned.get('proveedor'):
+            self.add_error(
+                'proveedor',
+                'Debe seleccionar un proveedor. Si no existe, solicite su alta a Procura.')
+        # Servicio: edificio, nivel y ubicación obligatorios
+        if cleaned.get('tipo') == 'SERVICIO':
+            for campo, nombre in (('edificio', 'el edificio'), ('nivel', 'el nivel'), ('ubicacion', 'la ubicación')):
+                if not cleaned.get(campo):
+                    self.add_error(campo, f'Para un servicio debe indicar {nombre}.')
+        return cleaned
+
+
 class MaterialConSkuField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         return f"[{obj.sku}] {obj.nombre}"
@@ -196,9 +220,38 @@ class ArticuloRequisicionForm(forms.ModelForm):
             if self.instance.pk and self.instance.material_id:
                 self.initial['material'] = self.instance.material_id
 
+class BaseArticuloFormSet(forms.BaseInlineFormSet):
+    """Cada artículo debe ser un material/servicio del catálogo con cantidad > 0."""
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        activos = 0
+        for i, f in enumerate(self.forms, start=1):
+            if not hasattr(f, 'cleaned_data') or not f.cleaned_data:
+                continue
+            if f.cleaned_data.get('DELETE'):
+                continue
+            activos += 1
+            nombre = (f.cleaned_data.get('cr8ca_articulo') or f'Artículo {i}')[:60]
+            # Sin material solo se permite como borrador (para poder pedir su alta a Almacén)
+            # o en servicios. Al enviar la requisición, errores_requisicion lo exige.
+            if not f.cleaned_data.get('material') and not (f.cleaned_data.get('cr8ca_articulo') or '').strip():
+                raise forms.ValidationError(
+                    f'"{nombre}": seleccione un material del catálogo o describa el artículo '
+                    'para solicitar su alta a Almacén.')
+            cant = f.cleaned_data.get('cr8ca_cantidad')
+            if not cant or cant <= 0:
+                raise forms.ValidationError(f'"{nombre}": la cantidad debe ser mayor a 0.')
+        if activos == 0:
+            raise forms.ValidationError('Debe agregar al menos un material o servicio.')
+
+
 ArticuloFormSet = forms.inlineformset_factory(
     Requisicion, ArticuloRequisicion,
     form=ArticuloRequisicionForm,
+    formset=BaseArticuloFormSet,
     extra=0,
     can_delete=True
 )
