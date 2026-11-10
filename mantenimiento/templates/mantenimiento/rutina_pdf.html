@@ -151,8 +151,8 @@
             </td>
         </tr>
         <tr>
-            <td class="label-cell">Supervisor OCC:</td>
-            <td class="value-cell">{{ supervisor_nombre|default:"Allan Castellanos" }}</td>
+            <td class="label-cell">Técnico Responsable:</td>
+            <td class="value-cell">{{ ot.firma_tecnico_nombre|default:"N/A" }}</td>
             <td class="label-cell">Fecha Programada:</td>
             <td class="value-cell">
                 {{ inicio_programado|date:"d/m/Y H:i" }}
@@ -178,17 +178,7 @@
         {% endif %}
         <tr>
             <td class="label-cell">Equipo:</td>
-            <td style="width: 35%;">{{ activo_nombre|default:"N/A" }}</td>
-            <td class="label-cell">Personal Asignado:</td>
-            <td style="width: 35%; font-size: 8px;">
-                {% for t in tecnicos_data %}
-                    <div style="{% if t.es_lider %}font-weight: bold;{% endif %}">
-                        {% if t.es_lider %}Lider: {% endif %}{{ t.nombre }} ({{ t.dni }})
-                    </div>
-                {% empty %}
-                    Sin personal asignado
-                {% endfor %}
-            </td>
+            <td colspan="3">{{ activo_nombre|default:"N/A" }}</td>
         </tr>
         {% if ot.tipo != 'NO_PROGRAMADA' %}
         <tr>
@@ -317,16 +307,9 @@
                         <div style="font-size: 8px;">Firma Técnico Responsable</div>
                     {% endif %}
                     
-                    {% for t in tecnicos_data %}
-                        <div style="margin-top: 4px; font-size: 9px;">
-                            {% if t.es_lider %}<strong>Lider: {{ t.nombre }}</strong>{% else %}{{ t.nombre }}{% endif %}<br>
-                            <span style="font-size: 7px; color: #666;">DNI: {{ t.dni }}</span>
-                        </div>
-                    {% empty %}
-                        <div style="font-weight: bold; margin-top: 4px; font-size: 10px;">
-                            Técnico No Asignado
-                        </div>
-                    {% endfor %}
+                    <div style="font-weight: bold; margin-top: 4px; font-size: 10px;">
+                        {{ ot.firma_tecnico_nombre|default:"Técnico No Asignado" }}
+                    </div>
                 </td>
             </tr>
         </table>

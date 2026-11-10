@@ -95,7 +95,7 @@
         </tr>
         <tr>
             <td class="lbl">N° Orden</td><td>{{ ot.codigo_de_orden|default:ot.id }}</td>
-            <td class="lbl">Supervisor</td><td>{{ supervisor_nombre }}</td>
+            <td class="lbl">Técnico Responsable</td><td>{{ ot.firma_tecnico_nombre|default:"N/A" }}</td>
         </tr>
         <tr>
             <td class="lbl">Edificio</td><td>{{ edificio_nombre }}</td>
