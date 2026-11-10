@@ -81,7 +81,7 @@
         <table class="mv-table">
             <thead>
                 <tr>
-                    {% for c in columnas %}{% include "inventarios/includes/filtro_th.html" with c=c %}{% endfor %}
+                    {% for c in columnas %}{% include "core/includes/filtro_th.html" with c=c %}{% endfor %}
                 </tr>
             </thead>
             <tbody>
@@ -128,5 +128,5 @@
     </div>
 </div>
 
-{% include "inventarios/includes/filtros_columna_assets.html" %}
+{% include "core/includes/filtros_columna_assets.html" %}
 {% endblock %}

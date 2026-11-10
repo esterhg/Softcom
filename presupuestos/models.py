@@ -648,6 +648,20 @@ class Requisicion(models.Model):
         verbose_name="Tipo"
     )
 
+    # Lugar donde se ejecuta el servicio (obligatorio si tipo == SERVICIO)
+    edificio = models.ForeignKey(
+        'activos.Ubicacion', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='requisiciones_edificio', verbose_name="Edificio"
+    )
+    nivel = models.ForeignKey(
+        'activos.Ubicacion', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='requisiciones_nivel', verbose_name="Nivel"
+    )
+    ubicacion = models.ForeignKey(
+        'activos.Ubicacion', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='requisiciones_ubicacion', verbose_name="Ubicación"
+    )
+
     recepcion_notificada = models.BooleanField(
         default=False,
         verbose_name="Notificación de Recepción Enviada"
@@ -1323,6 +1337,10 @@ class OrdenCompraArticulo(models.Model):
         null=True, blank=True, related_name='ordenes_compra_articulos',
         verbose_name="Artículo de Requisición"
     )
+    material = models.ForeignKey(
+        'inventarios.Material', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='ordenes_compra_articulos', verbose_name="Material / Servicio"
+    )
     descripcion = models.CharField(max_length=1000, verbose_name="Descripción")
     cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Cantidad")
     costo_unitario = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="Costo Unitario")
@@ -1776,3 +1794,98 @@ class ConfiguracionFlujoAprobacion(models.Model):
     def delete(self, *args, **kwargs):
         # No permitir borrar el singleton
         pass
+
+
+# ---------------------------------------------------------------------------
+# Solicitudes de alta (proveedor / material) originadas desde una requisición
+# ---------------------------------------------------------------------------
+
+class _SolicitudAltaBase(models.Model):
+    """Campos comunes del flujo solicitar -> aprobar/rechazar."""
+    ESTADO_PENDIENTE = 'PENDIENTE'
+    ESTADO_APROBADA = 'APROBADA'
+    ESTADO_RECHAZADA = 'RECHAZADA'
+    ESTADO_CHOICES = (
+        (ESTADO_PENDIENTE, 'Pendiente'),
+        (ESTADO_APROBADA, 'Aprobada'),
+        (ESTADO_RECHAZADA, 'Rechazada'),
+    )
+
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default=ESTADO_PENDIENTE, db_index=True)
+    justificacion = models.TextField(blank=True, default='', verbose_name="Justificación")
+    solicitante = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='%(class)s_solicitadas', verbose_name="Solicitante"
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    revisado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='%(class)s_revisadas', verbose_name="Revisado por"
+    )
+    revisado_en = models.DateTimeField(null=True, blank=True)
+    motivo_rechazo = models.TextField(blank=True, default='', verbose_name="Motivo de rechazo")
+
+    class Meta:
+        abstract = True
+        ordering = ['-creado_en']
+
+    @property
+    def esta_pendiente(self):
+        return self.estado == self.ESTADO_PENDIENTE
+
+
+class SolicitudAltaProveedor(_SolicitudAltaBase):
+    """Pedido al grupo Procura para dar de alta un proveedor nuevo."""
+    requisicion = models.ForeignKey(
+        Requisicion, on_delete=models.CASCADE,
+        related_name='solicitudes_alta_proveedor', verbose_name="Requisición"
+    )
+    nombre = models.CharField(max_length=200, verbose_name="Nombre del proveedor")
+    rtn = models.CharField(max_length=30, blank=True, default='', verbose_name="R.T.N.")
+    contacto = models.CharField(max_length=200, blank=True, default='', verbose_name="Persona de contacto")
+    telefono = models.CharField(max_length=50, blank=True, default='', verbose_name="Teléfono")
+    email = models.EmailField(blank=True, default='', verbose_name="Correo electrónico")
+    proveedor = models.ForeignKey(
+        'mantenimiento.Empresa', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='solicitudes_alta', verbose_name="Proveedor creado"
+    )
+
+    class Meta(_SolicitudAltaBase.Meta):
+        verbose_name = "Solicitud de alta de proveedor"
+        verbose_name_plural = "Solicitudes de alta de proveedor"
+
+    def __str__(self):
+        return f"Alta proveedor: {self.nombre} ({self.get_estado_display()})"
+
+
+class SolicitudAltaMaterial(_SolicitudAltaBase):
+    """Pedido a Almacén / Supervisor de Almacén para dar de alta un material nuevo."""
+    requisicion = models.ForeignKey(
+        Requisicion, on_delete=models.CASCADE,
+        related_name='solicitudes_alta_material', verbose_name="Requisición"
+    )
+    articulo = models.ForeignKey(
+        ArticuloRequisicion, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='solicitudes_alta_material', verbose_name="Artículo de la requisición"
+    )
+    nombre = models.CharField(max_length=200, verbose_name="Nombre del material")
+    descripcion = models.TextField(blank=True, default='', verbose_name="Descripción")
+    unidad_medida = models.ForeignKey(
+        'inventarios.UnidadMedida', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+', verbose_name="Unidad de medida"
+    )
+    precio_estimado = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        validators=[MinValueValidator(Decimal('0.00'))], verbose_name="Precio estimado"
+    )
+    material = models.ForeignKey(
+        'inventarios.Material', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='solicitudes_alta', verbose_name="Material creado"
+    )
+
+    class Meta(_SolicitudAltaBase.Meta):
+        verbose_name = "Solicitud de alta de material"
+        verbose_name_plural = "Solicitudes de alta de material"
+
+    def __str__(self):
+        return f"Alta material: {self.nombre} ({self.get_estado_display()})"

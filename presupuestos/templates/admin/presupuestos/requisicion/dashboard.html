@@ -1649,7 +1649,9 @@
                 d.articulos.forEach(function(art) {
                     var tr = document.createElement('tr');
                     tr.innerHTML =
-                        '<td style="padding:6px 8px;">' + art.descripcion + '</td>' +
+                        '<td style="padding:6px 8px;">' + art.descripcion +
+                            (art.sku || art.tipo_material ? '<div style="font-size:0.7rem; color:#6a6d70;">' + [art.sku, art.tipo_material, art.unidad].filter(Boolean).join(' · ') + '</div>' : '<div style="font-size:0.7rem; color:#bb0000;">Sin material del catálogo</div>') +
+                        '</td>' +
                         '<td style="padding:6px 8px; text-align:right;"><input type="number" class="oc-art-cant" value="' + art.cantidad + '" step="0.01" min="0" style="width:70px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;text-align:right;" data-id="' + art.id + '"></td>' +
                         '<td style="padding:6px 8px; text-align:right;"><input type="number" class="oc-art-costo" value="' + art.costo_unitario + '" step="0.01" min="0" style="width:80px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;text-align:right;" data-id="' + art.id + '"></td>' +
                         '<td style="padding:6px 8px; text-align:right; font-weight:600;" class="oc-art-subtot">L. ' + art.subtotal.toFixed(2) + '</td>';
@@ -2085,8 +2087,9 @@ function renderReqDetail(d) {
         d.articulos.forEach(function(art) {
             totalArts += art.subtotal;
             html += '<tr style="border-bottom:1px solid #f1f5f9;">';
-            html += '<td style="padding:8px 10px;">' + art.descripcion + '</td>';
-            html += '<td style="padding:8px 10px; text-align:right;">' + art.cantidad + '</td>';
+            html += '<td style="padding:8px 10px;">' + art.descripcion +
+                (art.sku || art.tipo_material ? '<div style="font-size:0.7rem; color:#6a6d70;">' + [art.sku, art.tipo_material].filter(Boolean).join(' · ') + '</div>' : '') + '</td>';
+            html += '<td style="padding:8px 10px; text-align:right;">' + art.cantidad + (art.unidad ? ' ' + art.unidad : '') + '</td>';
             html += '<td style="padding:8px 10px; text-align:right;">L.' + art.costo_unitario.toLocaleString('es-HN', {minimumFractionDigits:2}) + '</td>';
             html += '<td style="padding:8px 10px; text-align:right; font-weight:600;">L.' + art.subtotal.toLocaleString('es-HN', {minimumFractionDigits:2}) + '</td>';
             html += '</tr>';

@@ -85,8 +85,9 @@
                     <th style="width:8%;">#</th>
                     <th style="width:14%;">Fecha</th>
                     <th style="width:20%;">Solicitante</th>
-                    <th style="width:28%;">Materiales</th>
-                    <th style="width:14%;">Orden de Trabajo</th>
+                    <th style="width:24%;">Materiales</th>
+                    <th style="width:10%;">Orden de Trabajo</th>
+                    <th style="width:8%;">Ticket</th>
                     <th style="width:16%; text-align:center;">Acciones</th>
                 </tr>
             </thead>
@@ -102,6 +103,7 @@
                         {% endfor %}
                     </td>
                     <td>{% if sol.orden_trabajo %}{{ sol.orden_trabajo.codigo_de_orden|default:sol.orden_trabajo.id }}{% else %}—{% endif %}</td>
+                    <td>{% if sol.ticket %}{{ sol.ticket.folio|default:sol.ticket.id_solicitud }}{% else %}—{% endif %}</td>
                     <td style="text-align:center; white-space:nowrap;">
                         {% if es_aprobador %}
                         <button class="btn-aprobar" data-id="{{ sol.id }}" data-accion="aprobar"
@@ -118,7 +120,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="dd-empty">No hay solicitudes pendientes de autorización.</td></tr>
+                <tr><td colspan="7" class="dd-empty">No hay solicitudes pendientes de autorización.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -171,8 +173,9 @@
                     <th style="width:16%;">Fecha</th>
                     <th style="width:22%;">Solicitante</th>
                     <th style="width:12%; text-align:right;">Ítems</th>
-                    <th style="width:18%;">Orden de Trabajo</th>
-                    <th style="width:16%;">Estado</th>
+                    <th style="width:12%;">Orden de Trabajo</th>
+                    <th style="width:10%;">Ticket</th>
+                    <th style="width:12%;">Estado</th>
                     <th style="width:8%; text-align:center;"></th>
                 </tr>
             </thead>
@@ -184,6 +187,7 @@
                     <td>{{ s.solicitante_nombre }}</td>
                     <td class="dd-num">{{ s.num_items }}</td>
                     <td>{% if s.orden_trabajo %}{{ s.orden_trabajo.codigo_de_orden|default:s.orden_trabajo.id }}{% else %}—{% endif %}</td>
+                    <td>{% if s.ticket %}{{ s.ticket.folio|default:s.ticket.id_solicitud }}{% else %}—{% endif %}</td>
                     <td>
                         {% if s.estado == 'ENTREGADO' %}
                             <span class="badge-estado">Entregado</span>
@@ -198,7 +202,7 @@
                     <td style="text-align:center;"><i class="fas fa-arrow-up-right-from-square" style="color:var(--fiori-primary);"></i></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="dd-empty">{% if q %}No se encontraron solicitudes para "{{ q }}".{% else %}No hay solicitudes registradas para tu equipo.{% endif %}</td></tr>
+                <tr><td colspan="8" class="dd-empty">{% if q %}No se encontraron solicitudes para "{{ q }}".{% else %}No hay solicitudes registradas para tu equipo.{% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

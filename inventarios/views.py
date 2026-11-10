@@ -15,6 +15,7 @@ import time
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.cache import cache
 from core.decorators import mobile_permission_required
+from .permissions import es_supervisor_almacen
 from presupuestos.models import ArticuloRequisicion
 from django.core.files.storage import default_storage
 from celery.result import AsyncResult
@@ -45,6 +46,8 @@ def inventario_dashboard(request, modal_inicial=None):
     historial del navegador y se puede compartir o recargar.
     """
     from activos.models import Ubicacion
+    from presupuestos.permissions import puede_aprobar_materiales
+    from presupuestos.selectors.solicitudes_alta import conteo_pendientes
     from .models import CategoriaMaterial, Rack
     
     # Datos para el menú/dashboard
@@ -75,10 +78,12 @@ def inventario_dashboard(request, modal_inicial=None):
         'total_materiales': total_materiales,
         'pedidos_pendientes': pedidos_pendientes,
         'es_almacen': es_almacen,
-        'es_supervisor_almacen': (
-            request.user.is_superuser
-            or request.user.groups.filter(name='Supervisor de Almacen').exists()
-        ),
+        # Solicitudes de alta de material pedidas desde Requisiciones (presupuestos)
+        'puede_aprobar_altas': puede_aprobar_materiales(request.user),
+        'altas_material_pendientes': (
+            conteo_pendientes()['materiales'] if puede_aprobar_materiales(request.user) else 0),
+        # Misma regla que protege las vistas de reportes (inventarios/permissions.py)
+        'es_supervisor_almacen': es_supervisor_almacen(request.user),
         'ot_pre': ot_pre,
         'racks': racks,
         'modal_inicial': modal_inicial,
