@@ -130,7 +130,10 @@ def mobile_ot_update_ajax(request, pk):
         firma = request.POST.get('firma_tecnico')
         if firma and firma.startswith('data:image'):
             ot.firma_tecnico = firma
-            ot.firma_tecnico_nombre = (request.POST.get('firma_tecnico_nombre') or '').strip()
+            # Un nombre vacío no debe borrar el que ya se ingresó en "Técnico".
+            nombre_firma = (request.POST.get('firma_tecnico_nombre') or '').strip()
+            if nombre_firma:
+                ot.firma_tecnico_nombre = nombre_firma[:150]
             ot.firma_fecha = timezone.now()
             ot.save(update_fields=['firma_tecnico', 'firma_tecnico_nombre', 'firma_fecha'])
             return JsonResponse({'status': 'success', 'message': 'Firma guardada'})
@@ -718,7 +721,9 @@ def mobile_ot_finalizar(request, pk):
         firma_tec = request.POST.get('firma_tecnico')
         if firma_tec and firma_tec.startswith('data:image'):
             ot.firma_tecnico = firma_tec
-            ot.firma_tecnico_nombre = (request.POST.get('firma_tecnico_nombre') or '').strip()
+            nombre_firma = (request.POST.get('firma_tecnico_nombre') or '').strip()
+            if nombre_firma:
+                ot.firma_tecnico_nombre = nombre_firma[:150]
             ot.firma_fecha = timezone.now()
             campos_reporte += ['firma_tecnico', 'firma_tecnico_nombre', 'firma_fecha']
 
