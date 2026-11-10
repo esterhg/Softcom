@@ -175,6 +175,11 @@ def mobile_ot_update_ajax(request, pk):
             if tp:
                 ot.tecnico_puesto = tp
                 ot.tecnico = tp.user
+
+        # Técnico: nombre libre ingresado por el propio técnico.
+        tecnico_nombre = request.POST.get('tecnico_nombre')
+        if tecnico_nombre is not None:
+            ot.firma_tecnico_nombre = tecnico_nombre.strip()[:150]
         
         # Colaboradores (Personal). Solo se sincroniza si viene al menos un ID real,
         # para no borrar los colaboradores existentes con un envío vacío.

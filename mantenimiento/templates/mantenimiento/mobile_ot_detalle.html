@@ -399,15 +399,6 @@
                 <form id="assignmentForm">
                     {% csrf_token %}
                     <div class="fiori-form-group">
-                        <label>Supervisor Responsable</label>
-                        <select name="supervisor" class="fiori-select" onchange="updateOT()">
-                            <option value="none">-- Seleccionar --</option>
-                            {% for s in supervisores %}
-                            <option value="{{ s.id }}" {% if ot.supervisor_id == s.id %}selected{% endif %}>{{ s.get_full_name|default:s.username }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="fiori-form-group">
                         <label>Empresa</label>
                         <input type="text" id="empresa-search-input" placeholder="🔍 Buscar empresa..." 
                             style="width:100%; padding:8px 10px; font-size:0.85rem; border:1px solid var(--sap-border-color); background: var(--sap-card-bg); color: var(--sap-text-color); margin-bottom:6px; font-family:inherit;"
@@ -420,13 +411,11 @@
                         </select>
                     </div>
                     <div class="fiori-form-group">
-                        <label>Responsable Líder</label>
-                        <select name="tecnico" id="tecnico_leader_select" class="fiori-select" onchange="autoSelectEmpresa(this); updateOT();">
-                            <option value="none">-- Seleccionar --</option>
-                            {% for p in personales %}
-                            <option value="{{ p.id }}" data-empresa-id="{{ p.empresa_id|default:'' }}" {% if ot.tecnico_puesto_id == p.id %}selected{% endif %}>{{ p.nombre }} {{ p.apellido }}</option>
-                            {% endfor %}
-                        </select>
+                        <label for="tecnico_nombre_input">Técnico</label>
+                        <input type="text" name="tecnico_nombre" id="tecnico_nombre_input" class="fiori-input"
+                               placeholder="Ingrese su nombre" maxlength="150" autocomplete="name"
+                               value="{{ ot.firma_tecnico_nombre|default:'' }}"
+                               onchange="var f=document.getElementById('firma_tecnico_nombre'); if(f) f.value=this.value; updateOT();">
                     </div>
                     <div class="fiori-form-group">
                         <label>Inicio Programado</label>
@@ -1334,14 +1323,6 @@
                 placeholder: "Seleccionar colaboradores",
                 allowClear: true,
                 width: '100%'
-            });
-
-            $('#tecnico_leader_select').select2({
-                placeholder: "Seleccionar responsable",
-                width: '100%'
-            }).on('change', function() {
-                autoSelectEmpresa(this);
-                updateOT();
             });
 
             filterTecnicosByEmpresa();
