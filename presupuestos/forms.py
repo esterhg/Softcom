@@ -235,12 +235,13 @@ class BaseArticuloFormSet(forms.BaseInlineFormSet):
                 continue
             activos += 1
             nombre = (f.cleaned_data.get('cr8ca_articulo') or f'Artículo {i}')[:60]
-            # Sin material solo se permite como borrador (para poder pedir su alta a Almacén)
-            # o en servicios. Al enviar la requisición, errores_requisicion lo exige.
-            if not f.cleaned_data.get('material') and not (f.cleaned_data.get('cr8ca_articulo') or '').strip():
+            # Solo los servicios pueden ir sin material. Si el material no existe, se
+            # solicita su alta a Almacén y se agrega cuando lo aprueben.
+            es_servicio = getattr(self.instance, 'tipo', None) == 'SERVICIO'
+            if not es_servicio and not f.cleaned_data.get('material'):
                 raise forms.ValidationError(
-                    f'"{nombre}": seleccione un material del catálogo o describa el artículo '
-                    'para solicitar su alta a Almacén.')
+                    f'"{nombre}": seleccione un material del catálogo. Si no existe, '
+                    'use "Crear solicitud de material" y espere la aprobación de Almacén.')
             cant = f.cleaned_data.get('cr8ca_cantidad')
             if not cant or cant <= 0:
                 raise forms.ValidationError(f'"{nombre}": la cantidad debe ser mayor a 0.')

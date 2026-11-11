@@ -625,6 +625,11 @@
 
                 bindEvents() {
                     $('#open-material-selector').on('click', () => this.open());
+                    // "Crear solicitud de material": abre el selector directo en el formulario de solicitud
+                    $('#btn-crear-solicitud-material').on('click', () => {
+                        this.open();
+                        this.toggleNewMaterialForm(true);
+                    });
                     $('#close-modal').on('click', () => this.close());
                     $('.modal-overlay').on('click', (e) => {
                         if (e.target.id === 'material-modal') this.close();
@@ -774,35 +779,34 @@
                         Swal.fire({ title: 'Error', text: 'Debe ingresar un nombre para el material.', icon: 'error', confirmButtonColor: '#EF4444' });
                         return;
                     }
-                    if (!qty || parseFloat(qty) <= 0) {
-                        Swal.fire({ title: 'Error', text: 'La cantidad debe ser mayor a 0.', icon: 'error', confirmButtonColor: '#EF4444' });
+                    // La solicitud se registra en el servidor: llega a Almacén y la
+                    // requisición no avanza hasta que la aprueben.
+                    const urlSolicitud = "{% if instance.pk %}{% url 'presupuestos:solicitar_alta_material' instance.pk %}{% endif %}";
+                    if (!urlSolicitud) {
+                        Swal.fire({ title: 'Guarde primero', text: 'Guarde la requisición antes de solicitar un material nuevo.', icon: 'warning' });
                         return;
                     }
+                    const datos = new FormData();
+                    datos.append('nombre', name);
+                    datos.append('descripcion', desc || '');
+                    datos.append('precio', price || 0);
+                    datos.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
 
-                    const manualMaterial = {
-                        id: '',
-                        nombre: name,
-                        sku: 'SOLICITUD',
-                        precio: price || 0
-                    };
-
-                    const fullDesc = `[NUEVO] ${name}` + (desc ? ` - ${desc}` : '');
-                    this.addToFormset(manualMaterial, qty, fullDesc);
-
-                    $('#new-mat-name').val('');
-                    $('#new-mat-desc').val('');
-                    $('#new-mat-qty').val('1');
-                    $('#new-mat-price').val('0');
-
-                    this.toggleNewMaterialForm(false);
-
-                    Swal.fire({
-                        title: '¡Solicitud Agregada!',
-                        text: 'Se ha agregado el nuevo material a la lista.',
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
+                    Swal.fire({ title: 'Enviando solicitud...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+                    fetch(urlSolicitud, { method: 'POST', body: datos, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(r => r.json())
+                        .then(resp => {
+                            if (!resp.success) {
+                                Swal.fire({ title: 'No se pudo enviar', text: resp.message || 'Intente de nuevo.', icon: 'error' });
+                                return;
+                            }
+                            Swal.fire({
+                                title: 'Solicitud enviada a Almacén',
+                                text: 'El material no se agregará a la lista hasta que Almacén lo apruebe. Entonces podrá seleccionarlo del catálogo.',
+                                icon: 'success'
+                            }).then(() => { window.location.href = window.location.pathname + '?step=2'; });
+                        })
+                        .catch(() => Swal.fire({ title: 'Error de conexión', text: 'Intente de nuevo.', icon: 'error' }));
                 },
 
                 loadCategories() {

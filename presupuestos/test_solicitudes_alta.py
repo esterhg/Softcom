@@ -86,10 +86,13 @@ class PermisosTests(SimpleTestCase):
             self.assertTrue(permissions.puede_aprobar_materiales(u), grupo)
             self.assertFalse(permissions.puede_aprobar_proveedores(u), grupo)
 
-    def test_superusuario_aprueba_todo(self):
+    def test_superusuario_solo_aprueba_materiales_si_no_esta_en_procura(self):
         u = _user(superuser=True)
-        self.assertTrue(permissions.puede_aprobar_proveedores(u))
+        self.assertFalse(permissions.puede_aprobar_proveedores(u))
         self.assertTrue(permissions.puede_aprobar_materiales(u))
+
+    def test_superusuario_en_procura_si_aprueba_proveedores(self):
+        self.assertTrue(permissions.puede_aprobar_proveedores(_user(superuser=True, grupos=('Procura',))))
 
     def test_usuario_sin_grupo_no_ve_bandeja(self):
         self.assertFalse(permissions.puede_ver_bandeja_altas(_user()))
