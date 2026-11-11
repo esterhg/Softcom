@@ -1,0 +1,29 @@
+        <div class="fiori-card" onclick="openSelector()">
+            <div class="card-title">
+                <ion-icon name="search-outline"></ion-icon> Agregar Materiales
+            </div>
+            <div class="search-container">
+                <div class="form-control" style="display: flex; align-items: center; color: var(--sap-text-sub);">
+                    Buscar material...
+                </div>
+                <button type="button" class="scan-btn" id="btn-open-scanner" onclick="event.stopPropagation();">
+                    <ion-icon name="barcode-outline"></ion-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="fiori-card">
+            <div class="card-title">
+                <ion-icon name="cube-outline"></ion-icon> Materiales en Solicitud 
+                (<span id="item-count">0</span>)
+            </div>
+            
+            <div id="items-container">
+                <div id="empty-state">
+                    <ion-icon name="cart-outline" style="font-size: 40px; opacity: 0.2;"></ion-icon>
+                    <p>No hay materiales seleccionados.</p>
+                </div>
+            </div>
+
+
+        </div>

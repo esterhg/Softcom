@@ -1,0 +1,127 @@
+        
+        <div class="fiori-card">
+            <div class="card-title">
+                <ion-icon name="business-outline"></ion-icon> Origen y Destino
+            </div>
+            
+            <div class="form-group">
+                <label>Almacén de Retiro</label>
+                <select id="ubicacion_origen" class="form-control">
+                    <option value="">-- Selecciona Bodega --</option>
+                    {% for u in ubicaciones %}
+                    <option value="{{ u.id }}">{{ u.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 8px;">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; background:var(--sap-bg-color); border:1px solid var(--sap-border); border-radius:4px;">
+                    <input type="checkbox" id="chk-no-tecnica" style="width:18px; height:18px; accent-color:var(--sapPrimaryColor); cursor:pointer;">
+                    <span style="font-size:13px; font-weight:600; color:var(--sap-text);">Solicitud No Técnica</span>
+                    <span style="font-size:11px; color:var(--sap-text-sub); margin-left:auto;">No requiere Orden de Trabajo</span>
+                </label>
+            </div>
+
+            <div class="form-group" id="ot-section">
+                <label>Vincular a <span id="ot-required-star" style="color:var(--sap-error); font-weight:700;">*</span></label>
+                <div role="tablist" aria-label="Tipo de vínculo" style="display:flex; border:1px solid var(--sap-border-color, #d9d9d9); border-radius:4px; overflow:hidden; margin-bottom:8px;">
+                    <button type="button" role="tab" id="tab-vinc-ot" class="vinc-tab" data-tipo="ot" aria-selected="true"
+                            style="flex:1; padding:9px; border:none; font-size:13px; font-weight:700; cursor:pointer; background:#0070f2; color:#fff;">
+                        OTNP / Orden de Trabajo
+                    </button>
+                    <button type="button" role="tab" id="tab-vinc-ticket" class="vinc-tab" data-tipo="ticket" aria-selected="false"
+                            style="flex:1; padding:9px; border:none; font-size:13px; font-weight:700; cursor:pointer; background:#fff; color:#32363a;">
+                        Ticket
+                    </button>
+                </div>
+
+                <!-- Ticket -->
+                <div id="ticket-block" style="display:none; position:relative;">
+                    <input type="hidden" id="ticket_id" value="">
+                    <input type="text" id="ticket-search" class="form-control" placeholder="Buscar ticket por folio o descripción..." autocomplete="off">
+                    <div id="ticket-selected" style="display:none; margin-top:6px; padding:10px; background:#e8f4fd; border-radius:4px; border:1px solid #b3d7f2; font-size:13px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong id="ticket-selected-code"></strong>
+                                <span id="ticket-selected-name" style="color:#555; margin-left:6px;"></span>
+                            </div>
+                            <button type="button" onclick="clearTicket()" aria-label="Quitar ticket" style="border:none; background:none; color:var(--sap-error); font-size:18px; cursor:pointer; padding:0 4px;">
+                                <ion-icon name="close-circle"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="ticket-results" style="display:none; position:absolute; top:42px; left:0; right:0; background:var(--sap-card-bg, #fff); border:1px solid var(--sap-border-color); border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+
+                <input type="hidden" id="orden_trabajo" value="">
+                <div id="ot-block" style="position:relative;">
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="ot-search" class="form-control" placeholder="Buscar por código, nombre o ubicación..." autocomplete="off" style="flex:1;">
+                        <button type="button" id="btn-crear-ot-rapida" onclick="crearOtRapida()" style="background:#107e3e; color:#fff; border:none; padding:0 14px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                            <ion-icon name="add-circle-outline"></ion-icon> Crear OT
+                        </button>
+                    </div>
+                    <div id="ot-selected" style="display:none; margin-top:6px; padding:10px; background:#e8f4fd; border-radius:4px; border:1px solid #b3d7f2; font-size:13px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong id="ot-selected-code"></strong>
+                                <span id="ot-selected-name" style="color:#555; margin-left:6px;"></span>
+                            </div>
+                            <button type="button" onclick="clearOT()" style="border:none; background:none; color:var(--sap-error); font-size:18px; cursor:pointer; padding:0 4px;">
+                                <ion-icon name="close-circle"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="ot-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--sap-card-bg); border:1px solid var(--sap-border-color); border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+            </div>
+
+            <div class="form-group" id="desc-group" style="margin-bottom:0;">
+                <label>Descripción / Motivo <span id="desc-required" style="color:var(--sap-error); font-weight:700; display:none;">*</span></label>
+                <textarea id="comentarios" class="form-control" rows="2" placeholder="Describa el motivo de la solicitud..."></textarea>
+            </div>
+
+            <div class="form-group" style="margin-top:12px;">
+                <label>Responsable:</label>
+                <div style="position:relative;">
+                    <input type="text" id="entregar-search" class="form-control" placeholder="🔍 Buscar responsable por nombre..." autocomplete="off">
+                    <input type="hidden" id="entregar_a_id" value="">
+                    <div id="entregar-selected" style="display:none; margin-top:6px; padding:10px; background:#f0fdf4; border-radius:4px; border:1px solid #bbf7d0; font-size:13px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <ion-icon name="person-circle-outline" style="font-size:18px; vertical-align:middle; color:#107e3e;"></ion-icon>
+                                <strong id="entregar-selected-name" style="margin-left:4px;"></strong>
+                            </div>
+                            <button type="button" onclick="clearEntregarA()" style="border:none; background:none; color:var(--sap-error); font-size:18px; cursor:pointer; padding:0 4px;">
+                                <ion-icon name="close-circle"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="entregar-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--sap-card-bg); border:1px solid var(--sap-border-color); border-top:none; border-radius:0 0 4px 4px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fiori-card">
+            <div class="card-title">
+                <ion-icon name="location-outline"></ion-icon> Destino de Uso
+            </div>
+            
+            <div class="form-group">
+                <label>Edificio <span style="color:var(--sap-error); font-weight:700;">*</span></label>
+                <select id="edificio_destino" class="form-control">
+                    <option value="">-- Seleccione Edificio --</option>
+                    {% for ed in edificios %}
+                    <option value="{{ ed.id }}">{{ ed.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label>Nivel / Piso</label>
+                <select id="nivel_destino" class="form-control" disabled>
+                    <option value="">-- Seleccione Edificio primero --</option>
+                </select>
+            </div>
+        </div>
+

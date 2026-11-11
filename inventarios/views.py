@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
@@ -62,13 +63,11 @@ def inventario_dashboard(request, modal_inicial=None):
     # Verificar si el usuario es del grupo Almacenes o Superusuario
     es_almacen = request.user.groups.filter(name='Almacenes').exists() or request.user.is_superuser
     
+    # Enlaces antiguos "/inventarios/?ot_id=N" (desde la OT) abren el formulario único de solicitud
     ot_id = request.GET.get('ot_id')
+    if ot_id and ot_id.isdigit() and modal_inicial in (None, 'solicitud'):
+        return redirect(f"{reverse('inventarios:solicitud_nueva')}?ot={ot_id}")
     ot_pre = None
-    if ot_id:
-        try:
-            ot_pre = OrdenTrabajo.objects.get(pk=ot_id)
-        except OrdenTrabajo.DoesNotExist:
-            pass
 
     racks = Rack.objects.filter(activo=True).select_related('bodega').order_by('bodega__nombre', 'orden')
 
@@ -109,15 +108,34 @@ def crear_solicitud_dashboard(request):
         estado__in=['PROGRAMADA', 'EJECUCION']
     ).order_by('-id')[:10]
 
+    # OT preseleccionada (?ot=N o ?ot_id=N), p. ej. desde el botón "Solicitar" de una OT
+    ot_pre = None
+    ot_pre_nombre = ''
+    ot_param = request.GET.get('ot') or request.GET.get('ot_id')
+    if ot_param and ot_param.isdigit():
+        ot_pre = OrdenTrabajo.objects.select_related('rutina').filter(pk=int(ot_param)).first()
+        if ot_pre:
+            # Las OTNP no tienen rutina: usar la descripción corta o un texto genérico
+            ot_pre_nombre = (
+                ot_pre.descripcion_corta
+                or (ot_pre.rutina.nombre if ot_pre.rutina else '')
+                or 'OT'
+            )
+
     # Clon exacto del formulario móvil (mismo template y contexto)
     context = {
         'ubicaciones': ubicaciones,
         'categorias': categorias,
         'edificios': edificios,
         'ordenes_recientes': ordenes_recientes,
+        'ot_pre': ot_pre,
+        'ot_pre_nombre': ot_pre_nombre,
+        'active_tab': 'dashboard',
         'title': 'Nueva Solicitud'
     }
-    return render(request, 'inventarios/mobile_crear_solicitud.html', context)
+    # Versión escritorio con el diseño del módulo Inventarios. Usa los mismos
+    # includes (campos + JS) que la versión móvil, así las reglas son idénticas.
+    return render(request, 'inventarios/crear_solicitud_escritorio.html', context)
 @login_required
 def registrar_salida_view(request):
     """

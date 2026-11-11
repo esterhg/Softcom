@@ -1,0 +1,38 @@
+    <div id="selectorOverlay" class="drawer-overlay" onclick="closeSelector()">
+        <div class="bottom-drawer" onclick="event.stopPropagation()">
+            <div class="drawer-header">
+                <h3>Selección de Materiales</h3>
+                <button class="close-drawer" onclick="closeSelector()">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <div class="drawer-body">
+                <div class="search-container" style="margin-bottom: 12px;">
+                    <input type="text" id="material-search" class="form-control" placeholder="Nombre, SKU o Escaneo..." autocomplete="off">
+                </div>
+                <div class="category-scroller" id="categoryChips">
+                    <div class="chip active" data-id="">Todo</div>
+                    {% for cat in categorias %}
+                    <div class="chip" data-id="{{ cat.id }}">{{ cat.nombre }}</div>
+                    {% endfor %}
+                </div>
+                <div id="search-results" class="results-list">
+                    <div id="empty-state" style="padding: 20px;">
+                        <ion-icon name="search-outline" style="font-size: 32px; opacity: 0.2;"></ion-icon>
+                        <p>Escriba para buscar...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="scanner-overlay">
+        <button class="close-scanner" id="btn-close-scanner">
+            <ion-icon name="close-circle-outline"></ion-icon>
+        </button>
+        <div id="qr-reader"></div>
+        <div style="color: white; text-align: center; margin-top: 20px; font-weight:600;">
+            Enfoca el código de barras o QR
+        </div>
+    </div>
+
