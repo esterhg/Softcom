@@ -22,14 +22,12 @@ urlpatterns = [
     path('exportar_grupo_excel_pivot/<int:pk>/', views.exportar_cronograma_grupal_excel_pivot, name='exportar_cronograma_grupal_excel_pivot'),
     path('exportar_grupo_excel_pivot/<int:pk>/', views.exportar_cronograma_grupal_excel_pivot, name='exportar_cronograma_grupal_excel_pivot'),
     
-    # Solicitudes de alta (proveedor / material): bandeja de aprobación
+    # Solicitudes de alta: pedir (proveedor/material) y tabla de aprobación de PROVEEDORES (Procura)
     path('altas/', views_altas.bandeja_altas, name='bandeja_altas'),
     path('requisiciones/<uuid:pk>/solicitar-proveedor/', views_altas.solicitar_proveedor, name='solicitar_alta_proveedor'),
     path('requisiciones/<uuid:pk>/solicitar-material/', views_altas.solicitar_material, name='solicitar_alta_material'),
     path('altas/proveedor/<int:pk>/aprobar/', views_altas.proveedor_aprobar, name='alta_proveedor_aprobar'),
     path('altas/proveedor/<int:pk>/rechazar/', views_altas.proveedor_rechazar, name='alta_proveedor_rechazar'),
-    path('altas/material/<int:pk>/aprobar/', views_altas.material_aprobar, name='alta_material_aprobar'),
-    path('altas/material/<int:pk>/rechazar/', views_altas.material_rechazar, name='alta_material_rechazar'),
 
     # Requisiciones Dashboard & Import
     path('requisiciones/dashboard/', views_import.requisicion_dashboard, name='requisicion_dashboard'),

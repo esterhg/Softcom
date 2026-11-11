@@ -382,7 +382,7 @@
                 📥 Importar Masivo
             </a>
             {% if es_procura %}
-            <a href="{% url 'presupuestos:bandeja_altas' %}?tab=proveedores" class="btn-custom btn-outline-custom">
+            <a href="{% url 'presupuestos:bandeja_altas' %}" class="btn-custom btn-outline-custom">
                 🏢 Altas de proveedor{% if altas_proveedor_pendientes %}
                 <span style="background:#bb0000;color:#fff;border-radius:10px;padding:0 7px;font-size:0.7rem;margin-left:4px;">{{ altas_proveedor_pendientes }}</span>{% endif %}
             </a>

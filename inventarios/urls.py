@@ -1,5 +1,5 @@
 from django.urls import include, path
-from . import views
+from . import views, views_altas
 from .views import mobile_crear_solicitud
 from .api_materials import api_list_materials, api_list_categories, api_master_sync, api_precios_historicos, api_create_material, api_material_detail, api_material_update, api_search_codigos_exoneracion, api_export_materials_excel
 from .api_mobile_sync import api_mobile_login, api_mobile_master_sync, api_mobile_push_operations, api_mobile_inventory_counts, api_mobile_create_material, api_mobile_categorias, api_mobile_update_material
@@ -12,8 +12,13 @@ app_name = 'inventarios'
 
 urlpatterns = [
     path('', views.inventario_dashboard, name='dashboard'),
+    # Altas de material pedidas desde Requisiciones (solo Almacén)
+    path('altas-material/', views_altas.bandeja_materiales, name='altas_material'),
+    path('altas-material/<int:pk>/aprobar/', views_altas.material_aprobar, name='altas_material_aprobar'),
+    path('altas-material/<int:pk>/rechazar/', views_altas.material_rechazar, name='altas_material_rechazar'),
     # Una URL (GET) por tarjeta que abre su formulario: historial/recarga correctos
-    path('solicitud/nueva/', views.inventario_dashboard, {'modal_inicial': 'solicitud'}, name='solicitud_nueva'),
+    # Misma pantalla y mismas reglas que /inventarios/crear-solicitud/ (una sola implementación)
+    path('solicitud/nueva/', views.crear_solicitud_dashboard, name='solicitud_nueva'),
     path('ingreso/', views.inventario_dashboard, {'modal_inicial': 'ingreso'}, name='ingreso_inventario'),
     path('material/nuevo/', views.inventario_dashboard, {'modal_inicial': 'material'}, name='material_nuevo'),
     path('solicitud/<int:pk>/detalle/', views.solicitud_detalle_rapido, name='solicitud_detalle_rapido'),

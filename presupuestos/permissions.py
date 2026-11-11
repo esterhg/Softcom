@@ -34,17 +34,21 @@ def puede_aprobar_materiales(user):
     return _en_grupos(user, GRUPOS_ALMACEN)
 
 
-def puede_ver_bandeja_altas(user):
-    return puede_aprobar_proveedores(user) or puede_aprobar_materiales(user)
+def _requerir(regla, mensaje):
+    """Decorador: login + cumplir ``regla``; sin permiso responde 403."""
+    def decorador(view):
+        @wraps(view)
+        @login_required
+        def _wrapped(request, *args, **kwargs):
+            if not regla(request.user):
+                return HttpResponseForbidden(mensaje)
+            return view(request, *args, **kwargs)
+        return _wrapped
+    return decorador
 
 
-def bandeja_altas_required(view):
-    """Login + pertenecer a Procura o Almacén. Sin permiso responde 403."""
-    @wraps(view)
-    @login_required
-    def _wrapped(request, *args, **kwargs):
-        if not puede_ver_bandeja_altas(request.user):
-            return HttpResponseForbidden(
-                "Solo Procura o Almacén pueden ver las solicitudes de alta.")
-        return view(request, *args, **kwargs)
-    return _wrapped
+# Tablas separadas: cada grupo solo accede a la suya.
+procura_required = _requerir(
+    puede_aprobar_proveedores, "Solo Procura puede ver las solicitudes de alta de proveedor.")
+almacen_altas_required = _requerir(
+    puede_aprobar_materiales, "Solo Almacén puede ver las solicitudes de alta de material.")
