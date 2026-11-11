@@ -1,0 +1,30 @@
+{% comment %}
+Acceso a RRHH en el menú lateral del admin (Jazzmin).
+Se muestra SOLO al grupo Instalaciones (misma regla que rrhh/permissions.py);
+los superusuarios fuera del grupo no lo ven.
+Jazzmin arma el menú con permisos de modelo, por eso se agrega aquí.
+{% endcomment %}
+{% load rrhh_tags %}
+{% if request.user|es_instalaciones %}
+<script>
+(function () {
+    var lista = document.querySelector('ul.nav-sidebar');
+    if (!lista || lista.querySelector('[data-rrhh-menu]')) return;
+    var activo = window.location.pathname.indexOf('/rrhh/') === 0;
+    var li = document.createElement('li');
+    li.className = 'nav-item';
+    li.setAttribute('data-rrhh-menu', '1');
+    var a = document.createElement('a');
+    a.className = 'nav-link' + (activo ? ' active' : '');
+    a.href = '{% url "rrhh:reportes" %}';
+    var icono = document.createElement('i');
+    icono.className = 'nav-icon fas fa-clock';
+    var texto = document.createElement('p');
+    texto.textContent = 'RRHH - Reportes de Horas';
+    a.appendChild(icono);
+    a.appendChild(texto);
+    li.appendChild(a);
+    lista.insertBefore(li, lista.firstChild);
+})();
+</script>
+{% endif %}

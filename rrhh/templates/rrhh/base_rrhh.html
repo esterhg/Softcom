@@ -1,64 +1,153 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}RRHH{% endblock %} | SoftCom CCG</title>
-    <style>
-        @font-face {
-            font-family: 'Artifakt Element';
-            src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
-            font-weight: 400; font-style: normal; font-display: swap;
-        }
-        @font-face {
-            font-family: 'Artifakt Element';
-            src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
-            font-weight: 700; font-style: normal; font-display: swap;
-        }
-        :root {
-            --fiori-primary: #0070f2; --fiori-bg: #eff2f5; --fiori-card-bg: #ffffff;
-            --fiori-text: #32363a; --fiori-text-secondary: #6a6d70; --fiori-border: #d9d9d9;
-            --fiori-success: #107e3e; --fiori-warning: #e9730c; --fiori-error: #bb0000;
-        }
-        body { font-family: 'Artifakt Element', 'Outfit', sans-serif; background: var(--fiori-bg); color: var(--fiori-text); }
-        .sap-card { background: var(--fiori-card-bg); border: 1px solid var(--fiori-border); border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
-        .sap-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
-        .sap-table th { text-align: left; padding: 10px 12px; background: #f0f4f8; border-bottom: 2px solid var(--fiori-border); font-size: 0.72rem; text-transform: uppercase; color: var(--fiori-text-secondary); font-weight: 700; white-space: nowrap; }
-        .sap-table td { padding: 9px 12px; border-bottom: 1px solid #eef1f4; vertical-align: middle; }
-        .sap-table tbody tr:hover td { background: #f8fafc; }
-        .btn-sap { padding: 8px 16px; border-radius: 4px; border: 1px solid var(--fiori-border); background: #fff; color: var(--fiori-text); font-weight: 600; font-size: 0.88rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; cursor: pointer; }
-        .btn-sap-primary { background: var(--fiori-primary); border-color: var(--fiori-primary); color: #fff; }
-        .btn-sap:hover { filter: brightness(0.96); }
-        .badge-sap { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; background: #eff6ff; color: #1d4ed8; }
-        .badge-ok { background: #dcfce7; color: #166534; }
-        .badge-pend { background: #f1f5f9; color: #475569; }
-        .rh-wrap { max-width: 1400px; margin: 0 auto; padding: 32px 40px; }
-        .rh-head h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
-        .rh-head p { color: var(--fiori-text-secondary); font-size: .92rem; margin: 4px 0 20px; }
-        .rh-muted { color: var(--fiori-text-secondary); }
-        .rh-empty { padding: 40px; text-align: center; color: var(--fiori-text-secondary); }
-        .form-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; color: var(--fiori-text-secondary); }
-        .modal-content { border-radius: 0.5rem; }
-    </style>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    {% block extrahead %}{% endblock %}
-</head>
-<body>
-    {% block content %}{% endblock %}
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% comment %}
+Base de RRHH dentro del admin (Jazzmin / AdminLTE 3 + Bootstrap 4):
+menú lateral, barra superior y mensajes los pone el admin.
+Los modales usan el Bootstrap 4 que ya carga Jazzmin (data-toggle / data-backdrop).
+{% endcomment %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script>
-    {% for m in messages %}
-        Swal.fire({
-            toast: true, position: 'top-end', timer: 5000, showConfirmButton: false, timerProgressBar: true,
-            icon: '{% if m.level_tag == "error" %}error{% elif m.level_tag == "success" %}success{% else %}info{% endif %}',
-            title: '{{ m.message|escapejs }}'
-        });
-    {% endfor %}
-    </script>
-    {% block extrajs %}{% endblock %}
-</body>
-</html>
+{% block title %}{% block rh_title %}RRHH{% endblock %} | SoftCom-CCG{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+        font-weight: 400; font-style: normal; font-display: swap;
+    }
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
+        font-weight: 700; font-style: normal; font-display: swap;
+    }
+    .rh-wrap, .rh-wrap .btn, .rh-wrap .form-control, .rh-modal, .rh-modal .form-control {
+        font-family: 'Artifakt Element', 'Outfit', sans-serif;
+    }
+    .rh-wrap {
+        --fiori-primary: #0070f2; --fiori-bg: #eff2f5; --fiori-card-bg: #ffffff;
+        --fiori-text: #32363a; --fiori-text-secondary: #6a6d70; --fiori-border: #d9d9d9;
+        --fiori-success: #107e3e; --fiori-warning: #e9730c; --fiori-error: #bb0000;
+        color: var(--fiori-text); padding-bottom: 24px;
+    }
+
+    /* Encabezado de página */
+    .rh-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .rh-head h2 { font-size: 1.35rem; font-weight: 700; margin: 0; color: var(--fiori-text); }
+    .rh-head p { color: var(--fiori-text-secondary); font-size: .9rem; margin: 4px 0 0; }
+    .rh-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* Botones Fiori */
+    .btn-sap { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 4px; border: 1px solid #d9d9d9; background: #fff; color: #32363a; font-weight: 600; font-size: .86rem; text-decoration: none; cursor: pointer; line-height: 1.3; white-space: nowrap; }
+    .btn-sap:hover { background: #f5f6f7; color: #32363a; text-decoration: none; }
+    .btn-sap:focus-visible { outline: 2px solid #0070f2; outline-offset: 1px; }
+    .btn-sap-primary { background: #0070f2; border-color: #0070f2; color: #fff; }
+    .btn-sap-primary:hover { background: #0058c0; border-color: #0058c0; color: #fff; }
+    .btn-sap-danger { background: #bb0000; border-color: #bb0000; color: #fff; }
+    .btn-sap-danger:hover { background: #950000; border-color: #950000; color: #fff; }
+    .btn-sap-icon { padding: 5px 9px; }
+    .btn-sap-icon.danger { color: #bb0000; }
+    .btn-sap-icon.danger:hover { background: #fee2e2; color: #991b1b; }
+
+    /* Tarjetas */
+    .sap-card { background: #fff; border: 1px solid #d9d9d9; border-radius: .5rem; box-shadow: 0 .125rem .25rem rgba(0,0,0,.08); margin-bottom: 16px; overflow: visible; }
+    .sap-card-head { padding: 12px 16px; border-bottom: 1px solid #eef1f4; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .sap-card-head h3 { font-size: .95rem; font-weight: 700; margin: 0; }
+
+    /* Filtros */
+    .rh-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 14px 16px; }
+    .rh-filters .form-control { height: calc(1.5em + .6rem + 2px); padding: .3rem .6rem; font-size: .86rem; min-width: 170px; border-color: #d9d9d9; border-radius: 4px; }
+    .rh-label { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #6a6d70; margin-bottom: 4px; }
+
+    /* KPIs */
+    .rh-kpis { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .rh-kpi { background: #fff; border: 1px solid #d9d9d9; border-left: 4px solid #0070f2; border-radius: .5rem; padding: 10px 16px; min-width: 170px; box-shadow: 0 .125rem .25rem rgba(0,0,0,.08); }
+    .rh-kpi span { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; color: #6a6d70; }
+    .rh-kpi strong { font-size: 1.3rem; color: #32363a; }
+    .rh-kpi.ok { border-left-color: #107e3e; }
+
+    /* Tabla (sap-table) */
+    .sap-table-wrap { overflow-x: auto; }
+    .sap-table { width: 100%; border-collapse: collapse; font-size: .85rem; min-width: 980px; }
+    .sap-table th { text-align: left; padding: 10px 12px; background: #f0f4f8; border-bottom: 2px solid #d9d9d9; font-size: .72rem; text-transform: uppercase; color: #6a6d70; font-weight: 700; white-space: nowrap; letter-spacing: .02em; }
+    .sap-table td { padding: 9px 12px; border-bottom: 1px solid #eef1f4; vertical-align: middle; color: #32363a; }
+    .sap-table tbody tr:hover td { background: #f8fafc; }
+    .sap-table .num { text-align: right; font-weight: 700; white-space: nowrap; }
+    .sap-table .nowrap { white-space: nowrap; }
+    .sap-table .act { max-width: 360px; }
+    .sap-table tfoot td { background: #f0f4f8; font-weight: 700; border-top: 2px solid #d9d9d9; }
+    .rh-actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+    .rh-actions-cell form { margin: 0; }
+
+    /* Badges de estado */
+    .badge-sap { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+    .b-info { background: #eff6ff; color: #1d4ed8; }
+    .b-pend { background: #f1f5f9; color: #475569; }
+    .b-prog { background: #fef3c7; color: #92400e; }
+    .b-ok { background: #dcfce7; color: #166534; }
+    .b-err { background: #fee2e2; color: #991b1b; }
+
+    .rh-muted { color: #6a6d70; }
+    .rh-empty { padding: 40px; text-align: center; color: #6a6d70; }
+    .rh-empty i { font-size: 2rem; opacity: .3; display: block; margin-bottom: 8px; }
+    .rh-pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; padding: 12px 16px; font-size: .84rem; color: #6a6d70; border-top: 1px solid #eef1f4; flex-wrap: wrap; }
+    .rh-hint { padding: 8px 16px 12px; font-size: .78rem; color: #6a6d70; }
+
+    /* Pestañas */
+    .rh-tabs { border-bottom: 1px solid #d9d9d9; margin-bottom: 16px; }
+    .rh-tabs .nav-link { color: #6a6d70; font-weight: 600; border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; }
+    .rh-tabs .nav-link.active { color: #0070f2; border-bottom-color: #0070f2; background: transparent; }
+    .rh-tabs .nav-link .badge-sap { margin-left: 6px; }
+
+    /* Modales: siempre por encima del fondo oscuro, de la barra y del menú del admin */
+    .modal-backdrop { z-index: 1055 !important; }
+    .rh-modal { z-index: 1060 !important; }
+    /* Desplegable propio (sin Popper.js) */
+    .rh-dropdown { position: relative; display: inline-block; }
+    .rh-dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); z-index: 1050;
+        min-width: 260px; max-height: 60vh; overflow-y: auto; background: #fff; border: 1px solid #d9d9d9;
+        border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.15); padding: 6px 0; font-size: .86rem; }
+    .rh-dropdown.open .rh-dropdown-menu { display: block; }
+    .rh-dropdown-item { display: block; padding: 7px 16px; color: #32363a; white-space: nowrap; text-decoration: none; }
+    .rh-dropdown-item:hover, .rh-dropdown-item:focus { background: #eff6ff; color: #0070f2; text-decoration: none; outline: none; }
+    .rh-dropdown-item i { width: 18px; color: #6a6d70; }
+    .rh-dropdown-divider { border-top: 1px solid #eef1f4; margin: 6px 0; }
+    .rh-dropdown-header { padding: 4px 16px; font-size: .7rem; font-weight: 700; text-transform: uppercase; color: #6a6d70; }
+    .rh-modal .modal-content { border-radius: .5rem; border: 1px solid #d9d9d9; }
+    .rh-modal .modal-header { background: #f0f4f8; border-bottom: 1px solid #d9d9d9; }
+    .rh-modal .modal-title { font-weight: 700; font-size: 1.05rem; color: #32363a; }
+    .rh-modal .form-control { border-color: #d9d9d9; border-radius: 4px; }
+    .rh-modal .form-control:focus { border-color: #0070f2; box-shadow: 0 0 0 2px rgba(0,112,242,.15); }
+    .rh-modal .invalid-feedback { display: none; }
+    .rh-modal .is-invalid ~ .invalid-feedback { display: block; }
+    /* Panel de filtros por columna sobre la barra fija del admin */
+    .fc-pop { z-index: 1040 !important; }
+    {% block rh_style %}{% endblock %}
+</style>
+{% endblock %}
+
+{% block content_title %}{% block rh_content_title %}RRHH{% endblock %}{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumb float-sm-right">
+    <li class="breadcrumb-item"><a href="{% url 'admin:index' %}">Inicio</a></li>
+    {% block rh_breadcrumbs %}<li class="breadcrumb-item active">RRHH</li>{% endblock %}
+</ol>
+{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="rh-wrap">
+        {% block rh_content %}{% endblock %}
+    </div>
+</div>
+{% block rh_modals %}{% endblock %}
+{% endblock %}
+
+{% block extrajs %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% include "rrhh/includes/js_horas.html" %}
+{% block rh_js %}{% endblock %}
+{% endblock %}

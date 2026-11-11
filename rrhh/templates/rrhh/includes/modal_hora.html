@@ -1,0 +1,69 @@
+{% comment %}
+Modal único para Crear / Editar hora extra (Bootstrap 4 de Jazzmin, backdrop static).
+Contexto: form_hora, next_url. ``crear_url`` = acción al crear.
+{% endcomment %}
+<div class="modal fade rh-modal" id="modalHora" data-backdrop="static" data-keyboard="false" tabindex="-1" role="dialog" aria-labelledby="modalHoraLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <form class="modal-content" method="post" id="form-hora" action="{{ crear_url }}" data-crear-url="{{ crear_url }}" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHoraLabel">Crear Horas Extra</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="rh-label" for="id_reporte">Reporte Horas *</label>
+                        {{ form_hora.reporte }}
+                        <div class="invalid-feedback">Selecciona el reporte de horas.</div>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="rh-label" for="id_colaborador">Colaborador *</label>
+                        {{ form_hora.colaborador }}
+                        <div class="invalid-feedback">Selecciona el colaborador.</div>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="rh-label" for="id_categoria">Categoría</label>
+                        <div class="d-flex" style="gap:6px;">
+                            {{ form_hora.categoria }}
+                            <button type="button" class="btn-sap btn-sap-icon js-nueva-categoria" title="Crear una categoría nueva" aria-label="Nueva categoría">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        {% if not categorias %}<small class="rh-muted">Aún no hay categorías. Crea la primera con el botón +.</small>{% endif %}
+                    </div>
+                    <div class="form-group col-md-6 d-flex align-items-end">
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input class="custom-control-input" type="checkbox" name="cena" id="id_cena">
+                            <label class="custom-control-label" for="id_cena">Cena</label>
+                        </div>
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label class="rh-label" for="id_entrada">Entrada *</label>
+                        <input type="datetime-local" name="entrada" id="id_entrada" class="form-control" required>
+                        <div class="invalid-feedback">Indica la fecha y hora de entrada.</div>
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label class="rh-label" for="id_salida">Salida *</label>
+                        <input type="datetime-local" name="salida" id="id_salida" class="form-control" required>
+                        <div class="invalid-feedback" id="salida-error">La salida debe ser posterior a la entrada.</div>
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label class="rh-label" for="horas_total_vista">Horas total</label>
+                        <input type="text" id="horas_total_vista" class="form-control" value="0.00" readonly aria-live="polite">
+                    </div>
+                    <div class="form-group col-12 mb-0">
+                        <label class="rh-label" for="id_justificacion">Justificación (actividad realizada) *</label>
+                        <textarea name="justificacion" id="id_justificacion" rows="3" class="form-control" required></textarea>
+                        <div class="invalid-feedback">La justificación es obligatoria.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-sap" data-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn-sap btn-sap-primary" id="btn-guardar-hora"><i class="fas fa-save"></i> Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>

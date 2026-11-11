@@ -1,4 +1,5 @@
 """Reglas de negocio de reportes de horas y horas extra (sin request)."""
+from datetime import time
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.core.exceptions import ValidationError
@@ -6,7 +7,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from rrhh.models import HoraExtra, ReporteHoras
+from rrhh.models import CategoriaHoraExtra, HoraExtra, ReporteHoras
 
 PREFIJO = 'RH'
 
@@ -47,6 +48,23 @@ def crear_reporte(*, colaborador, autorizado_por, solicitado_por, creado_por):
     raise ValidationError('No se pudo generar el ID del reporte. Intenta de nuevo.')
 
 
+def crear_categoria(nombre):
+    """Crea una categoría de hora extra. No permite duplicados (sin distinguir mayúsculas)."""
+    nombre = ' '.join((nombre or '').split())
+    if not nombre:
+        raise ValidationError('El nombre de la categoría es obligatorio.')
+    if len(nombre) > 80:
+        raise ValidationError('El nombre de la categoría no puede pasar de 80 caracteres.')
+    existente = CategoriaHoraExtra.objects.filter(nombre__iexact=nombre).first()
+    if existente:
+        if not existente.activa:
+            existente.activa = True
+            existente.save(update_fields=['activa'])
+            return existente
+        raise ValidationError(f'La categoría "{existente.nombre}" ya existe.')
+    return CategoriaHoraExtra.objects.create(nombre=nombre)
+
+
 def registrar_hora_extra(*, reporte, colaborador, categoria, entrada, salida,
                          cena, justificacion, creado_por):
     """Crea una hora extra en ``reporte`` calculando las horas totales."""
@@ -58,3 +76,49 @@ def registrar_hora_extra(*, reporte, colaborador, categoria, entrada, salida,
         reporte=reporte, colaborador=colaborador, categoria=categoria,
         entrada=entrada, salida=salida, horas_total=horas, cena=cena,
         justificacion=justificacion, creado_por=creado_por)
+
+
+def actualizar_hora_extra(hora, *, reporte, colaborador, categoria, entrada, salida,
+                          cena, justificacion):
+    """Edita una hora extra y recalcula las horas totales."""
+    justificacion = (justificacion or '').strip()
+    if not justificacion:
+        raise ValidationError('La justificación es obligatoria.')
+    hora.horas_total = calcular_horas(entrada, salida)
+    hora.reporte, hora.colaborador, hora.categoria = reporte, colaborador, categoria
+    hora.entrada, hora.salida, hora.cena = entrada, salida, cena
+    hora.justificacion = justificacion
+    hora.save()
+    return hora
+
+
+def eliminar_hora_extra(hora):
+    """Elimina una hora extra."""
+    hora.delete()
+
+
+# ---------------------------------------------------------------------------
+# Datos derivados para la tabla (misma lógica que las fórmulas del Excel)
+# ---------------------------------------------------------------------------
+
+DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+_H5, _H19 = time(5, 0), time(19, 0)
+
+
+def dia_semana(entrada):
+    """Nombre del día (en hora local) de una entrada."""
+    return DIAS[timezone.localtime(entrada).weekday()]
+
+
+def jornada(entrada, salida):
+    """DIURNO / NOCTURNO / MIXTO, igual que la columna JORNADA del Excel.
+
+    Usa solo la hora del día (local) de la entrada y la salida.
+    """
+    ini = timezone.localtime(entrada).time().replace(second=0, microsecond=0)
+    fin = timezone.localtime(salida).time().replace(second=0, microsecond=0)
+    if _H5 <= ini < _H19 and fin > ini and fin <= _H19:
+        return 'DIURNO'
+    if (ini >= _H19 and (fin > ini or fin <= _H5)) or (ini < _H5 and fin > ini and fin <= _H5):
+        return 'NOCTURNO'
+    return 'MIXTO'

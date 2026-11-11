@@ -1,0 +1,40 @@
+{# Modal "Crear Reporte Horas" (Bootstrap 4 de Jazzmin). Contexto: form_reporte. #}
+<div class="modal fade rh-modal" id="modalReporte" data-backdrop="static" data-keyboard="false" tabindex="-1" role="dialog" aria-labelledby="modalReporteLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <form class="modal-content" method="post" action="{% url 'rrhh:crear_reporte' %}">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalReporteLabel">Crear Reporte Horas</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <p class="rh-muted mb-3" style="font-size:.86rem;"><i class="fas fa-info-circle"></i> El ID de reporte se genera automáticamente.</p>
+                <div class="form-group">
+                    <label class="rh-label" for="id_rep_colaborador">Colaborador *</label>
+                    <select name="colaborador" id="id_rep_colaborador" class="form-control" required>
+                        <option value="">---------</option>
+                        {% for v, l in form_reporte.fields.colaborador.choices %}{% if v %}<option value="{{ v }}">{{ l }}</option>{% endif %}{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="rh-label" for="id_rep_autorizado">Autorizado por</label>
+                    <select name="autorizado_por" id="id_rep_autorizado" class="form-control">
+                        <option value="">---------</option>
+                        {% for v, l in form_reporte.fields.autorizado_por.choices %}{% if v %}<option value="{{ v }}">{{ l }}</option>{% endif %}{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="rh-label" for="id_rep_solicitado">Solicitado por</label>
+                    <select name="solicitado_por" id="id_rep_solicitado" class="form-control">
+                        <option value="">---------</option>
+                        {% for v, l in form_reporte.fields.solicitado_por.choices %}{% if v %}<option value="{{ v }}">{{ l }}</option>{% endif %}{% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-sap" data-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn-sap btn-sap-primary"><i class="fas fa-plus"></i> Crear</button>
+            </div>
+        </form>
+    </div>
+</div>

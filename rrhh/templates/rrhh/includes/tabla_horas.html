@@ -1,0 +1,93 @@
+{% load rrhh_tags %}
+{% comment %}
+Tabla de horas extra con filtros por columna, editar y eliminar.
+Contexto: page, col (filtros por columna por key), total_horas, querystring, next_url.
+Requiere un <form id="filtros-form" method="get"> en la página.
+{% endcomment %}
+<div class="sap-table-wrap">
+<table class="sap-table">
+    <thead>
+        <tr>
+            {% include "core/includes/filtro_th.html" with c=col.fecha %}
+            <th>Día</th>
+            <th>Jornada</th>
+            {% include "core/includes/filtro_th.html" with c=col.colaborador %}
+            {% include "core/includes/filtro_th.html" with c=col.categoria %}
+            {% include "core/includes/filtro_th.html" with c=col.actividad %}
+            <th>Hora inicio</th>
+            <th>Hora fin</th>
+            {% include "core/includes/filtro_th.html" with c=col.total %}
+            <th class="text-right">Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for h in page %}
+        {% with jor=h|jornada_he %}
+        <tr>
+            <td class="nowrap">{{ h.entrada|date:"d/m/Y" }}</td>
+            <td class="nowrap">{{ h|dia_he }}</td>
+            <td>
+                <span class="badge-sap {% if jor == 'DIURNO' %}b-info{% elif jor == 'NOCTURNO' %}b-pend{% else %}b-prog{% endif %}">{{ jor }}</span>
+            </td>
+            <td>{% firstof h.colaborador.get_full_name h.colaborador.username %}</td>
+            <td>{% if h.categoria %}<span class="badge-sap b-info">{{ h.categoria.nombre }}</span>{% else %}<span class="rh-muted">—</span>{% endif %}</td>
+            <td class="act" title="{{ h.justificacion }}">
+                {{ h.justificacion|truncatechars:110 }}
+                {% if h.cena %}<span class="badge-sap b-ok ml-1" title="Incluye cena"><i class="fas fa-utensils"></i> Cena</span>{% endif %}
+            </td>
+            <td class="nowrap">{{ h.entrada|date:"H:i" }}</td>
+            <td class="nowrap">
+                {{ h.salida|date:"H:i" }}
+                {% if h.salida|date:"Ymd" != h.entrada|date:"Ymd" %}<span class="rh-muted" title="Termina el {{ h.salida|date:'d/m/Y' }}">(+1)</span>{% endif %}
+            </td>
+            <td class="num">{{ h.horas_total|floatformat:2 }}</td>
+            <td>
+                <div class="rh-actions-cell">
+                    <button type="button" class="btn-sap btn-sap-icon js-editar-hora"
+                            title="Editar" aria-label="Editar hora extra del {{ h.entrada|date:'d/m/Y' }}"
+                            data-url="{% url 'rrhh:editar_hora_extra' h.pk %}"
+                            data-reporte="{{ h.reporte_id }}"
+                            data-colaborador="{{ h.colaborador_id }}"
+                            data-categoria="{{ h.categoria_id|default_if_none:'' }}"
+                            data-entrada="{{ h.entrada|date:'Y-m-d\TH:i' }}"
+                            data-salida="{{ h.salida|date:'Y-m-d\TH:i' }}"
+                            data-cena="{% if h.cena %}1{% else %}0{% endif %}"
+                            data-justificacion="{{ h.justificacion }}">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <form method="post" action="{% url 'rrhh:eliminar_hora_extra' h.pk %}" class="js-eliminar-hora"
+                          data-descripcion="{% firstof h.colaborador.get_full_name h.colaborador.username %} — {{ h.entrada|date:'d/m/Y H:i' }} ({{ h.horas_total|floatformat:2 }} h)">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <button type="submit" class="btn-sap btn-sap-icon danger" title="Eliminar"
+                                aria-label="Eliminar hora extra del {{ h.entrada|date:'d/m/Y' }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endwith %}
+    {% empty %}
+        <tr><td colspan="10" class="rh-empty"><i class="fas fa-clock"></i>Sin horas extra para los filtros seleccionados.</td></tr>
+    {% endfor %}
+    </tbody>
+    {% if page.paginator.count %}
+    <tfoot>
+        <tr>
+            <td colspan="8" class="text-right">Total horas ({{ page.paginator.count }} registro{{ page.paginator.count|pluralize }})</td>
+            <td class="num">{{ total_horas|floatformat:2 }}</td>
+            <td></td>
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
+<div class="rh-pager">
+    <span>Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+    {% if page.has_previous %}<a class="btn-sap" href="?{{ querystring }}&page={{ page.previous_page_number }}"><i class="fas fa-chevron-left"></i> Anterior</a>{% endif %}
+    {% if page.has_next %}<a class="btn-sap" href="?{{ querystring }}&page={{ page.next_page_number }}">Siguiente <i class="fas fa-chevron-right"></i></a>{% endif %}
+</div>
+<div class="rh-hint">
+    Haz clic en el encabezado de Fecha, Colaborador, Categoría, Actividad o Total horas para filtrar esa columna.
+</div>
