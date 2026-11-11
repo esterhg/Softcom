@@ -863,4 +863,4 @@ class SolicitudAltaProveedorAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         if not self.has_view_permission(request):
             return super().changelist_view(request, extra_context)
-        return _redirect(_reverse('presupuestos:bandeja_altas') + '?tab=proveedores')
+        return _redirect(_reverse('presupuestos:bandeja_altas'))

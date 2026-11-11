@@ -1,4 +1,9 @@
-"""Bandeja de aprobación de solicitudes de alta (proveedor / material)."""
+"""
+Solicitudes de alta que nacen en una requisición.
+
+- Aquí: solicitar (proveedor y material) y la tabla de aprobación de PROVEEDORES
+  (solo Procura). La tabla de materiales vive en ``inventarios`` (solo Almacén).
+"""
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -8,48 +13,24 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from core.navegacion import url_retorno
-from inventarios.models import UnidadMedida
 from . import permissions
-from .models import Requisicion, SolicitudAltaMaterial, SolicitudAltaProveedor
+from .models import Requisicion, SolicitudAltaProveedor
 from .selectors import solicitudes_alta as sel
 from .services import solicitudes_alta as svc
 
 
-@permissions.bandeja_altas_required
+@permissions.procura_required
 def bandeja_altas(request):
-    """Tabla de solicitudes. Cada grupo ve solo el tipo que puede resolver."""
-    user = request.user
-    ve_proveedores = permissions.puede_aprobar_proveedores(user)
-    ve_materiales = permissions.puede_aprobar_materiales(user)
-
-    tab = request.GET.get('tab')
-    if tab not in ('proveedores', 'materiales'):
-        tab = 'materiales' if ve_materiales and not ve_proveedores else 'proveedores'
-    if tab == 'proveedores' and not ve_proveedores:
-        tab = 'materiales'
-    if tab == 'materiales' and not ve_materiales:
-        tab = 'proveedores'
-
+    """Tabla de aprobación de altas de proveedor (Procura)."""
     estado = request.GET.get('estado', SolicitudAltaProveedor.ESTADO_PENDIENTE)
     if estado == 'TODAS':
         estado = None
-
-    if tab == 'proveedores':
-        solicitudes = sel.solicitudes_proveedor(estado)
-    else:
-        solicitudes = sel.solicitudes_material(estado)
-
-    pendientes = sel.conteo_pendientes()
     return render(request, 'presupuestos/altas/bandeja.html', {
-        'tab': tab,
         'estado': estado or 'TODAS',
-        'solicitudes': solicitudes[:300],
-        've_proveedores': ve_proveedores,
-        've_materiales': ve_materiales,
-        'pendientes': pendientes,
-        'unidades': UnidadMedida.objects.all() if tab == 'materiales' else [],
+        'solicitudes': sel.solicitudes_proveedor(estado)[:300],
+        'pendientes': sel.conteo_pendientes()['proveedores'],
         'estados': SolicitudAltaProveedor.ESTADO_CHOICES,
-        'title': 'Solicitudes de alta',
+        'title': 'Solicitudes de alta de proveedor',
     })
 
 
@@ -94,7 +75,7 @@ def solicitar_proveedor(request, pk):
 @require_POST
 @login_required
 def solicitar_material(request, pk):
-    """Solicita a Almacén el alta de un material; el solicitante solo indica el nombre."""
+    """Solicita a Almacén el alta de un material (no se agrega a la lista hasta aprobar)."""
     return _solicitar(request, pk, lambda req: svc.solicitar_material_nuevo(
         req, request.user,
         request.POST.get('nombre'),
@@ -102,13 +83,11 @@ def solicitar_material(request, pk):
         precio=request.POST.get('precio') or 0))
 
 
-def _volver(request, tab):
-    destino = reverse('presupuestos:bandeja_altas') + f'?tab={tab}'
-    return redirect(url_retorno(request, default=destino))
+def ejecutar_y_volver(request, accion, destino):
+    """Ejecuta un service y traduce errores a mensajes (Post/Redirect/Get).
 
-
-def _ejecutar(request, tab, accion):
-    """Ejecuta un service y traduce errores a mensajes (Post/Redirect/Get)."""
+    Compartido con la tabla de materiales de inventarios.
+    """
     try:
         resultado = accion()
     except PermissionDenied as e:
@@ -117,11 +96,11 @@ def _ejecutar(request, tab, accion):
         messages.error(request, ' '.join(e.messages))
     else:
         messages.success(request, resultado)
-    return _volver(request, tab)
+    return redirect(url_retorno(request, default=destino))
 
 
 @require_POST
-@permissions.bandeja_altas_required
+@permissions.procura_required
 def proveedor_aprobar(request, pk):
     s = get_object_or_404(SolicitudAltaProveedor, pk=pk)
     campos = ('numero_proveedor', 'rtn', 'contacto', 'telefono', 'email', 'domicilio')
@@ -130,38 +109,15 @@ def proveedor_aprobar(request, pk):
     def accion():
         svc.aprobar_solicitud_proveedor(s, request.user, datos)
         return f'Proveedor "{s.nombre}" dado de alta.'
-    return _ejecutar(request, 'proveedores', accion)
+    return ejecutar_y_volver(request, accion, reverse('presupuestos:bandeja_altas'))
 
 
 @require_POST
-@permissions.bandeja_altas_required
+@permissions.procura_required
 def proveedor_rechazar(request, pk):
     s = get_object_or_404(SolicitudAltaProveedor, pk=pk)
 
     def accion():
         svc.rechazar_solicitud_proveedor(s, request.user, request.POST.get('motivo'))
         return f'Solicitud de "{s.nombre}" rechazada.'
-    return _ejecutar(request, 'proveedores', accion)
-
-
-@require_POST
-@permissions.bandeja_altas_required
-def material_aprobar(request, pk):
-    s = get_object_or_404(SolicitudAltaMaterial, pk=pk)
-
-    def accion():
-        datos = {c: request.POST.get(c) for c in ('unidad_medida', 'precio_estimado', 'descripcion')}
-        svc.aprobar_solicitud_material(s, request.user, request.POST.get('sku'), datos)
-        return f'Material "{s.nombre}" dado de alta.'
-    return _ejecutar(request, 'materiales', accion)
-
-
-@require_POST
-@permissions.bandeja_altas_required
-def material_rechazar(request, pk):
-    s = get_object_or_404(SolicitudAltaMaterial, pk=pk)
-
-    def accion():
-        svc.rechazar_solicitud_material(s, request.user, request.POST.get('motivo'))
-        return f'Solicitud de "{s.nombre}" rechazada.'
-    return _ejecutar(request, 'materiales', accion)
+    return ejecutar_y_volver(request, accion, reverse('presupuestos:bandeja_altas'))

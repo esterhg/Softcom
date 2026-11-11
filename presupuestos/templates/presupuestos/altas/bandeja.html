@@ -1,206 +1,183 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ title }} · Softcom</title>
-<style>
-  @font-face { font-family:'Artifakt Element'; src:url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2'); font-weight:400; font-display:swap; }
-  @font-face { font-family:'Artifakt Element'; src:url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2'); font-weight:700; font-display:swap; }
-</style>
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
-  :root { --fiori-primary:#0070f2; --fiori-bg:#eff2f5; --fiori-card-bg:#fff; --fiori-text:#32363a;
-          --fiori-text-secondary:#6a6d70; --fiori-border:#d9d9d9; --fiori-success:#107e3e; --fiori-error:#bb0000; }
-  body { font-family:'Artifakt Element','Outfit',sans-serif; background:var(--fiori-bg); color:var(--fiori-text); }
-  .sap-card { background:var(--fiori-card-bg); border:1px solid var(--fiori-border); border-radius:.5rem; box-shadow:0 .125rem .25rem rgba(0,0,0,.08); }
-  .btn { border-radius:4px; }
-  .btn-primary { background:var(--fiori-primary); border-color:var(--fiori-primary); }
-  .btn-danger { background:var(--fiori-error); border-color:var(--fiori-error); }
-  .btn-secondary-sap { background:#fff; border:1px solid var(--fiori-border); color:var(--fiori-text); }
-  table.sap-table thead th { background:#f0f4f8; border-bottom:1px solid var(--fiori-border); font-size:.8rem; color:var(--fiori-text-secondary); white-space:nowrap; }
-  table.sap-table tbody tr:hover { background:#f7f9fb; }
-  .badge-estado { padding:.25rem .6rem; border-radius:4px; font-size:.75rem; font-weight:600; }
-  .b-PENDIENTE { background:#fef3c7; color:#92400e; }
-  .b-APROBADA { background:#dcfce7; color:#166534; }
-  .b-RECHAZADA { background:#fee2e2; color:#991b1b; }
-  .nav-tabs .nav-link { color:var(--fiori-text-secondary); }
-  .nav-tabs .nav-link.active { color:var(--fiori-primary); font-weight:700; }
-  .cuenta { background:var(--fiori-primary); color:#fff; border-radius:10px; padding:0 .45rem; font-size:.7rem; margin-left:.3rem; }
-  .muted { color:var(--fiori-text-secondary); font-size:.8rem; }
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+        font-weight: 400; font-style: normal; font-display: swap;
+    }
+    @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
+        font-weight: 700; font-style: normal; font-display: swap;
+    }
 </style>
-</head>
-<body>
-<div class="container-fluid py-3" style="max-width:1300px;">
+{# Mismo estilo que el resto de Requisiciones (colores, botones, tipografía) #}
+{% include "admin/presupuestos/requisicion/includes/requisicion_styles.html" %}
+<style>
+    .al-wrap { padding: 20px 2rem 60px; }
+    .al-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .al-head h1 { font-size: 1.4rem; font-weight: 700; color: var(--text-main); margin: 0; }
+    .al-count { background: #bb0000; color: #fff; border-radius: 10px; padding: 0 8px; font-size: 0.75rem; margin-left: 8px; }
+    .al-card { background: var(--card-bg); border: 1px solid var(--border); }
+    .al-filter { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid #e5e9ee; font-size: 0.85rem; color: var(--text-muted); }
+    .al-filter select { padding: 6px 10px; border: 1px solid var(--border); font-family: inherit; }
+    .al-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .al-table th { text-align: left; padding: 10px 14px; background: #f0f4f8; border-bottom: 2px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+    .al-table td { padding: 10px 14px; border-bottom: 1px solid #eef1f4; vertical-align: middle; color: var(--text-main); }
+    .al-table tr:hover td { background: #f8fafc; }
+    .al-muted { color: var(--text-muted); font-size: 0.78rem; }
+    .al-badge { display: inline-block; padding: 2px 10px; font-size: 0.72rem; font-weight: 600; }
+    .al-PENDIENTE { background: #fef3c7; color: #92400e; }
+    .al-APROBADA { background: #dcfce7; color: #166534; }
+    .al-RECHAZADA { background: #fee2e2; color: #991b1b; }
+    .al-empty { padding: 36px; text-align: center; color: var(--text-muted); }
+    .al-actions { text-align: right; white-space: nowrap; }
+    .al-actions .btn-custom { padding: 6px 12px; font-size: 0.78rem; }
+    /* Modal propio (fondo estático: no se cierra al hacer clic fuera) */
+    .al-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; align-items: center; justify-content: center; }
+    .al-modal.open { display: flex; }
+    .al-dialog { background: #fff; border: 1px solid var(--border); width: min(560px, 94vw); max-height: 92vh; overflow-y: auto; box-shadow: 0 .25rem .75rem rgba(0,0,0,.25); }
+    .al-dialog header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+    .al-dialog .body { padding: 16px 18px; }
+    .al-dialog footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+    .al-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .al-grid .full { grid-column: 1 / -1; }
+    .al-close { border: none; background: none; font-size: 22px; cursor: pointer; }
+</style>
+{% endblock %}
 
-  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <h4 class="mb-0"><i class="fas fa-clipboard-check me-2" style="color:var(--fiori-primary)"></i>Solicitudes de alta</h4>
-    <a href="{% url 'inventarios:dashboard' %}" class="btn btn-secondary-sap btn-sm"><i class="fas fa-arrow-left me-1"></i>Volver</a>
-  </div>
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'presupuestos:requisicion_dashboard' %}">Requisiciones</a>
+    &rsaquo; Altas de proveedor
+</div>
+{% endblock %}
 
-  {% if messages %}
-    {% for m in messages %}
-      <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %} py-2" role="alert">{{ m }}</div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="sap-card p-3">
-    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
-      <ul class="nav nav-tabs border-0">
-        {% if ve_proveedores %}
-        <li class="nav-item"><a class="nav-link {% if tab == 'proveedores' %}active{% endif %}" href="?tab=proveedores&estado={{ estado }}">
-          Proveedores <span class="cuenta">{{ pendientes.proveedores }}</span></a></li>
-        {% endif %}
-        {% if ve_materiales %}
-        <li class="nav-item"><a class="nav-link {% if tab == 'materiales' %}active{% endif %}" href="?tab=materiales&estado={{ estado }}">
-          Materiales <span class="cuenta">{{ pendientes.materiales }}</span></a></li>
-        {% endif %}
-      </ul>
-      <form method="get" class="d-flex align-items-center gap-2">
-        <input type="hidden" name="tab" value="{{ tab }}">
-        <label for="f-estado" class="muted mb-0">Estado</label>
-        <select id="f-estado" name="estado" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
-          {% for val, label in estados %}<option value="{{ val }}" {% if estado == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
-          <option value="TODAS" {% if estado == 'TODAS' %}selected{% endif %}>Todas</option>
-        </select>
-      </form>
+{% block content %}
+<div class="al-wrap">
+    <div class="al-head">
+        <h1><i class="fas fa-building-circle-check" style="color:var(--secondary);"></i>
+            Solicitudes de alta de proveedor{% if pendientes %}<span class="al-count">{{ pendientes }}</span>{% endif %}</h1>
+        <a href="{% url 'presupuestos:requisicion_dashboard' %}" class="btn-custom btn-outline-custom" style="text-decoration:none;">← Volver a Requisiciones</a>
     </div>
 
-    <div class="table-responsive">
-      <table class="table sap-table align-middle mb-0">
-        <thead>
-          <tr>
-            <th>Fecha</th><th>Requisición</th>
-            <th>{% if tab == 'proveedores' %}Proveedor{% else %}Material{% endif %}</th>
-            {% if tab == 'proveedores' %}<th>RTN</th><th>Contacto</th>{% else %}<th>Unidad</th><th class="text-end">Precio est.</th>{% endif %}
-            <th>Solicitante</th><th>Estado</th><th class="text-end">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for s in solicitudes %}
-          <tr>
-            <td>{{ s.creado_en|date:"d/m/Y H:i" }}</td>
-            <td>{{ s.requisicion.cr8ca_requisicion }}</td>
-            <td>
-              <strong>{{ s.nombre }}</strong>
-              {% if s.descripcion %}<div class="muted">{{ s.descripcion|truncatechars:80 }}</div>{% endif %}
-              {% if s.justificacion %}<div class="muted"><i class="fas fa-comment-dots me-1"></i>{{ s.justificacion|truncatechars:80 }}</div>{% endif %}
-            </td>
-            {% if tab == 'proveedores' %}
-              <td>{{ s.rtn|default:"—" }}</td>
-              <td>{{ s.contacto|default:"—" }}{% if s.telefono %}<div class="muted">{{ s.telefono }}</div>{% endif %}</td>
-            {% else %}
-              <td>{{ s.unidad_medida.abreviatura|default:"—" }}</td>
-              <td class="text-end">{{ s.precio_estimado|floatformat:2 }}</td>
-            {% endif %}
-            <td>{{ s.solicitante.get_full_name|default:s.solicitante.username|default:"—" }}</td>
-            <td>
-              <span class="badge-estado b-{{ s.estado }}">{{ s.get_estado_display }}</span>
-              {% if s.estado == 'RECHAZADA' and s.motivo_rechazo %}<div class="muted">{{ s.motivo_rechazo|truncatechars:60 }}</div>{% endif %}
-              {% if s.estado == 'APROBADA' %}
-                <div class="muted">
-                  {% if tab == 'proveedores' %}{{ s.proveedor.nombre|default:"" }}{% else %}SKU {{ s.material.sku|default:"" }}{% endif %}
-                </div>
-              {% endif %}
-            </td>
-            <td class="text-end text-nowrap">
-              {% if s.estado == 'PENDIENTE' %}
-                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modal-aprobar"
-                        data-nombre="{{ s.nombre }}"
-                        data-action="{% if tab == 'proveedores' %}{% url 'presupuestos:alta_proveedor_aprobar' s.pk %}{% else %}{% url 'presupuestos:alta_material_aprobar' s.pk %}{% endif %}">
-                  <i class="fas fa-check me-1"></i>Aprobar</button>
-                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modal-rechazar"
-                        data-nombre="{{ s.nombre }}"
-                        data-action="{% if tab == 'proveedores' %}{% url 'presupuestos:alta_proveedor_rechazar' s.pk %}{% else %}{% url 'presupuestos:alta_material_rechazar' s.pk %}{% endif %}">
-                  <i class="fas fa-xmark me-1"></i>Rechazar</button>
-              {% else %}
-                <span class="muted">{{ s.revisado_por.get_full_name|default:s.revisado_por.username|default:"" }}<br>{{ s.revisado_en|date:"d/m/Y H:i" }}</span>
-              {% endif %}
-            </td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="8" class="text-center muted py-4">No hay solicitudes en este estado.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+    <div class="al-card">
+        <form method="get" class="al-filter">
+            <label for="f-estado">Estado</label>
+            <select id="f-estado" name="estado" onchange="this.form.submit()">
+                {% for val, label in estados %}<option value="{{ val }}" {% if estado == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                <option value="TODAS" {% if estado == 'TODAS' %}selected{% endif %}>Todas</option>
+            </select>
+        </form>
+
+        <div style="overflow-x:auto;">
+        <table class="al-table">
+            <thead>
+                <tr><th>Fecha</th><th>Requisición</th><th>Proveedor solicitado</th><th>Solicitante</th><th>Estado</th><th style="text-align:right;">Acciones</th></tr>
+            </thead>
+            <tbody>
+            {% for s in solicitudes %}
+                <tr>
+                    <td>{{ s.creado_en|date:"d/m/Y H:i" }}</td>
+                    <td>{{ s.requisicion.cr8ca_requisicion }}</td>
+                    <td><strong>{{ s.nombre }}</strong>
+                        {% if s.justificacion %}<div class="al-muted">{{ s.justificacion|truncatechars:80 }}</div>{% endif %}</td>
+                    <td>{{ s.solicitante.get_full_name|default:s.solicitante.username|default:"—" }}</td>
+                    <td>
+                        <span class="al-badge al-{{ s.estado }}">{{ s.get_estado_display }}</span>
+                        {% if s.estado == 'RECHAZADA' and s.motivo_rechazo %}<div class="al-muted">{{ s.motivo_rechazo|truncatechars:60 }}</div>{% endif %}
+                        {% if s.estado == 'APROBADA' and s.proveedor %}<div class="al-muted">{{ s.proveedor.nombre }}</div>{% endif %}
+                    </td>
+                    <td class="al-actions">
+                        {% if s.estado == 'PENDIENTE' %}
+                        <button type="button" class="btn-custom btn-primary-custom" data-abrir="modal-aprobar"
+                                data-nombre="{{ s.nombre }}" data-action="{% url 'presupuestos:alta_proveedor_aprobar' s.pk %}">Aprobar</button>
+                        <button type="button" class="btn-custom btn-danger-custom" data-abrir="modal-rechazar"
+                                data-nombre="{{ s.nombre }}" data-action="{% url 'presupuestos:alta_proveedor_rechazar' s.pk %}">Rechazar</button>
+                        {% else %}
+                        <span class="al-muted">{{ s.revisado_por.get_full_name|default:s.revisado_por.username|default:"" }}<br>{{ s.revisado_en|date:"d/m/Y H:i" }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="al-empty">No hay solicitudes en este estado.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
     </div>
-  </div>
 </div>
 
-<!-- Aprobar -->
-<div class="modal fade" id="modal-aprobar" data-bs-backdrop="static" tabindex="-1" aria-labelledby="t-aprobar" aria-hidden="true">
-  <div class="modal-dialog"><form method="post" class="modal-content" id="form-aprobar">{% csrf_token %}
-    <div class="modal-header"><h5 class="modal-title" id="t-aprobar">Aprobar solicitud</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-    <div class="modal-body">
-      <p class="mb-2">Se dará de alta: <strong id="aprobar-nombre"></strong></p>
-      {% if tab == 'materiales' %}
-        <label for="sku" class="form-label">SKU del material <span class="text-danger">*</span></label>
-        <input id="sku" name="sku" class="form-control mb-2" maxlength="50" required>
-        <div class="form-text mb-2">El SKU debe ser único en el catálogo.</div>
-        <label for="m-unidad" class="form-label">Unidad de medida</label>
-        <select id="m-unidad" name="unidad_medida" class="form-select mb-2">
-          <option value="">— Sin unidad —</option>
-          {% for u in unidades %}<option value="{{ u.pk }}">{{ u }}</option>{% endfor %}
-        </select>
-        <label for="m-precio" class="form-label">Precio estimado</label>
-        <input id="m-precio" name="precio_estimado" type="number" step="0.01" min="0" class="form-control mb-2">
-        <label for="m-desc" class="form-label">Descripción</label>
-        <textarea id="m-desc" name="descripcion" class="form-control" rows="2"></textarea>
-      {% else %}
-        <div class="row g-2">
-          <div class="col-md-6"><label for="p-num" class="form-label">No. de proveedor</label>
-            <input id="p-num" name="numero_proveedor" class="form-control" maxlength="50"></div>
-          <div class="col-md-6"><label for="p-rtn" class="form-label">R.T.N.</label>
-            <input id="p-rtn" name="rtn" class="form-control" maxlength="30"></div>
-          <div class="col-md-6"><label for="p-contacto" class="form-label">Persona de contacto</label>
-            <input id="p-contacto" name="contacto" class="form-control" maxlength="200"></div>
-          <div class="col-md-6"><label for="p-tel" class="form-label">Teléfono</label>
-            <input id="p-tel" name="telefono" class="form-control" maxlength="50"></div>
-          <div class="col-12"><label for="p-email" class="form-label">Correo electrónico</label>
-            <input id="p-email" name="email" type="email" class="form-control"></div>
-          <div class="col-12"><label for="p-dom" class="form-label">Domicilio</label>
-            <textarea id="p-dom" name="domicilio" class="form-control" rows="2"></textarea></div>
+<!-- Aprobar: Procura completa los datos del proveedor -->
+<div class="al-modal" id="modal-aprobar" role="dialog" aria-modal="true" aria-labelledby="t-aprobar">
+    <form method="post" class="al-dialog">{% csrf_token %}
+        <header><span id="t-aprobar">Aprobar proveedor</span>
+            <button type="button" class="al-close" data-cerrar aria-label="Cerrar">&times;</button></header>
+        <div class="body">
+            <p style="margin:0 0 12px;">Se dará de alta: <strong class="al-nombre"></strong></p>
+            <div class="al-grid">
+                <div><label class="form-label" for="p-num">No. de proveedor</label>
+                    <input id="p-num" name="numero_proveedor" class="form-control" maxlength="50"></div>
+                <div><label class="form-label" for="p-rtn">R.T.N.</label>
+                    <input id="p-rtn" name="rtn" class="form-control" maxlength="30"></div>
+                <div><label class="form-label" for="p-contacto">Persona de contacto</label>
+                    <input id="p-contacto" name="contacto" class="form-control" maxlength="200"></div>
+                <div><label class="form-label" for="p-tel">Teléfono</label>
+                    <input id="p-tel" name="telefono" class="form-control" maxlength="50"></div>
+                <div class="full"><label class="form-label" for="p-email">Correo electrónico</label>
+                    <input id="p-email" name="email" type="email" class="form-control"></div>
+                <div class="full"><label class="form-label" for="p-dom">Domicilio</label>
+                    <textarea id="p-dom" name="domicilio" class="form-control" rows="2"></textarea></div>
+            </div>
         </div>
-      {% endif %}
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary-sap" data-bs-dismiss="modal">Cancelar</button>
-      <button type="submit" class="btn btn-primary">Aprobar</button>
-    </div>
-  </form></div>
+        <footer>
+            <button type="button" class="btn-custom btn-outline-custom" data-cerrar>Cancelar</button>
+            <button type="submit" class="btn-custom btn-primary-custom">Aprobar</button>
+        </footer>
+    </form>
 </div>
 
 <!-- Rechazar -->
-<div class="modal fade" id="modal-rechazar" data-bs-backdrop="static" tabindex="-1" aria-labelledby="t-rechazar" aria-hidden="true">
-  <div class="modal-dialog"><form method="post" class="modal-content" id="form-rechazar">{% csrf_token %}
-    <div class="modal-header"><h5 class="modal-title" id="t-rechazar">Rechazar solicitud</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-    <div class="modal-body">
-      <p class="mb-2">Solicitud: <strong id="rechazar-nombre"></strong></p>
-      <label for="motivo" class="form-label">Motivo del rechazo <span class="text-danger">*</span></label>
-      <textarea id="motivo" name="motivo" class="form-control" rows="3" required></textarea>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary-sap" data-bs-dismiss="modal">Cancelar</button>
-      <button type="submit" class="btn btn-danger">Rechazar</button>
-    </div>
-  </form></div>
+<div class="al-modal" id="modal-rechazar" role="dialog" aria-modal="true" aria-labelledby="t-rechazar">
+    <form method="post" class="al-dialog">{% csrf_token %}
+        <header><span id="t-rechazar">Rechazar solicitud</span>
+            <button type="button" class="al-close" data-cerrar aria-label="Cerrar">&times;</button></header>
+        <div class="body">
+            <p style="margin:0 0 12px;">Solicitud: <strong class="al-nombre"></strong></p>
+            <label class="form-label" for="motivo">Motivo del rechazo <span style="color:#bb0000;">*</span></label>
+            <textarea id="motivo" name="motivo" class="form-control" rows="3" required></textarea>
+        </div>
+        <footer>
+            <button type="button" class="btn-custom btn-outline-custom" data-cerrar>Cancelar</button>
+            <button type="submit" class="btn-custom btn-danger-custom">Rechazar</button>
+        </footer>
+    </form>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  function conectar(modalId, formId, nombreId) {
-    document.getElementById(modalId).addEventListener('show.bs.modal', function (ev) {
-      var b = ev.relatedTarget;
-      document.getElementById(formId).action = b.dataset.action;
-      document.getElementById(nombreId).textContent = b.dataset.nombre;
+(function () {
+    function cerrarTodo() { document.querySelectorAll('.al-modal.open').forEach(function (m) { m.classList.remove('open'); }); }
+    document.querySelectorAll('[data-abrir]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var modal = document.getElementById(btn.dataset.abrir);
+            modal.querySelector('form').action = btn.dataset.action;
+            modal.querySelector('.al-nombre').textContent = btn.dataset.nombre;
+            modal.classList.add('open');
+            var primero = modal.querySelector('input, textarea');
+            if (primero) primero.focus();
+        });
     });
-  }
-  conectar('modal-aprobar', 'form-aprobar', 'aprobar-nombre');
-  conectar('modal-rechazar', 'form-rechazar', 'rechazar-nombre');
+    document.querySelectorAll('[data-cerrar]').forEach(function (b) { b.addEventListener('click', cerrarTodo); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarTodo(); });
+})();
 </script>
-</body>
-</html>
+{% endblock %}

@@ -94,8 +94,28 @@ class PermisosTests(SimpleTestCase):
     def test_superusuario_en_procura_si_aprueba_proveedores(self):
         self.assertTrue(permissions.puede_aprobar_proveedores(_user(superuser=True, grupos=('Procura',))))
 
-    def test_usuario_sin_grupo_no_ve_bandeja(self):
-        self.assertFalse(permissions.puede_ver_bandeja_altas(_user()))
+    def test_usuario_sin_grupo_no_accede_a_ninguna_tabla(self):
+        u = _user()
+        self.assertFalse(permissions.puede_aprobar_proveedores(u))
+        self.assertFalse(permissions.puede_aprobar_materiales(u))
+
+    def test_tablas_separadas_por_grupo(self):
+        """Procura no ve la tabla de materiales y Almacén no ve la de proveedores (403)."""
+        from django.test import RequestFactory
+        rf = RequestFactory()
+
+        def vista_ok(request):
+            return 'ok'
+
+        def probar(decorador, usuario):
+            req = rf.get('/x')
+            req.user = usuario
+            return decorador(vista_ok)(req)
+
+        self.assertEqual(probar(permissions.procura_required, _user(grupos=('Procura',))), 'ok')
+        self.assertEqual(probar(permissions.procura_required, _user(grupos=('Almacenes',))).status_code, 403)
+        self.assertEqual(probar(permissions.almacen_altas_required, _user(grupos=('Almacenes',))), 'ok')
+        self.assertEqual(probar(permissions.almacen_altas_required, _user(grupos=('Procura',))).status_code, 403)
 
     def test_anonimo_sin_permisos(self):
         anon = MagicMock(is_authenticated=False)

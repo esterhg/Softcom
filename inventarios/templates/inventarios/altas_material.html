@@ -1,0 +1,180 @@
+{% extends "inventarios/base_inventarios.html" %}
+{% load i18n static %}
+
+{% block title %}Altas de material{% endblock %}
+
+{% block extrahead %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    .al-wrap { max-width: 1400px; margin: 0 auto; padding: 32px 40px; box-sizing: border-box; font-family: 'Artifakt Element', 'Outfit', sans-serif; }
+    .al-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+    .al-head h1 { font-size: 1.6rem; font-weight: 700; color: #32363a; margin: 0; }
+    .al-head p { color: #6a6d70; font-size: 0.92rem; margin: 4px 0 20px; }
+    .al-count { background: #bb0000; color: #fff; border-radius: 10px; padding: 0 8px; font-size: 0.75rem; margin-left: 8px; vertical-align: middle; }
+    .al-card { background: #fff; border: 1px solid #d9d9d9; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+    .al-filter { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 12px 20px; border-bottom: 1px solid #eef1f4; font-size: 0.85rem; color: #6a6d70; }
+    .al-filter select { padding: 7px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-family: inherit; }
+    .al-btn { padding: 8px 16px; border-radius: 4px; border: 1px solid #d9d9d9; background: #fff; color: #32363a; font-weight: 600; font-size: 0.88rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+    .al-btn-primary { background: #0070f2; border-color: #0070f2; color: #fff; }
+    .al-btn-danger { background: #bb0000; border-color: #bb0000; color: #fff; }
+    .al-btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+    .al-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .al-table th { text-align: left; padding: 10px 12px; background: #f0f4f8; border-bottom: 2px solid #d9d9d9; font-size: 0.72rem; text-transform: uppercase; color: #6a6d70; font-weight: 700; white-space: nowrap; }
+    .al-table td { padding: 9px 12px; border-bottom: 1px solid #eef1f4; color: #32363a; vertical-align: middle; }
+    .al-table tr:hover td { background: #f8fafc; }
+    .al-num { text-align: right; font-weight: 600; }
+    .al-muted { color: #6a6d70; font-size: 0.78rem; }
+    .al-badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+    .al-PENDIENTE { background: #fef3c7; color: #92400e; }
+    .al-APROBADA { background: #dcfce7; color: #166534; }
+    .al-RECHAZADA { background: #fee2e2; color: #991b1b; }
+    .al-empty { padding: 40px; text-align: center; color: #6a6d70; }
+    .al-actions { text-align: right; white-space: nowrap; }
+    .al-msg { padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; font-size: 0.88rem; }
+    .al-msg-success { background: #dcfce7; color: #166534; }
+    .al-msg-error { background: #fee2e2; color: #991b1b; }
+    /* Modal propio (fondo estático: no se cierra al hacer clic fuera) */
+    .al-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; align-items: center; justify-content: center; }
+    .al-modal.open { display: flex; }
+    .al-dialog { background: #fff; border: 1px solid #d9d9d9; border-radius: 0.5rem; width: min(480px, 94vw); max-height: 92vh; overflow-y: auto; box-shadow: 0 .25rem .75rem rgba(0,0,0,.25); }
+    .al-dialog header { padding: 14px 18px; border-bottom: 1px solid #d9d9d9; display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+    .al-dialog .body { padding: 16px 18px; }
+    .al-dialog footer { padding: 12px 18px; border-top: 1px solid #d9d9d9; display: flex; justify-content: flex-end; gap: 8px; }
+    .al-dialog label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #6a6d70; margin: 10px 0 4px; }
+    .al-dialog input, .al-dialog select, .al-dialog textarea { width: 100%; padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-family: inherit; font-size: 0.88rem; box-sizing: border-box; }
+    .al-hint { font-size: 0.75rem; color: #6a6d70; margin-top: 4px; }
+    .al-close { border: none; background: none; font-size: 22px; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block inventarios_content %}
+<div class="al-wrap">
+    <div class="al-head">
+        <div>
+            <h1><i class="fas fa-box-open" style="color:#0070f2;"></i> Solicitudes de alta de material
+                {% if pendientes %}<span class="al-count">{{ pendientes }}</span>{% endif %}</h1>
+            <p>Materiales nuevos pedidos desde Requisiciones. Al aprobar, asigne el SKU y complete los datos.</p>
+        </div>
+    </div>
+
+    {% for m in messages %}
+    <div class="al-msg {% if m.tags == 'error' %}al-msg-error{% else %}al-msg-success{% endif %}" role="alert">{{ m }}</div>
+    {% endfor %}
+
+    <div class="al-card">
+        <form method="get" class="al-filter">
+            <label for="f-estado">Estado</label>
+            <select id="f-estado" name="estado" onchange="this.form.submit()">
+                {% for val, label in estados %}<option value="{{ val }}" {% if estado == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                <option value="TODAS" {% if estado == 'TODAS' %}selected{% endif %}>Todas</option>
+            </select>
+        </form>
+
+        <div style="overflow-x:auto;">
+        <table class="al-table">
+            <thead>
+                <tr><th>Fecha</th><th>Requisición</th><th>Material solicitado</th><th class="al-num">Precio est.</th><th>Solicitante</th><th>Estado</th><th style="text-align:right;">Acciones</th></tr>
+            </thead>
+            <tbody>
+            {% for s in solicitudes %}
+                <tr>
+                    <td>{{ s.creado_en|date:"d/m/Y H:i" }}</td>
+                    <td>{{ s.requisicion.cr8ca_requisicion }}</td>
+                    <td><strong>{{ s.nombre }}</strong>
+                        {% if s.descripcion %}<div class="al-muted">{{ s.descripcion|truncatechars:80 }}</div>{% endif %}</td>
+                    <td class="al-num">{{ s.precio_estimado|floatformat:2 }}</td>
+                    <td>{{ s.solicitante.get_full_name|default:s.solicitante.username|default:"—" }}</td>
+                    <td>
+                        <span class="al-badge al-{{ s.estado }}">{{ s.get_estado_display }}</span>
+                        {% if s.estado == 'RECHAZADA' and s.motivo_rechazo %}<div class="al-muted">{{ s.motivo_rechazo|truncatechars:60 }}</div>{% endif %}
+                        {% if s.estado == 'APROBADA' and s.material %}<div class="al-muted">SKU {{ s.material.sku }}</div>{% endif %}
+                    </td>
+                    <td class="al-actions">
+                        {% if s.estado == 'PENDIENTE' %}
+                        <button type="button" class="al-btn al-btn-primary al-btn-sm" data-abrir="modal-aprobar"
+                                data-nombre="{{ s.nombre }}" data-precio="{{ s.precio_estimado|stringformat:'.2f' }}"
+                                data-action="{% url 'inventarios:altas_material_aprobar' s.pk %}">
+                            <ion-icon name="checkmark-outline"></ion-icon> Aprobar</button>
+                        <button type="button" class="al-btn al-btn-danger al-btn-sm" data-abrir="modal-rechazar"
+                                data-nombre="{{ s.nombre }}" data-action="{% url 'inventarios:altas_material_rechazar' s.pk %}">
+                            <ion-icon name="close-outline"></ion-icon> Rechazar</button>
+                        {% else %}
+                        <span class="al-muted">{{ s.revisado_por.get_full_name|default:s.revisado_por.username|default:"" }}<br>{{ s.revisado_en|date:"d/m/Y H:i" }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="al-empty">No hay solicitudes en este estado.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<!-- Aprobar: Almacén asigna el SKU y completa el material -->
+<div class="al-modal" id="modal-aprobar" role="dialog" aria-modal="true" aria-labelledby="t-aprobar">
+    <form method="post" class="al-dialog">{% csrf_token %}
+        <header><span id="t-aprobar">Aprobar material</span>
+            <button type="button" class="al-close" data-cerrar aria-label="Cerrar">&times;</button></header>
+        <div class="body">
+            <p style="margin:0;">Se dará de alta: <strong class="al-nombre"></strong></p>
+            <label for="sku">SKU del material <span style="color:#bb0000;">*</span></label>
+            <input id="sku" name="sku" maxlength="50" required>
+            <div class="al-hint">El SKU debe ser único en el catálogo.</div>
+            <label for="m-unidad">Unidad de medida</label>
+            <select id="m-unidad" name="unidad_medida">
+                <option value="">— Sin unidad —</option>
+                {% for u in unidades %}<option value="{{ u.pk }}">{{ u }}</option>{% endfor %}
+            </select>
+            <label for="m-precio">Precio estimado</label>
+            <input id="m-precio" name="precio_estimado" type="number" step="0.01" min="0">
+            <label for="m-desc">Descripción</label>
+            <textarea id="m-desc" name="descripcion" rows="2"></textarea>
+        </div>
+        <footer>
+            <button type="button" class="al-btn" data-cerrar>Cancelar</button>
+            <button type="submit" class="al-btn al-btn-primary">Aprobar</button>
+        </footer>
+    </form>
+</div>
+
+<!-- Rechazar -->
+<div class="al-modal" id="modal-rechazar" role="dialog" aria-modal="true" aria-labelledby="t-rechazar">
+    <form method="post" class="al-dialog">{% csrf_token %}
+        <header><span id="t-rechazar">Rechazar solicitud</span>
+            <button type="button" class="al-close" data-cerrar aria-label="Cerrar">&times;</button></header>
+        <div class="body">
+            <p style="margin:0;">Solicitud: <strong class="al-nombre"></strong></p>
+            <label for="motivo">Motivo del rechazo <span style="color:#bb0000;">*</span></label>
+            <textarea id="motivo" name="motivo" rows="3" required></textarea>
+        </div>
+        <footer>
+            <button type="button" class="al-btn" data-cerrar>Cancelar</button>
+            <button type="submit" class="al-btn al-btn-danger">Rechazar</button>
+        </footer>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    function cerrarTodo() { document.querySelectorAll('.al-modal.open').forEach(function (m) { m.classList.remove('open'); }); }
+    document.querySelectorAll('[data-abrir]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var modal = document.getElementById(btn.dataset.abrir);
+            modal.querySelector('form').action = btn.dataset.action;
+            modal.querySelector('.al-nombre').textContent = btn.dataset.nombre;
+            var precio = modal.querySelector('#m-precio');
+            if (precio) precio.value = btn.dataset.precio || '';
+            modal.classList.add('open');
+            var primero = modal.querySelector('input, textarea');
+            if (primero) primero.focus();
+        });
+    });
+    document.querySelectorAll('[data-cerrar]').forEach(function (b) { b.addEventListener('click', cerrarTodo); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarTodo(); });
+})();
+</script>
+{% endblock %}
