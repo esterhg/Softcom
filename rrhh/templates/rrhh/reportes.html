@@ -1,0 +1,97 @@
+{% extends "rrhh/base_rrhh.html" %}
+
+{% block title %}Reportes de Horas{% endblock %}
+
+{% block content %}
+<div class="rh-wrap">
+    <div class="rh-head d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1><i class="fas fa-clock" style="color:#0070f2;"></i> RRHH - Reportes de Horas</h1>
+            <p>Reportes de horas extra por colaborador.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn-sap" href="{% url 'rrhh:export_reportes_excel' %}?{{ querystring }}">
+                <i class="fas fa-file-excel" style="color:#107e3e;"></i> Exportar Excel
+            </a>
+            <button type="button" class="btn-sap btn-sap-primary" data-bs-toggle="modal" data-bs-target="#modalReporte">
+                <i class="fas fa-plus"></i> Crear Reporte Horas
+            </button>
+        </div>
+    </div>
+
+    <div class="sap-card">
+        <form method="get" id="filtros-form">
+        <div style="overflow-x:auto;">
+        <table class="sap-table">
+            <thead>
+                <tr>
+                    {% for c in columnas %}{% include "core/includes/filtro_th.html" with c=c %}{% endfor %}
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in page %}
+                <tr>
+                    <td><a href="{% url 'rrhh:detalle_reporte' r.pk %}"><strong>{{ r.codigo }}</strong></a></td>
+                    <td>{% firstof r.colaborador.get_full_name r.colaborador.username %}</td>
+                    <td>{% if r.autorizado_por %}{% firstof r.autorizado_por.get_full_name r.autorizado_por.username %}{% else %}<span class="rh-muted">—</span>{% endif %}</td>
+                    <td>{% if r.solicitado_por %}{% firstof r.solicitado_por.get_full_name r.solicitado_por.username %}{% else %}<span class="rh-muted">—</span>{% endif %}</td>
+                    <td>{{ r.creado_en|date:"d/m/Y H:i" }}</td>
+                    <td><strong>{{ r.total_horas|default_if_none:0|floatformat:"-2" }}</strong> h <span class="rh-muted">({{ r.num_registros }})</span></td>
+                    <td><a class="btn-sap" href="{% url 'rrhh:detalle_reporte' r.pk %}">Abrir</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="rh-empty">Sin reportes para los filtros seleccionados.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        </form>
+        <div class="d-flex justify-content-end align-items-center gap-3 p-3 rh-muted" style="font-size:.86rem;">
+            <span>Página {{ page.number }} de {{ page.paginator.num_pages }} ({{ page.paginator.count }} reportes)</span>
+            {% if page.has_previous %}<a class="btn-sap" href="?{{ querystring }}&page={{ page.previous_page_number }}">Anterior</a>{% endif %}
+            {% if page.has_next %}<a class="btn-sap" href="?{{ querystring }}&page={{ page.next_page_number }}">Siguiente</a>{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Crear Reporte Horas -->
+<div class="modal fade" id="modalReporte" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="modalReporteLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" method="post" action="{% url 'rrhh:crear_reporte' %}">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalReporteLabel">Crear Reporte Horas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="rh-muted mb-3">El ID de reporte se genera automáticamente.</p>
+                <div class="mb-3">
+                    <label class="form-label" for="id_colaborador">Colaborador *</label>
+                    {{ form.colaborador }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="id_autorizado_por">Autorizado por</label>
+                    {{ form.autorizado_por }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="id_solicitado_por">Solicitado por</label>
+                    {{ form.solicitado_por }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-sap" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn-sap btn-sap-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% include "core/includes/filtros_columna_assets.html" %}
+{% endblock %}
+
+{% block extrajs %}
+<script>
+    document.querySelectorAll('#modalReporte select').forEach(function (s) { s.classList.add('form-select'); });
+</script>
+{% endblock %}
