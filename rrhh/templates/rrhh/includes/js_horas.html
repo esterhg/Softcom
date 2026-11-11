@@ -1,0 +1,146 @@
+<script>
+/* RRHH - Horas extra: crear / editar / eliminar, cálculo de horas y pestañas.
+   Usa jQuery + Bootstrap 4 (cargados por Jazzmin) y SweetAlert2. */
+(function ($) {
+    if (!$) return;
+    // AdminLTE: un modal dentro de .content-wrapper queda debajo del fondo oscuro
+    // (se ve "opaco" y no responde). Se mueven al <body> antes de usarlos.
+    $('.rh-modal').appendTo('body');
+    var $modal = $('#modalHora');
+    var form = document.getElementById('form-hora');
+
+    // ---- Cálculo de horas en vivo ----
+    function recalcular() {
+        if (!form) return;
+        var ent = form.elements.entrada.value, sal = form.elements.salida.value;
+        var vista = document.getElementById('horas_total_vista');
+        if (!ent || !sal) { vista.value = '0.00'; return; }
+        var h = (new Date(sal) - new Date(ent)) / 3600000;
+        vista.value = h > 0 ? h.toFixed(2) : '0.00';
+    }
+
+    function limpiarErrores() {
+        if (!form) return;
+        form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+    }
+
+    // ---- Abrir el modal en modo crear o editar ----
+    function abrirHora(datos) {
+        if (!form) return;
+        limpiarErrores();
+        var editar = !!(datos && datos.url);
+        form.action = editar ? datos.url : form.dataset.crearUrl;
+        document.getElementById('modalHoraLabel').textContent = editar ? 'Editar Horas Extra' : 'Crear Horas Extra';
+        datos = datos || {};
+        var defecto = form.dataset;   // valores por defecto (detalle de un reporte)
+        form.elements.reporte.value = datos.reporte || defecto.reporteDefecto || '';
+        form.elements.colaborador.value = datos.colaborador || defecto.colaboradorDefecto || '';
+        form.elements.categoria.value = datos.categoria || '';
+        form.elements.entrada.value = datos.entrada || '';
+        form.elements.salida.value = datos.salida || '';
+        form.elements.cena.checked = datos.cena === '1';
+        form.elements.justificacion.value = datos.justificacion || '';
+        recalcular();
+        $modal.modal('show');
+    }
+
+    $(document).on('click', '.js-crear-hora', function () { abrirHora(null); });
+    $(document).on('click', '.js-editar-hora', function () {
+        var d = this.dataset;
+        abrirHora({ url: d.url, reporte: d.reporte, colaborador: d.colaborador, categoria: d.categoria,
+                    entrada: d.entrada, salida: d.salida, cena: d.cena, justificacion: d.justificacion });
+    });
+
+    // "+" junto a Categoría: cierra el modal de horas y abre el de categoría.
+    $(document).on('click', '.js-nueva-categoria', function () {
+        $modal.one('hidden.bs.modal', function () { $('#modalCategoria').modal('show'); });
+        $modal.modal('hide');
+    });
+    $('#modalCategoria').on('shown.bs.modal', function () { $('#id_nombre_categoria').trigger('focus'); });
+
+    if (form) {
+        form.elements.entrada.addEventListener('input', recalcular);
+        form.elements.salida.addEventListener('input', recalcular);
+
+        // Validación en el navegador (el servidor vuelve a validar todo).
+        form.addEventListener('submit', function (e) {
+            limpiarErrores();
+            var ok = true;
+            ['reporte', 'colaborador', 'entrada', 'salida'].forEach(function (n) {
+                if (!form.elements[n].value) { form.elements[n].classList.add('is-invalid'); ok = false; }
+            });
+            var j = form.elements.justificacion;
+            if (!j.value.trim()) { j.classList.add('is-invalid'); ok = false; }
+            var ent = form.elements.entrada.value, sal = form.elements.salida.value;
+            if (ent && sal && new Date(sal) <= new Date(ent)) { form.elements.salida.classList.add('is-invalid'); ok = false; }
+            if (!ok) {
+                e.preventDefault();
+                var primero = form.querySelector('.is-invalid');
+                if (primero) primero.focus();
+                return;
+            }
+            document.getElementById('btn-guardar-hora').disabled = true;
+        });
+    }
+
+    // ---- Eliminar con confirmación (SweetAlert2) ----
+    $(document).on('submit', 'form.js-eliminar-hora', function (e) {
+        var f = this;
+        if (f.dataset.confirmado === '1') return;
+        e.preventDefault();
+        var texto = f.dataset.descripcion || '';
+        if (!window.Swal) { if (confirm('¿Eliminar esta hora extra?\n' + texto)) { f.dataset.confirmado = '1'; f.submit(); } return; }
+        Swal.fire({
+            title: '¿Eliminar hora extra?',
+            text: texto + '. Esta acción no se puede deshacer.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#bb0000',
+            cancelButtonColor: '#6a6d70',
+            reverseButtons: true,
+            focusCancel: true
+        }).then(function (r) {
+            if (r.isConfirmed) { f.dataset.confirmado = '1'; f.submit(); }
+        });
+    });
+
+    // ---- Desplegable "Exportar Excel" (propio: el admin no carga Popper.js) ----
+    function cerrarMenus(excepto) {
+        document.querySelectorAll('.rh-dropdown.open').forEach(function (d) {
+            if (d !== excepto) {
+                d.classList.remove('open');
+                d.querySelector('.js-rh-dropdown').setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-rh-dropdown');
+        if (btn) {
+            var dd = btn.closest('.rh-dropdown');
+            cerrarMenus(dd);
+            var abierto = dd.classList.toggle('open');
+            btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+            if (abierto) { var primero = dd.querySelector('.rh-dropdown-item[href]'); if (primero) primero.focus(); }
+            return;
+        }
+        if (e.target.closest('.rh-dropdown-item[href]')) { cerrarMenus(null); return; }   // deja que el enlace descargue
+        if (!e.target.closest('.rh-dropdown')) cerrarMenus(null);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') cerrarMenus(null);
+    });
+
+    // ---- Pestañas: recordar la activa al recargar (sessionStorage) ----
+    var CLAVE_TAB = 'rrhh_tab_activa';
+    var guardada = sessionStorage.getItem(CLAVE_TAB);
+    if (guardada) {
+        var $t = $('.rh-tabs a[href="' + guardada + '"]');
+        if ($t.length) $t.tab('show');
+    }
+    $(document).on('shown.bs.tab', '.rh-tabs a[data-toggle="tab"]', function (e) {
+        sessionStorage.setItem(CLAVE_TAB, $(e.target).attr('href'));
+    });
+})(window.jQuery || window.django && window.django.jQuery);
+</script>

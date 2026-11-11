@@ -19,7 +19,20 @@ class ReporteHorasForm(forms.Form):
             self.fields[nombre].queryset = sel.usuarios_activos()
 
 
+class CategoriaForm(forms.Form):
+    nombre = forms.CharField(label='Nombre de la categoría', max_length=80,
+                             error_messages={'required': 'El nombre de la categoría es obligatorio.'})
+
+
+class _ReporteChoice(forms.ModelChoiceField):
+    def label_from_instance(self, r):
+        nombre = r.colaborador.get_full_name() or r.colaborador.username
+        return f'{r.codigo} — {nombre}'
+
+
 class HoraExtraForm(forms.Form):
+    reporte = _ReporteChoice(queryset=None, label='Reporte Horas',
+                             error_messages={'required': 'Selecciona el reporte de horas.'})
     colaborador = _UsuarioChoice(queryset=None, label='Colaborador')
     categoria = forms.ModelChoiceField(queryset=None, required=False, label='Categoría')
     entrada = forms.DateTimeField(label='Entrada', input_formats=['%Y-%m-%dT%H:%M'])
@@ -31,8 +44,14 @@ class HoraExtraForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['reporte'].queryset = sel.reportes_recientes()
         self.fields['colaborador'].queryset = sel.usuarios_activos()
-        self.fields['categoria'].queryset = sel.categorias_activas()
+        # Se aceptan categorías inactivas para no romper la edición de registros antiguos.
+        self.fields['categoria'].queryset = sel.todas_las_categorias()
+        for nombre in ('reporte', 'colaborador', 'categoria'):
+            self.fields[nombre].widget.attrs['class'] = 'form-control'
+        self.fields['reporte'].widget.attrs['required'] = True
+        self.fields['colaborador'].widget.attrs['required'] = True
 
     def clean_justificacion(self):
         texto = self.cleaned_data['justificacion'].strip()

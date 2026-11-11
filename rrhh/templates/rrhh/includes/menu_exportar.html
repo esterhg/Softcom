@@ -1,0 +1,33 @@
+{% comment %}
+Menú "Exportar Excel". Desplegable propio (el admin no carga Popper.js, así que el
+dropdown de Bootstrap 4 no abre). La lógica está en js_horas.html (.rh-dropdown).
+Contexto: url_export (ruta de exportación), qs_export (filtros sin categoría),
+querystring (filtros actuales), categorias.
+{% endcomment %}
+<div class="rh-dropdown">
+    <button type="button" class="btn-sap js-rh-dropdown" aria-haspopup="true" aria-expanded="false">
+        <i class="fas fa-file-excel" style="color:#107e3e;"></i> Exportar Excel <i class="fas fa-chevron-down" style="font-size:.7rem;"></i>
+    </button>
+    <div class="rh-dropdown-menu" role="menu">
+        {% if querystring %}
+        <a class="rh-dropdown-item" role="menuitem" href="{{ url_export }}?{{ querystring }}">
+            <i class="fas fa-filter"></i> Con los filtros actuales
+        </a>
+        {% endif %}
+        <a class="rh-dropdown-item" role="menuitem" href="{{ url_export }}{% if qs_export %}?{{ qs_export }}{% endif %}">
+            <i class="fas fa-list"></i> Todas las categorías (una hoja)
+        </a>
+        <a class="rh-dropdown-item" role="menuitem" href="{{ url_export }}?{% if qs_export %}{{ qs_export }}&{% endif %}agrupar=categoria">
+            <i class="fas fa-layer-group"></i> Una hoja por categoría
+        </a>
+        <div class="rh-dropdown-divider"></div>
+        <div class="rh-dropdown-header">Solo una categoría</div>
+        {% for c in categorias %}
+        <a class="rh-dropdown-item" role="menuitem" href="{{ url_export }}?{% if qs_export %}{{ qs_export }}&{% endif %}categoria={{ c.pk }}">
+            <i class="fas fa-tag"></i> {{ c.nombre }}{% if not c.activa %} <span class="rh-muted">(inactiva)</span>{% endif %}
+        </a>
+        {% empty %}
+        <span class="rh-dropdown-item rh-muted" style="cursor:default;">No hay categorías creadas.</span>
+        {% endfor %}
+    </div>
+</div>
