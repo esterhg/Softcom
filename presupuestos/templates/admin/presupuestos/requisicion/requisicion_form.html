@@ -309,9 +309,18 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Proveedor Asignado / Principal <span style="color:#bb0000;">*</span></label>
+                            <label class="form-label">Proveedor Asignado / Principal <span id="proveedor-obligatorio" style="color:#bb0000;">*</span></label>
                             {{ form.proveedor }}
-                            <small class="form-hint">Obligatorio. Los artículos sin proveedor tomarán este.</small>
+                            <small class="form-hint">Obligatorio (excepto en servicios). Los artículos sin proveedor tomarán este.</small>
+                            {% if instance.pk and not is_readonly %}
+                            <div style="margin-top:6px;">
+                                <button type="button" class="btn-custom btn-outline-custom" id="btn-solicitar-proveedor"
+                                    style="padding:5px 10px; font-size:0.8rem;">
+                                    ➕ ¿No está el proveedor? Solicitar alta a Procura
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% include "admin/presupuestos/requisicion/includes/solicitudes_alta_aviso.html" with solicitudes=solicitudes_proveedor tipo_solicitud="proveedor" %}
                         </div>
 
                         <div class="form-group">
@@ -351,12 +360,17 @@
                 <div style="display:flex;gap:6px;">
                 <button type="button" class="btn-custom btn-primary-custom" id="open-material-selector"
                     style="padding: 6px 12px; font-size: 0.8rem;">🛒 Seleccionar Materiales</button>
+                {% if instance.pk and not is_readonly %}
+                <button type="button" class="btn-custom btn-outline-custom" id="btn-crear-solicitud-material"
+                    style="padding: 6px 12px; font-size: 0.8rem;">➕ Crear solicitud de material</button>
+                {% endif %}
                 <button type="button" class="btn-custom btn-outline-custom" id="btn-cargar-paquete"
                     style="padding: 6px 12px; font-size: 0.8rem;">📦 Cargar Paquete</button>
                 </div>
             </div>
             <div class="card-body" id="article-formset">
                 {{ articulo_formset.management_form }}
+                {% include "admin/presupuestos/requisicion/includes/solicitudes_alta_aviso.html" with solicitudes=solicitudes_material tipo_solicitud="material" %}
                 <div class="inline-labels inline-row"
                     style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">
                     <span>Material</span><span>Descripción /
@@ -881,6 +895,7 @@
 
 {% include "admin/presupuestos/requisicion/includes/requisicion_modals.html" %}
 {% include "admin/presupuestos/requisicion/includes/requisicion_scripts.html" %}
+{% include "admin/presupuestos/requisicion/includes/solicitar_alta_proveedor_modal.html" %}
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

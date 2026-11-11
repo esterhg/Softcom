@@ -318,6 +318,15 @@ def requisicion_upsert(request, pk=None):
     # Prioridad: Parámetro GET > wizard_step guardado > Default 1
     current_step = int(request.GET.get('step', instance.wizard_step if instance else 1))
 
+    # Un borrador no puede pasar del Paso 2 (ni por URL) con materiales sin dar de alta
+    if request.method == 'GET' and instance.estado_requisicion == 'BORRADOR' and current_step > 2:
+        from .validaciones import errores_avance_articulos
+        pendientes_alta = errores_avance_articulos(instance)
+        if pendientes_alta:
+            for err in pendientes_alta:
+                messages.error(request, err)
+            return redirect(f"{reverse('presupuestos:requisicion_editar', kwargs={'pk': instance.pk})}?step=2")
+
     # Bloquear edición si ya está enviada a aprobar o en estado final
     is_readonly = False
     can_unlock = False
@@ -396,8 +405,14 @@ def requisicion_upsert(request, pk=None):
         elif current_step == 2:
             if (articulo_formset.is_valid() or going_back):
                 articulo_formset.save()
-                from .validaciones import asignar_proveedor_por_defecto
+                from .validaciones import asignar_proveedor_por_defecto, errores_avance_articulos
                 asignar_proveedor_por_defecto(instance)
+                # No se puede seguir con materiales sin dar de alta (salvo servicios):
+                # se guarda el paso, pero se permanece en él con el motivo.
+                if not going_back and target_step > current_step:
+                    for err in errores_avance_articulos(instance):
+                        messages.error(request, err)
+                        target_step = current_step
                 # Save ISV directly from POST to avoid full form validation
                 isv_value = request.POST.get('isv')
                 if isv_value is not None and str(isv_value).strip() != '':
@@ -578,6 +593,9 @@ def requisicion_upsert(request, pk=None):
         'es_procura': request.user.groups.filter(name__in=['Procura', 'PROCURA']).exists(),
         'es_procura_tecnica': request.user.groups.filter(name__in=['Procura_Tecnica', 'PROCURA_TECNICA']).exists(),
         'puede_generar_oc': puede_generar_oc,
+        # Solicitudes de alta (proveedor / material) hechas desde esta requisición
+        'solicitudes_proveedor': instance.solicitudes_alta_proveedor.all() if instance else [],
+        'solicitudes_material': instance.solicitudes_alta_material.all() if instance else [],
     }
     return render(request, 'admin/presupuestos/requisicion/requisicion_form.html', context)
 
@@ -665,6 +683,7 @@ def requisicion_docx(request, pk):
 def requisicion_dashboard(request):
     """Vista de dashboard para Requisiciones — filtrada por departamento del usuario"""
     from .models import Requisicion
+    from .selectors.solicitudes_alta import conteo_pendientes
     from django.db.models import Sum, Count, Q
     from django.utils import timezone
     from datetime import timedelta
@@ -813,6 +832,8 @@ def requisicion_dashboard(request):
         'dept': dept,
         'es_procura': es_procura,
         'es_procura_tecnica': es_procura_tecnica,
+        # Contador de altas de proveedor pendientes (solo lo ve Procura)
+        'altas_proveedor_pendientes': conteo_pendientes()['proveedores'] if es_procura else 0,
         'last_view_json': json.dumps(last_view),
         # Opciones y valores seleccionados para los filtros
         'solicitantes': solicitantes,

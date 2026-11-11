@@ -74,9 +74,10 @@ def _aprobar_proveedor(solicitud, revisor, datos):
             nombre=nombre,
             numero_proveedor=_limpio(datos.get('numero_proveedor'), 50) or None,
             rtn=(_limpio(datos.get('rtn'), 30) or solicitud.rtn) or None,
-            contacto=solicitud.contacto or None,
-            telefono=solicitud.telefono or None,
-            email=solicitud.email or None,
+            contacto=(_limpio(datos.get('contacto'), 200) or solicitud.contacto) or None,
+            telefono=(_limpio(datos.get('telefono'), 50) or solicitud.telefono) or None,
+            email=(_limpio(datos.get('email')) or solicitud.email) or None,
+            domicilio=_limpio(datos.get('domicilio')) or None,
             activo=True,
         )
 
@@ -142,15 +143,19 @@ def crear_solicitud_material(requisicion, usuario, datos, articulo=None):
     )
 
 
-def aprobar_solicitud_material(solicitud, revisor, sku):
-    """Crea el material con el SKU indicado y lo liga al artículo de la requisición."""
+def aprobar_solicitud_material(solicitud, revisor, sku, datos=None):
+    """Crea el material con el SKU indicado y lo liga al artículo de la requisición.
+
+    ``datos`` (opcional): unidad_medida (id), precio_estimado y descripcion que
+    Almacén completa al aprobar.
+    """
     if not permissions.puede_aprobar_materiales(revisor):
         raise PermissionDenied('Solo Almacén puede aprobar altas de material.')
     with transaction.atomic():
-        return _aprobar_material(solicitud, revisor, sku)
+        return _aprobar_material(solicitud, revisor, sku, datos or {})
 
 
-def _aprobar_material(solicitud, revisor, sku):
+def _aprobar_material(solicitud, revisor, sku, datos):
     solicitud = type(solicitud).objects.select_for_update().get(pk=solicitud.pk)
     if not solicitud.esta_pendiente:
         raise ValidationError('La solicitud ya fue resuelta.')
@@ -161,12 +166,25 @@ def _aprobar_material(solicitud, revisor, sku):
     if Material.objects.filter(sku__iexact=sku).exists():
         raise ValidationError(f'El SKU "{sku}" ya existe.')
 
+    unidad = solicitud.unidad_medida
+    if datos.get('unidad_medida'):
+        unidad = UnidadMedida.objects.filter(pk=datos['unidad_medida']).first() or unidad
+
+    precio = solicitud.precio_estimado
+    if str(datos.get('precio_estimado') or '').strip():
+        try:
+            precio = Decimal(str(datos['precio_estimado']).replace(',', ''))
+        except InvalidOperation:
+            raise ValidationError('El precio estimado no es válido.')
+        if precio < 0:
+            raise ValidationError('El precio estimado no puede ser negativo.')
+
     material = Material.objects.create(
         nombre=solicitud.nombre,
         sku=sku,
-        descripcion=solicitud.descripcion or None,
-        unidad_medida=solicitud.unidad_medida,
-        precio_estimado=solicitud.precio_estimado,
+        descripcion=(_limpio(datos.get('descripcion')) or solicitud.descripcion) or None,
+        unidad_medida=unidad,
+        precio_estimado=precio,
     )
 
     solicitud.material = material
@@ -187,6 +205,17 @@ def rechazar_solicitud_material(solicitud, revisor, motivo):
         raise PermissionDenied('Solo Almacén puede rechazar altas de material.')
     with transaction.atomic():
         return _rechazar(solicitud, revisor, motivo)
+
+
+def solicitar_material_nuevo(requisicion, usuario, nombre, descripcion='', precio=0):
+    """Pide a Almacén el alta de un material que no existe en el catálogo.
+
+    Solo registra la solicitud: el producto NO se agrega a la requisición hasta
+    que Almacén lo apruebe (entonces existe en el catálogo y se selecciona normal).
+    """
+    return crear_solicitud_material(
+        requisicion, usuario,
+        {'nombre': nombre, 'descripcion': descripcion, 'precio_estimado': precio})
 
 
 # ------------------------------------------------------------------ común ---

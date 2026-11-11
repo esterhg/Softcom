@@ -1,0 +1,23 @@
+{# Estado de las solicitudes de alta hechas desde esta requisición. Variables: solicitudes, tipo_solicitud #}
+{% if solicitudes %}
+<div style="margin-top:8px; border:1px solid #d9d9d9; background:#fff;">
+    {% for s in solicitudes %}
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 10px; font-size:0.8rem; border-bottom:1px solid #eee;">
+        <span>
+            <strong>{{ s.nombre }}</strong>
+            {% if s.estado == 'RECHAZADA' and s.motivo_rechazo %}
+            <span style="color:#6a6d70;"> · Motivo: {{ s.motivo_rechazo }}</span>
+            {% endif %}
+        </span>
+        {% if s.estado == 'PENDIENTE' %}
+        <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-weight:600; white-space:nowrap;">
+            Pendiente de {% if tipo_solicitud == 'proveedor' %}Procura{% else %}Almacén{% endif %}</span>
+        {% elif s.estado == 'APROBADA' %}
+        <span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-weight:600;">Aprobada</span>
+        {% else %}
+        <span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-weight:600;">Rechazada</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

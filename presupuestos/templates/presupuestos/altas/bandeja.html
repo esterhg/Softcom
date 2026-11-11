@@ -138,11 +138,32 @@
       <p class="mb-2">Se dará de alta: <strong id="aprobar-nombre"></strong></p>
       {% if tab == 'materiales' %}
         <label for="sku" class="form-label">SKU del material <span class="text-danger">*</span></label>
-        <input id="sku" name="sku" class="form-control" maxlength="50" required>
-        <div class="form-text">El SKU debe ser único en el catálogo.</div>
+        <input id="sku" name="sku" class="form-control mb-2" maxlength="50" required>
+        <div class="form-text mb-2">El SKU debe ser único en el catálogo.</div>
+        <label for="m-unidad" class="form-label">Unidad de medida</label>
+        <select id="m-unidad" name="unidad_medida" class="form-select mb-2">
+          <option value="">— Sin unidad —</option>
+          {% for u in unidades %}<option value="{{ u.pk }}">{{ u }}</option>{% endfor %}
+        </select>
+        <label for="m-precio" class="form-label">Precio estimado</label>
+        <input id="m-precio" name="precio_estimado" type="number" step="0.01" min="0" class="form-control mb-2">
+        <label for="m-desc" class="form-label">Descripción</label>
+        <textarea id="m-desc" name="descripcion" class="form-control" rows="2"></textarea>
       {% else %}
-        <label for="num-prov" class="form-label">No. de proveedor (opcional)</label>
-        <input id="num-prov" name="numero_proveedor" class="form-control" maxlength="50">
+        <div class="row g-2">
+          <div class="col-md-6"><label for="p-num" class="form-label">No. de proveedor</label>
+            <input id="p-num" name="numero_proveedor" class="form-control" maxlength="50"></div>
+          <div class="col-md-6"><label for="p-rtn" class="form-label">R.T.N.</label>
+            <input id="p-rtn" name="rtn" class="form-control" maxlength="30"></div>
+          <div class="col-md-6"><label for="p-contacto" class="form-label">Persona de contacto</label>
+            <input id="p-contacto" name="contacto" class="form-control" maxlength="200"></div>
+          <div class="col-md-6"><label for="p-tel" class="form-label">Teléfono</label>
+            <input id="p-tel" name="telefono" class="form-control" maxlength="50"></div>
+          <div class="col-12"><label for="p-email" class="form-label">Correo electrónico</label>
+            <input id="p-email" name="email" type="email" class="form-control"></div>
+          <div class="col-12"><label for="p-dom" class="form-label">Domicilio</label>
+            <textarea id="p-dom" name="domicilio" class="form-control" rows="2"></textarea></div>
+        </div>
       {% endif %}
     </div>
     <div class="modal-footer">

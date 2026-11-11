@@ -16,16 +16,17 @@ GRUPOS_PROCURA = ('Procura', 'PROCURA')
 GRUPOS_ALMACEN = (GRUPO_SUPERVISOR_ALMACEN, 'Almacenes')
 
 
-def _en_grupos(user, nombres):
-    return bool(
-        user.is_authenticated
-        and (user.is_superuser or user.groups.filter(name__in=nombres).exists())
-    )
+def _en_grupos(user, nombres, permitir_superusuario=True):
+    if not user.is_authenticated:
+        return False
+    if permitir_superusuario and user.is_superuser:
+        return True
+    return user.groups.filter(name__in=nombres).exists()
 
 
 def puede_aprobar_proveedores(user):
-    """Procura (o superusuario) aprueba altas de proveedor."""
-    return _en_grupos(user, GRUPOS_PROCURA)
+    """Solo el grupo Procura aprueba altas de proveedor (ni el superusuario sin el grupo)."""
+    return _en_grupos(user, GRUPOS_PROCURA, permitir_superusuario=False)
 
 
 def puede_aprobar_materiales(user):

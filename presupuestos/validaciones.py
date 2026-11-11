@@ -6,6 +6,26 @@ def es_servicio(req):
     return getattr(req, 'tipo', None) == 'SERVICIO'
 
 
+def errores_avance_articulos(req):
+    """Impide salir del Paso 2 con artículos sin material del catálogo o altas pendientes.
+
+    Es la parte de ``errores_requisicion`` que depende de los artículos y de las
+    solicitudes de alta; el resto (proveedor, lugar) se valida en el Paso 1.
+    """
+    from .services.solicitudes_alta import bloqueos_de_requisicion
+
+    errores = []
+    if not es_servicio(req):
+        for i, art in enumerate(req.articulos.all(), start=1):
+            if not art.material_id:
+                nombre = (art.cr8ca_articulo or f'Artículo {i}')[:60]
+                errores.append(
+                    f'"{nombre}" no es un material del catálogo. Selecciónelo del catálogo '
+                    'o solicite su alta a Almacén y espere la aprobación.')
+    errores.extend(bloqueos_de_requisicion(req))
+    return errores
+
+
 def errores_requisicion(req):
     """Devuelve una lista de mensajes de error. Lista vacía = requisición completa."""
     from .services.solicitudes_alta import bloqueos_de_requisicion

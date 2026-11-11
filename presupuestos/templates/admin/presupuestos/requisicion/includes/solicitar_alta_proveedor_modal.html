@@ -1,0 +1,72 @@
+{# Modal para solicitar el alta de un proveedor: el solicitante solo escribe el nombre. #}
+{% if instance.pk and not is_readonly %}
+<div id="modal-alta-proveedor" role="dialog" aria-modal="true" aria-labelledby="alta-prov-titulo"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:10000; align-items:center; justify-content:center;">
+    <div style="background:#fff; border:1px solid #d9d9d9; border-radius:0.5rem; width:min(460px, 92vw); box-shadow:0 .25rem .75rem rgba(0,0,0,.2);">
+        <div style="padding:14px 18px; border-bottom:1px solid #d9d9d9; display:flex; justify-content:space-between; align-items:center;">
+            <strong id="alta-prov-titulo">Solicitar alta de proveedor</strong>
+            <button type="button" id="alta-prov-cerrar" aria-label="Cerrar"
+                    style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:16px 18px;">
+            <label for="alta-prov-nombre" style="display:block; font-weight:600; margin-bottom:4px;">
+                Nombre del proveedor <span style="color:#bb0000;">*</span></label>
+            <input type="text" id="alta-prov-nombre" maxlength="200" autocomplete="off"
+                   style="width:100%; padding:8px 10px; border:1px solid #d9d9d9; font-family:inherit;">
+            <small style="display:block; margin-top:6px; color:#6a6d70;">
+                Solo indique el nombre. Procura completará el resto de los datos y le avisará al aprobar.
+                No podrá enviar la requisición hasta que sea aprobado.</small>
+            <div id="alta-prov-error" role="alert" style="display:none; margin-top:8px; color:#bb0000; font-size:0.85rem;"></div>
+        </div>
+        <div style="padding:12px 18px; border-top:1px solid #d9d9d9; display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" id="alta-prov-cancelar" class="btn-custom btn-outline-custom">Cancelar</button>
+            <button type="button" id="alta-prov-enviar" class="btn-custom btn-primary-custom">Enviar solicitud</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modal = document.getElementById('modal-alta-proveedor');
+    var abrir = document.getElementById('btn-solicitar-proveedor');
+    if (!modal || !abrir) return;
+    var nombre = document.getElementById('alta-prov-nombre');
+    var error = document.getElementById('alta-prov-error');
+    var enviar = document.getElementById('alta-prov-enviar');
+    var url = "{% url 'presupuestos:solicitar_alta_proveedor' instance.pk %}";
+
+    function mostrar() { error.style.display = 'none'; nombre.value = ''; modal.style.display = 'flex'; nombre.focus(); }
+    function ocultar() { modal.style.display = 'none'; }
+    function fallo(msg) { error.textContent = msg; error.style.display = 'block'; enviar.disabled = false; }
+
+    abrir.addEventListener('click', mostrar);
+    document.getElementById('alta-prov-cerrar').addEventListener('click', ocultar);
+    document.getElementById('alta-prov-cancelar').addEventListener('click', ocultar);
+    // Backdrop estático: no se cierra al hacer clic fuera; Escape sí.
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.style.display === 'flex') ocultar(); });
+    nombre.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); enviar.click(); } });
+
+    enviar.addEventListener('click', function () {
+        if (!nombre.value.trim()) { fallo('Escriba el nombre del proveedor.'); return; }
+        enviar.disabled = true;
+        var datos = new FormData();
+        datos.append('nombre', nombre.value.trim());
+        datos.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        fetch(url, { method: 'POST', body: datos, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) { fallo(d.message || 'No se pudo enviar la solicitud.'); return; }
+                // Recarga en el mismo paso para ver la solicitud pendiente
+                location.href = location.pathname + '?step=1';
+            })
+            .catch(function () { fallo('Error de conexión. Intente de nuevo.'); });
+    });
+
+    // En servicios el proveedor no es obligatorio: ocultar el asterisco
+    var tipo = document.querySelector('[name="tipo"]');
+    var ast = document.getElementById('proveedor-obligatorio');
+    function marcar() { if (tipo && ast) ast.style.display = tipo.value === 'SERVICIO' ? 'none' : ''; }
+    if (tipo) { tipo.addEventListener('change', marcar); marcar(); }
+})();
+</script>
+{% endif %}

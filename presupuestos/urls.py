@@ -24,6 +24,8 @@ urlpatterns = [
     
     # Solicitudes de alta (proveedor / material): bandeja de aprobación
     path('altas/', views_altas.bandeja_altas, name='bandeja_altas'),
+    path('requisiciones/<uuid:pk>/solicitar-proveedor/', views_altas.solicitar_proveedor, name='solicitar_alta_proveedor'),
+    path('requisiciones/<uuid:pk>/solicitar-material/', views_altas.solicitar_material, name='solicitar_alta_material'),
     path('altas/proveedor/<int:pk>/aprobar/', views_altas.proveedor_aprobar, name='alta_proveedor_aprobar'),
     path('altas/proveedor/<int:pk>/rechazar/', views_altas.proveedor_rechazar, name='alta_proveedor_rechazar'),
     path('altas/material/<int:pk>/aprobar/', views_altas.material_aprobar, name='alta_material_aprobar'),

@@ -826,3 +826,41 @@ class ConfiguracionFlujoAprobacionAdmin(admin.ModelAdmin):
         return redirect(
             reverse('admin:presupuestos_configuracionflujoaprobacion_change', args=[obj.pk])
         )
+
+
+# ---------------------------------------------------------------------------
+# Solicitudes de alta de proveedor: aparecen en el módulo Presupuestos solo
+# para Procura. La tabla de aprobación vive en presupuestos:bandeja_altas.
+# ---------------------------------------------------------------------------
+from django.shortcuts import redirect as _redirect
+from django.urls import reverse as _reverse
+from .models import SolicitudAltaProveedor
+from . import permissions as _perm_altas
+
+
+@admin.register(SolicitudAltaProveedor)
+class SolicitudAltaProveedorAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'requisicion', 'solicitante', 'estado', 'creado_en', 'revisado_por')
+    list_filter = ('estado',)
+    search_fields = ('nombre', 'requisicion__cr8ca_requisicion')
+
+    def has_module_permission(self, request):
+        return _perm_altas.puede_aprobar_proveedores(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return _perm_altas.puede_aprobar_proveedores(request.user)
+
+    # Solo lectura aquí: aprobar/rechazar se hace en la bandeja.
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        if not self.has_view_permission(request):
+            return super().changelist_view(request, extra_context)
+        return _redirect(_reverse('presupuestos:bandeja_altas') + '?tab=proveedores')
