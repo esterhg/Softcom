@@ -1,0 +1,131 @@
+{% extends "rrhh/base_rrhh.html" %}
+
+{% block title %}{{ reporte.codigo }}{% endblock %}
+
+{% block content %}
+<div class="rh-wrap">
+    <div class="rh-head d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1><i class="fas fa-clock" style="color:#0070f2;"></i> Reporte {{ reporte.codigo }}</h1>
+            <p>
+                Colaborador: <strong>{% firstof reporte.colaborador.get_full_name reporte.colaborador.username %}</strong>
+                &nbsp;|&nbsp; Autorizado por: <strong>{% if reporte.autorizado_por %}{% firstof reporte.autorizado_por.get_full_name reporte.autorizado_por.username %}{% else %}—{% endif %}</strong>
+                &nbsp;|&nbsp; Solicitado por: <strong>{% if reporte.solicitado_por %}{% firstof reporte.solicitado_por.get_full_name reporte.solicitado_por.username %}{% else %}—{% endif %}</strong>
+                &nbsp;|&nbsp; Total: <strong>{{ reporte.total_horas|default_if_none:0|floatformat:"-2" }} h</strong>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn-sap" href="{% url 'rrhh:reportes' %}"><i class="fas fa-arrow-left"></i> Volver</a>
+            <button type="button" class="btn-sap btn-sap-primary" data-bs-toggle="modal" data-bs-target="#modalHora">
+                <i class="fas fa-plus"></i> Crear Horas Extra
+            </button>
+        </div>
+    </div>
+
+    <div class="sap-card">
+        <div style="overflow-x:auto;">
+        <table class="sap-table">
+            <thead>
+                <tr>
+                    <th>Colaborador</th><th>Categoría</th><th>Entrada</th><th>Salida</th>
+                    <th>Horas total</th><th>Cena</th><th>Justificación</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for h in horas %}
+                <tr>
+                    <td>{% firstof h.colaborador.get_full_name h.colaborador.username %}</td>
+                    <td>{% if h.categoria %}<span class="badge-sap">{{ h.categoria.nombre }}</span>{% else %}<span class="rh-muted">—</span>{% endif %}</td>
+                    <td>{{ h.entrada|date:"d/m/Y H:i" }}</td>
+                    <td>{{ h.salida|date:"d/m/Y H:i" }}</td>
+                    <td><strong>{{ h.horas_total|floatformat:"-2" }}</strong></td>
+                    <td>{% if h.cena %}<span class="badge-sap badge-ok">Sí</span>{% else %}<span class="badge-sap badge-pend">No</span>{% endif %}</td>
+                    <td>{{ h.justificacion|linebreaksbr }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="rh-empty">Este reporte aún no tiene horas extra.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Crear Horas Extra -->
+<div class="modal fade" id="modalHora" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="modalHoraLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form class="modal-content" method="post" action="{% url 'rrhh:crear_hora_extra' reporte.pk %}" id="form-hora">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHoraLabel">Crear Horas Extra</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_colaborador">Colaborador *</label>
+                        {{ form.colaborador }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_categoria">Categoría</label>
+                        {{ form.categoria }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_entrada">Entrada *</label>
+                        <input type="datetime-local" name="entrada" id="id_entrada" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_salida">Salida *</label>
+                        <input type="datetime-local" name="salida" id="id_salida" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="horas_total_vista">Horas total</label>
+                        <input type="text" id="horas_total_vista" class="form-control" value="0.00" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Reporte Horas</label>
+                        <input type="text" class="form-control" value="{{ reporte.codigo }}" readonly>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="cena" id="id_cena">
+                            <label class="form-check-label" for="id_cena">Cena</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="id_justificacion">Justificación (actividad realizada) *</label>
+                        <textarea name="justificacion" id="id_justificacion" rows="3" class="form-control" required></textarea>
+                        <div class="invalid-feedback">La justificación es obligatoria.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-sap" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn-sap btn-sap-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrajs %}
+<script>
+(function () {
+    document.querySelectorAll('#modalHora select').forEach(function (s) { s.classList.add('form-select'); });
+    var entrada = document.getElementById('id_entrada');
+    var salida = document.getElementById('id_salida');
+    var vista = document.getElementById('horas_total_vista');
+    function recalcular() {
+        if (!entrada.value || !salida.value) { vista.value = '0.00'; return; }
+        var h = (new Date(salida.value) - new Date(entrada.value)) / 3600000;
+        vista.value = h > 0 ? h.toFixed(2) : '0.00';
+    }
+    entrada.addEventListener('input', recalcular);
+    salida.addEventListener('input', recalcular);
+    document.getElementById('form-hora').addEventListener('submit', function (e) {
+        var j = document.getElementById('id_justificacion');
+        if (!j.value.trim()) { e.preventDefault(); j.classList.add('is-invalid'); j.focus(); }
+    });
+})();
+</script>
+{% endblock %}
