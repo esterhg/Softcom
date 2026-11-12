@@ -1335,9 +1335,6 @@ def finalizar_procesamiento(request, pk):
         tipo_contrato = codigo_tipo_contrato_valido(data.get('tipo_contrato'))
         centro_costo_id = data.get('centro_costo_id') or None
 
-        if not articulos_data:
-            return JsonResponse({'success': False, 'message': 'No hay artículos para procesar.'}, status=400)
-
         # La OC debe llevar TODO lo pedido en la requisición: cada artículo con una
         # cantidad mayor a 0 (el material del catálogo es opcional).
         from .models import ArticuloRequisicion
@@ -1377,6 +1374,16 @@ def finalizar_procesamiento(request, pk):
 
         # Agrupar artículos por proveedor
         oc_articulos_por_proveedor = {}
+        if not articulos_data:
+            # Sin artículos: se genera igual una OC con el proveedor elegido en el modal
+            # (o el de la requisición).
+            proveedor_unico = data.get('proveedor_id') or requisicion.proveedor_id
+            if not proveedor_unico:
+                return JsonResponse({'success': False, 'message': 'Selecciona un proveedor para generar la orden de compra.'}, status=400)
+            try:
+                oc_articulos_por_proveedor[int(proveedor_unico)] = []
+            except (TypeError, ValueError):
+                return JsonResponse({'success': False, 'message': 'Proveedor inválido.'}, status=400)
         for art_data in articulos_data:
             proveedor_id = art_data.get('proveedor_id')
             if not proveedor_id:
