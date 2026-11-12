@@ -1079,6 +1079,82 @@
             box-shadow: var(--fiori-shadow-popover) !important;
             z-index: 9999 !important;
         }
+        /* SweetAlert2 por encima de los modales a pantalla completa (OC z-index 9999, proveedor 100000) */
+        .swal2-container { z-index: 200000 !important; }
+        /* Diálogo "agregar opción" con estilo Fiori */
+        .swal2-popup.oc-catalogo-popup {
+            font-family: 'Artifakt Element', 'Outfit', sans-serif;
+            width: 26rem;
+            max-width: 92vw;
+            padding: 0;
+            border: 1px solid #d9d9d9;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.625rem 1.5rem rgba(0, 0, 0, 0.2);
+            text-align: left;
+            overflow: hidden;
+        }
+        .oc-catalogo-popup .swal2-title {
+            margin: 0;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #d9d9d9;
+            background: #f0f4f8;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #32363a;
+            text-align: left;
+            justify-content: flex-start;
+        }
+        .oc-catalogo-popup .swal2-html-container {
+            margin: 0;
+            padding: 1rem 1.25rem 0.25rem;
+            text-align: left;
+            font-size: 0.85rem;
+            color: #6a6d70;
+        }
+        .oc-catalogo-popup .swal2-input {
+            width: 100%;
+            margin: 0.5rem 0 0;
+            height: 2.5rem;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            color: #32363a;
+            box-shadow: none;
+        }
+        .oc-catalogo-popup .swal2-input:focus {
+            border-color: #0070f2;
+            box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2);
+        }
+        .oc-catalogo-popup .swal2-validation-message {
+            margin: 0.5rem 0 0;
+            background: #fee2e2;
+            color: #991b1b;
+            font-size: 0.8rem;
+        }
+        .oc-catalogo-popup .swal2-actions {
+            margin: 0;
+            padding: 1rem 1.25rem;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+        .oc-catalogo-popup .swal2-confirm,
+        .oc-catalogo-popup .swal2-cancel {
+            margin: 0;
+            cursor: pointer;
+            border: 0;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+        }
+        .oc-catalogo-popup .swal2-confirm { background: #0070f2; color: #fff; }
+        .oc-catalogo-popup .swal2-confirm:hover { background: #0058c0; }
+        .oc-catalogo-popup .swal2-cancel { background: #fff; color: #32363a; border: 1px solid #d9d9d9; }
+        .oc-catalogo-popup .swal2-cancel:hover { background: #f0f4f8; }
+        .oc-catalogo-popup .swal2-confirm:focus-visible,
+        .oc-catalogo-popup .swal2-cancel:focus-visible { outline: 2px solid #0070f2; outline-offset: 2px; }
         .select2-search__field {
             padding: 8px !important;
             border: 1px solid var(--fiori-border) !important;
@@ -2398,9 +2474,14 @@
             const esCentro = tipo === 'centro';
             const { value: nombre } = await Swal.fire({
                 title: esCentro ? 'Nuevo centro de costo' : 'Nuevo tipo de contrato',
+                html: esCentro
+                    ? 'Escribe el nombre del centro de costo. Quedará disponible para todas las órdenes de compra.'
+                    : 'Escribe el nombre del tipo de contrato. Quedará disponible para todas las órdenes de compra.',
                 input: 'text',
-                inputLabel: 'Nombre',
-                inputAttributes: { maxlength: esCentro ? 200 : 100 },
+                inputPlaceholder: esCentro ? 'Ej. MANTENIMIENTO - INSTALACIONES' : 'Ej. Contrato de Obra',
+                inputAttributes: { maxlength: esCentro ? 200 : 100, 'aria-label': 'Nombre' },
+                customClass: { popup: 'oc-catalogo-popup' },
+                buttonsStyling: false,
                 showCancelButton: true,
                 confirmButtonText: 'Agregar',
                 cancelButtonText: 'Cancelar',
