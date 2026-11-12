@@ -1229,6 +1229,21 @@ class CentroCosto(models.Model):
         ordering = ['nombre']
 
 
+class TipoContrato(models.Model):
+    """Catálogo ampliable de tipos de contrato para las Órdenes de Compra."""
+    codigo = models.CharField(max_length=30, unique=True, verbose_name="Código")
+    nombre = models.CharField(max_length=100, verbose_name="Tipo de Contrato")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Tipo de Contrato"
+        verbose_name_plural = "Tipos de Contrato"
+        ordering = ['nombre']
+
+
 class OrdenCompra(models.Model):
     TIPO_DOC_CHOICES = (
         ('OC', 'OC'),
@@ -1287,16 +1302,23 @@ class OrdenCompra(models.Model):
         verbose_name="Forma de Pago",
         help_text="Forma de pago heredada de la requisición."
     )
+    # Valores iniciales del catálogo TipoContrato (ahora ampliable desde la UI).
     TIPO_CONTRATO_CHOICES = (
         ('SUMINISTRO_INSTALACION', 'Suministro e Instalación'),
         ('CONTRATO_SERVICIO', 'Contrato de Servicio'),
     )
+    # Guarda el código de un TipoContrato (sin choices fijos).
     tipo_contrato = models.CharField(
         max_length=30,
-        choices=TIPO_CONTRATO_CHOICES,
         blank=True, null=True,
         verbose_name="Tipo de Contrato"
     )
+
+    def get_tipo_contrato_display(self):
+        if not self.tipo_contrato:
+            return ''
+        tc = TipoContrato.objects.filter(codigo=self.tipo_contrato).first()
+        return tc.nombre if tc else dict(self.TIPO_CONTRATO_CHOICES).get(self.tipo_contrato, self.tipo_contrato)
 
     doc_factura = models.BooleanField(default=False, verbose_name="Factura")
     doc_estimacion = models.BooleanField(default=False, verbose_name="Estimación")

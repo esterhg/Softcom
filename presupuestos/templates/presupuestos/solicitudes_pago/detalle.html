@@ -2353,7 +2353,7 @@
             poblarCentrosCosto(data.centros_costo || [], null);
             document.getElementById('oc-numero').value = '';
             document.getElementById('oc-numero').placeholder = 'Se generará automáticamente';
-            document.getElementById('oc-tipo-contrato').value = '';
+            poblarTiposContrato(data.tipos_contrato || [], '');
             document.getElementById('oc-referencia').value = (data.requisicion.numero || '') + ' — ' + (data.requisicion.asunto || '');
 
             // Plan de pago (mostrar si aplica)
@@ -2370,6 +2370,68 @@
                 if (selectedId && String(cc.id) === String(selectedId)) opt.selected = true;
                 sel.appendChild(opt);
             });
+        }
+
+        function poblarTiposContrato(lista, selectedCodigo, selectedNombre) {
+            const sel = document.getElementById('oc-tipo-contrato');
+            sel.innerHTML = '<option value="">— Seleccionar —</option>';
+            let encontrado = false;
+            (lista || []).forEach(function(t) {
+                const opt = document.createElement('option');
+                opt.value = t.codigo;
+                opt.textContent = t.nombre;
+                if (selectedCodigo && t.codigo === selectedCodigo) { opt.selected = true; encontrado = true; }
+                sel.appendChild(opt);
+            });
+            // Tipo ya guardado en la OC pero desactivado del catálogo: se conserva visible
+            if (selectedCodigo && !encontrado) {
+                const opt = document.createElement('option');
+                opt.value = selectedCodigo;
+                opt.textContent = selectedNombre || selectedCodigo;
+                opt.selected = true;
+                sel.appendChild(opt);
+            }
+        }
+
+        // Agrega una opción nueva al catálogo (centro de costo o tipo de contrato) y la selecciona
+        async function agregarOpcionCatalogoOc(tipo) {
+            const esCentro = tipo === 'centro';
+            const { value: nombre } = await Swal.fire({
+                title: esCentro ? 'Nuevo centro de costo' : 'Nuevo tipo de contrato',
+                input: 'text',
+                inputLabel: 'Nombre',
+                inputAttributes: { maxlength: esCentro ? 200 : 100 },
+                showCancelButton: true,
+                confirmButtonText: 'Agregar',
+                cancelButtonText: 'Cancelar',
+                inputValidator: function(v) { return (v || '').trim() ? null : 'El nombre es obligatorio.'; }
+            });
+            if (!nombre) return;
+            try {
+                const resp = await fetch(esCentro ? '/presupuestos/ordenes-compra/centros-costo/crear/' : '/presupuestos/ordenes-compra/tipos-contrato/crear/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: nombre })
+                });
+                const result = await resp.json();
+                if (!result.success) {
+                    Swal.fire('Error', result.message || 'No se pudo agregar la opción.', 'error');
+                    return;
+                }
+                const sel = document.getElementById(esCentro ? 'oc-centro-costo' : 'oc-tipo-contrato');
+                const valor = esCentro ? String(result.item.id) : result.item.codigo;
+                let opt = Array.from(sel.options).find(function(o) { return o.value === valor; });
+                if (!opt) {
+                    opt = document.createElement('option');
+                    opt.value = valor;
+                    opt.textContent = result.item.nombre;
+                    sel.appendChild(opt);
+                }
+                sel.value = valor;
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: result.creado ? 'Opción agregada' : 'Ya existía, seleccionada', showConfirmButton: false, timer: 1800 });
+            } catch (err) {
+                Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+            }
         }
 
         function populateOcModalEdit(data) {
@@ -2411,7 +2473,7 @@
             // Nuevos campos de cabecera
             poblarCentrosCosto(data.centros_costo || [], data.centro_costo_id);
             document.getElementById('oc-numero').value = data.numero_oc || '';
-            document.getElementById('oc-tipo-contrato').value = data.tipo_contrato || '';
+            poblarTiposContrato(data.tipos_contrato || [], data.tipo_contrato || '', data.tipo_contrato_display);
             document.getElementById('oc-referencia').value = (data.requisicion_numero || '') + ' — ' + (data.requisicion_asunto || '');
 
             // Plan de pago (mostrar si aplica)
@@ -4159,17 +4221,25 @@
                     </div>
                     <div style="background:#ffffff; border:1px solid #d9d9d9; border-radius:0.5rem; padding:1rem 1.25rem; box-shadow:0 0.125rem 0.25rem rgba(0,0,0,0.08);">
                         <label style="font-size:0.7rem; font-weight:600; color:#6a6d70; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:0.4rem;">Centro de Costo</label>
-                        <select id="oc-centro-costo" style="width:100%; padding:0.5rem 0.6rem; border:1px solid #d9d9d9; border-radius:4px; font-size:0.85rem; font-family:inherit; background:#fff;">
-                            <option value="">— Sin asignar —</option>
-                        </select>
+                        <div style="display:flex; gap:0.4rem;">
+                            <select id="oc-centro-costo" style="flex:1; min-width:0; padding:0.5rem 0.6rem; border:1px solid #d9d9d9; border-radius:4px; font-size:0.85rem; font-family:inherit; background:#fff;">
+                                <option value="">— Sin asignar —</option>
+                            </select>
+                            <button type="button" onclick="agregarOpcionCatalogoOc('centro')" title="Agregar centro de costo" aria-label="Agregar centro de costo" style="padding:0 0.7rem; border:1px solid #d9d9d9; border-radius:4px; background:#fff; color:#0070f2; cursor:pointer;">
+                                <i class="ph ph-plus"></i>
+                            </button>
+                        </div>
                     </div>
                     <div style="background:#ffffff; border:1px solid #d9d9d9; border-radius:0.5rem; padding:1rem 1.25rem; box-shadow:0 0.125rem 0.25rem rgba(0,0,0,0.08);">
                         <label style="font-size:0.7rem; font-weight:600; color:#6a6d70; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:0.4rem;">Tipo de Contrato</label>
-                        <select id="oc-tipo-contrato" style="width:100%; padding:0.5rem 0.6rem; border:1px solid #d9d9d9; border-radius:4px; font-size:0.85rem; font-family:inherit; background:#fff;">
-                            <option value="">— Seleccionar —</option>
-                            <option value="SUMINISTRO_INSTALACION">Suministro e Instalación</option>
-                            <option value="CONTRATO_SERVICIO">Contrato de Servicio</option>
-                        </select>
+                        <div style="display:flex; gap:0.4rem;">
+                            <select id="oc-tipo-contrato" style="flex:1; min-width:0; padding:0.5rem 0.6rem; border:1px solid #d9d9d9; border-radius:4px; font-size:0.85rem; font-family:inherit; background:#fff;">
+                                <option value="">— Seleccionar —</option>
+                            </select>
+                            <button type="button" onclick="agregarOpcionCatalogoOc('tipo')" title="Agregar tipo de contrato" aria-label="Agregar tipo de contrato" style="padding:0 0.7rem; border:1px solid #d9d9d9; border-radius:4px; background:#fff; color:#0070f2; cursor:pointer;">
+                                <i class="ph ph-plus"></i>
+                            </button>
+                        </div>
                     </div>
                     <div style="grid-column:1 / -1; background:#ffffff; border:1px solid #d9d9d9; border-radius:0.5rem; padding:1rem 1.25rem; box-shadow:0 0.125rem 0.25rem rgba(0,0,0,0.08);">
                         <label style="font-size:0.7rem; font-weight:600; color:#6a6d70; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:0.4rem;">Referencia A</label>

@@ -8,7 +8,7 @@ from .models import (
     PresupuestoAgrupado, Requisicion, ArticuloRequisicion, DocumentoRequisicion,
     SolicitudPago, ItemSolicitudPago,
     REPEX, REPEXItem, Moneda,
-    OrdenCompra, OrdenCompraArticulo, CentroCosto,
+    OrdenCompra, OrdenCompraArticulo, CentroCosto, TipoContrato,
     Cotizacion, ItemCotizacion, ItemPredefinido,
     CodigoExoneracion, GrupoRequisicion,
     ConfiguracionFlujoAprobacion,
@@ -668,6 +668,13 @@ class CentroCostoAdmin(admin.ModelAdmin):
     list_display = ['nombre', 'descripcion', 'activo']
     list_filter = ['activo']
     search_fields = ['nombre']
+
+
+@admin.register(TipoContrato)
+class TipoContratoAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'codigo', 'activo']
+    list_filter = ['activo']
+    search_fields = ['nombre', 'codigo']
 
 
 @admin.register(OrdenCompra)
