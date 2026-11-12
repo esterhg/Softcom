@@ -1264,10 +1264,8 @@ def procesar_requisicion(request, pk):
                 'creado_en': doc.creado_en.strftime('%d/%m/%Y %H:%M') if doc.creado_en else '',
             })
 
-        centros_data = []
-        from .models import CentroCosto
-        for cc in CentroCosto.objects.filter(activo=True).order_by('nombre'):
-            centros_data.append({'id': cc.id, 'nombre': cc.nombre})
+        from .selectors.catalogos_oc import centros_costo_activos, tipos_contrato_activos
+        centros_data = centros_costo_activos()
 
         data = {
             'requisicion': {
@@ -1285,6 +1283,7 @@ def procesar_requisicion(request, pk):
             'proveedores': proveedores_data,
             'documentos': documentos_data,
             'centros_costo': centros_data,
+            'tipos_contrato': tipos_contrato_activos(),
         }
 
         return JsonResponse({'success': True, 'data': data, 'message': 'Procesando requisición...', 'warning': warning_msg})
@@ -1332,17 +1331,15 @@ def finalizar_procesamiento(request, pk):
         hitos_pago = data.get('hitos_pago', []) if forma_pago in formas_con_hitos else []
 
         # Tipo de contrato y centro de costo (opcionales)
-        tipo_contrato_choices = dict(OrdenCompra.TIPO_CONTRATO_CHOICES)
-        tipo_contrato = data.get('tipo_contrato') or None
-        if tipo_contrato and tipo_contrato not in tipo_contrato_choices:
-            tipo_contrato = None
+        from .selectors.catalogos_oc import codigo_tipo_contrato_valido
+        tipo_contrato = codigo_tipo_contrato_valido(data.get('tipo_contrato'))
         centro_costo_id = data.get('centro_costo_id') or None
 
         if not articulos_data:
             return JsonResponse({'success': False, 'message': 'No hay artículos para procesar.'}, status=400)
 
-        # La OC debe llevar TODO lo pedido en la requisición: cada artículo, con su
-        # material/servicio del catálogo y una cantidad mayor a 0.
+        # La OC debe llevar TODO lo pedido en la requisición: cada artículo con una
+        # cantidad mayor a 0 (el material del catálogo es opcional).
         from .models import ArticuloRequisicion
         arts_req = {str(a.pk): a for a in ArticuloRequisicion.objects.filter(requisicion=requisicion).select_related('material', 'material__unidad_medida')}
         ids_payload = set()
@@ -1351,8 +1348,7 @@ def finalizar_procesamiento(request, pk):
             art_req = arts_req.get(art_id)
             if not art_req:
                 return JsonResponse({'success': False, 'message': f'El artículo "{art_data.get("descripcion", "")}" no pertenece a esta requisición.'}, status=400)
-            if not art_req.material_id:
-                return JsonResponse({'success': False, 'message': f'"{art_req.cr8ca_articulo[:60]}" no está vinculado a un material o servicio del catálogo. Vincúlelo antes de generar la OC.'}, status=400)
+            # El material del catálogo es opcional para generar la OC.
             try:
                 cant = Decimal(str(art_data.get('cantidad', 0)))
             except Exception:
@@ -1366,7 +1362,7 @@ def finalizar_procesamiento(request, pk):
 
         # Datos que se heredan de la requisición
         if not tipo_contrato and requisicion.tipo == 'SERVICIO':
-            tipo_contrato = 'CONTRATO_SERVICIO'
+            tipo_contrato = codigo_tipo_contrato_valido('CONTRATO_SERVICIO')
         notas_oc = []
         if requisicion.cr8ca_motivo:
             notas_oc.append(f"Motivo: {requisicion.cr8ca_motivo}")
@@ -1584,10 +1580,8 @@ def detalle_orden_compra(request, pk):
             for h in oc.hitos_pago.all()
         ]
 
-        centros_list = []
-        from .models import CentroCosto
-        for cc in CentroCosto.objects.filter(activo=True).order_by('nombre'):
-            centros_list.append({'id': cc.id, 'nombre': cc.nombre})
+        from .selectors.catalogos_oc import centros_costo_activos, tipos_contrato_activos
+        centros_list = centros_costo_activos()
 
         data = {
             'id': oc.id,
@@ -1627,6 +1621,7 @@ def detalle_orden_compra(request, pk):
             'articulos': articulos,
             'proveedores': proveedores_list,
             'centros_costo': centros_list,
+            'tipos_contrato': tipos_contrato_activos(),
             'hitos_pago': hitos_pago,
         }
 
@@ -1673,7 +1668,10 @@ def actualizar_orden_compra(request, pk):
 
         # Tipo de contrato
         if 'tipo_contrato' in data:
-            oc.tipo_contrato = data.get('tipo_contrato') or None
+            from .selectors.catalogos_oc import codigo_tipo_contrato_valido
+            codigo_tc = data.get('tipo_contrato') or None
+            # Conserva el valor actual si es el mismo (aunque el tipo se haya desactivado)
+            oc.tipo_contrato = codigo_tc if codigo_tc == oc.tipo_contrato else codigo_tipo_contrato_valido(codigo_tc)
 
         # Centro de costo
         if 'centro_costo_id' in data:
@@ -2369,3 +2367,34 @@ def actualizar_proveedor_ajax(request, pk):
         import traceback
         print(traceback.format_exc())
         return JsonResponse({'success': False, 'message': f'Error interno: {str(e)}'}, status=500)
+
+
+def _crear_opcion_catalogo_oc(request, crear, serializar):
+    """Vista común para agregar opciones a los catálogos de la OC (solo Procura)."""
+    from .services.catalogos_oc import CatalogoError
+    if not request.user.groups.filter(name__in=['Procura', 'PROCURA']).exists():
+        return JsonResponse({'success': False, 'message': 'Solo usuarios del grupo Procura pueden agregar opciones.'}, status=403)
+    try:
+        payload = json.loads(request.body or '{}')
+        obj, creado = crear(payload.get('nombre'))
+    except (CatalogoError, ValueError) as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+    return JsonResponse({'success': True, 'creado': creado, 'item': serializar(obj)})
+
+
+@login_required
+@staff_member_required
+@require_POST
+def crear_centro_costo_ajax(request):
+    from .services.catalogos_oc import crear_centro_costo
+    return _crear_opcion_catalogo_oc(
+        request, crear_centro_costo, lambda cc: {'id': cc.id, 'nombre': cc.nombre})
+
+
+@login_required
+@staff_member_required
+@require_POST
+def crear_tipo_contrato_ajax(request):
+    from .services.catalogos_oc import crear_tipo_contrato
+    return _crear_opcion_catalogo_oc(
+        request, crear_tipo_contrato, lambda t: {'codigo': t.codigo, 'nombre': t.nombre})
