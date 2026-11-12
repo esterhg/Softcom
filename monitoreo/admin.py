@@ -251,7 +251,7 @@ class ReporteAveriaAdmin(admin.ModelAdmin):
     list_select_related = ('activo', 'unidad_funcional', 'tecnico_principal')
     autocomplete_fields = ('activo', 'tecnico_principal', 'tecnicos')
     readonly_fields = ('codigo', 'unidad_funcional_ruta', 'fecha_asignacion', 'asignado_por',
-                       'fecha_inicio', 'fecha_resolucion', 'resuelto_por',
+                       'resuelto_por',
                        'creado_por', 'creado_en', 'actualizado_en')
     date_hierarchy = 'fecha_hora'
     inlines = [FotoAveriaInline]
