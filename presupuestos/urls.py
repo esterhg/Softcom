@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_import, views_autorizar, views_webhook, views_pagos, views_dashboard_api, views_altas
+from . import views, views_import, views_autorizar, views_webhook, views_pagos, views_dashboard_api, views_altas, views_proveedores
 
 app_name = 'presupuestos'
 
@@ -87,6 +87,9 @@ urlpatterns = [
     
     # Dashboard por Proveedor
     path('proveedores/dashboard/', views_pagos.dashboard_proveedores, name='dashboard_proveedores'),
+    path('proveedores/crear/', views_proveedores.proveedor_crear, name='proveedor_crear'),
+    path('proveedores/<int:pk>/editar/', views_proveedores.proveedor_editar, name='proveedor_editar'),
+    path('proveedores/<int:pk>/eliminar/', views_proveedores.proveedor_eliminar, name='proveedor_eliminar'),
     path('proveedores/<int:empresa_id>/detalle/', views_pagos.detalle_proveedor, name='detalle_proveedor'),
     
     # REPEX Dashboard
