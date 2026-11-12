@@ -7,22 +7,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Proveedores | Energy</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Artifakt Element desde Autodesk GitHub -->
+    <style>
+      @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Element%20Medium.woff2') format('woff2');
+        font-weight: 400; font-style: normal; font-display: swap;
+      }
+      @font-face {
+        font-family: 'Artifakt Element';
+        src: url('https://raw.githubusercontent.com/Autodesk/standard-surface/master/style/fonts/Artifakt/Artifakt%20Legend%20Bold.woff2') format('woff2');
+        font-weight: 700; font-style: normal; font-display: swap;
+      }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
         :root {
-            --fiori-blue: #0a6ed1;
-            --fiori-blue-dark: #0854a0;
+            --fiori-blue: #0070f2;
+            --fiori-blue-dark: #0058c0;
             --fiori-shell: #354a5f;
             --fiori-success: #107e3e;
-            --fiori-bg: #f7f7f7;
+            --fiori-error: #bb0000;
+            --fiori-bg: #eff2f5;
             --fiori-card: #ffffff;
             --fiori-text: #32363a;
             --fiori-text-muted: #6a6d70;
             --fiori-border: #d9d9d9;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', '72', sans-serif; background: var(--fiori-bg); color: var(--fiori-text); }
+        * { box-sizing: border-box; }
+        body { font-family: 'Artifakt Element', 'Outfit', sans-serif; background: var(--fiori-bg); color: var(--fiori-text); margin: 0; }
 
         .fiori-shell-bar {
             background: var(--fiori-shell); padding: 0 1.5rem; height: 44px;
@@ -35,34 +50,50 @@
         .fiori-page { padding: 1.25rem 1.5rem; width: 100%; }
 
         .fiori-page-header {
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
             padding-bottom: 1rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--fiori-border);
         }
-        .fiori-page-title { font-size: 1.4rem; font-weight: 700; color: var(--fiori-text); }
+        .fiori-page-title { font-size: 1.4rem; font-weight: 700; color: var(--fiori-text); margin: 0; }
         .fiori-page-subtitle { font-size: 0.78rem; color: var(--fiori-text-muted); margin-top: 2px; }
+        .fiori-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
         .fiori-btn {
-            padding: 8px 16px; font-size: 0.8rem; font-weight: 600;
-            border: 1px solid var(--fiori-border); background: var(--fiori-card);
+            padding: 8px 16px; font-size: 0.8rem; font-weight: 600; font-family: inherit;
+            border: 1px solid var(--fiori-border); background: var(--fiori-card); border-radius: 4px;
             color: var(--fiori-text); cursor: pointer; text-decoration: none;
             display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;
         }
         .fiori-btn:hover { border-color: var(--fiori-blue); color: var(--fiori-blue); }
+        .fiori-btn:focus-visible, .fiori-icon-btn:focus-visible { outline: 2px solid var(--fiori-blue); outline-offset: 2px; }
+        .fiori-btn-primary { background: var(--fiori-blue); border-color: var(--fiori-blue); color: #fff; }
+        .fiori-btn-primary:hover { background: var(--fiori-blue-dark); border-color: var(--fiori-blue-dark); color: #fff; }
+        .fiori-btn-danger { background: var(--fiori-error); border-color: var(--fiori-error); color: #fff; }
+        .fiori-btn-danger:hover { background: #8f0000; border-color: #8f0000; color: #fff; }
+
+        .fiori-icon-btn {
+            width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--fiori-border); background: #fff; border-radius: 4px;
+            color: var(--fiori-text-muted); cursor: pointer; font-size: 1rem; transition: all 0.15s;
+        }
+        .fiori-icon-btn:hover { border-color: var(--fiori-blue); color: var(--fiori-blue); }
+        .fiori-icon-btn.danger:hover { border-color: var(--fiori-error); color: var(--fiori-error); }
 
         .fiori-toolbar {
             display: flex; justify-content: space-between; align-items: center;
             padding: 0.75rem 1rem; margin-bottom: 1rem; background: var(--fiori-card);
-            border: 1px solid var(--fiori-border); gap: 12px;
+            border: 1px solid var(--fiori-border); border-radius: 0.5rem; gap: 12px; flex-wrap: wrap;
         }
-        .fiori-search {
-            flex: 1; max-width: 400px; padding: 8px 12px; font-size: 0.85rem;
-            border: 1px solid var(--fiori-border); background: var(--fiori-bg);
-            font-family: inherit;
+        .fiori-toolbar form { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+        .fiori-search, .fiori-select {
+            padding: 8px 12px; font-size: 0.85rem; border: 1px solid var(--fiori-border);
+            background: var(--fiori-bg); font-family: inherit; border-radius: 4px;
         }
-        .fiori-search:focus { outline: none; border-color: var(--fiori-blue); }
+        .fiori-search { flex: 1; min-width: 200px; max-width: 400px; }
+        .fiori-search:focus, .fiori-select:focus { outline: none; border-color: var(--fiori-blue); }
 
         .fiori-table-container {
-            background: var(--fiori-card); border: 1px solid var(--fiori-border); overflow-x: auto;
+            background: var(--fiori-card); border: 1px solid var(--fiori-border); border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.08); overflow-x: auto;
         }
         .fiori-table-header {
             display: flex; justify-content: space-between; align-items: center;
@@ -71,33 +102,50 @@
         .fiori-table-title { font-size: 0.85rem; font-weight: 600; color: var(--fiori-text); }
         .fiori-table-count { font-size: 0.75rem; color: var(--fiori-text-muted); font-weight: 400; }
 
-        .fiori-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .fiori-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 0; }
         .fiori-table th {
-            text-align: left; padding: 10px 16px; background: #fafafa;
+            text-align: left; padding: 10px 16px; background: #f0f4f8;
             font-weight: 600; color: var(--fiori-text-muted); font-size: 0.72rem;
             text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--fiori-border);
+            white-space: nowrap;
         }
         .fiori-table td {
             padding: 12px 16px; border-bottom: 1px solid #f0f0f0; color: var(--fiori-text); vertical-align: middle;
         }
-        .fiori-table tr { cursor: pointer; transition: background 0.1s; }
-        .fiori-table tr:hover td { background: #fafbfc; }
-        .fiori-table tr:last-child td { border-bottom: none; }
+        .fiori-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .fiori-table tbody tr:hover td { background: #f7f9fb; }
+        .fiori-table tbody tr:last-child td { border-bottom: none; }
+        .fiori-table tr.inactivo .fiori-link { color: var(--fiori-text-muted); }
 
         .fiori-link { color: var(--fiori-blue); text-decoration: none; font-weight: 600; }
         .fiori-link:hover { text-decoration: underline; }
+        .fiori-sub { font-size: 0.72rem; color: var(--fiori-text-muted); font-weight: 400; }
 
-        .fiori-amount { font-family: 'Inter', monospace; font-weight: 600; color: var(--fiori-blue); }
+        .fiori-amount { font-weight: 600; color: var(--fiori-blue); }
 
         .fiori-badge {
             display: inline-block; padding: 2px 8px; font-size: 0.7rem; font-weight: 700;
-            background: #e8f0fe; color: var(--fiori-blue);
+            background: #eff6ff; color: #1d4ed8; border-radius: 4px;
         }
+        .badge-activo { background: #dcfce7; color: #166534; }
+        .badge-inactivo { background: #f1f5f9; color: #475569; }
 
         .fiori-empty {
             text-align: center; padding: 3rem; color: var(--fiori-text-muted);
             border: 1px dashed var(--fiori-border); background: var(--fiori-card);
         }
+
+        /* Modal */
+        .modal-content { border: 1px solid var(--fiori-border); border-radius: 0.5rem; font-family: inherit; }
+        .modal-header { background: #f0f4f8; border-bottom: 1px solid var(--fiori-border); }
+        .modal-title { font-size: 1rem; font-weight: 700; }
+        .modal-footer { border-top: 1px solid var(--fiori-border); }
+        .form-label { font-size: 0.72rem; font-weight: 600; color: var(--fiori-text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+        .form-control, .form-select { font-family: inherit; font-size: 0.85rem; border-color: var(--fiori-border); border-radius: 4px; }
+        .form-control:focus, .form-select:focus { border-color: var(--fiori-blue); box-shadow: 0 0 0 2px rgba(0,112,242,0.2); }
+        #prov-error { display: none; background: #fee2e2; color: #991b1b; font-size: 0.8rem; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; }
+        .swal2-container { z-index: 200000 !important; }
+        .swal2-popup { font-family: 'Artifakt Element', 'Outfit', sans-serif; }
     </style>
 </head>
 <body>
@@ -118,42 +166,77 @@
     <div class="fiori-page-header">
         <div>
             <h1 class="fiori-page-title">Proveedores</h1>
-            <div class="fiori-page-subtitle">Empresas con requisiciones activas · Monto total solicitado</div>
+            <div class="fiori-page-subtitle">Administración de proveedores · Requisiciones y monto total solicitado</div>
         </div>
-        <a href="{% url 'presupuestos:dashboard_pagos' %}" class="fiori-btn">
-            <i class="ph ph-arrow-left"></i> Volver a Pagos
-        </a>
+        <div class="fiori-header-actions">
+            {% if puede_gestionar %}
+            <button type="button" class="fiori-btn fiori-btn-primary" onclick="abrirProveedor()">
+                <i class="ph ph-plus"></i> Nuevo proveedor
+            </button>
+            {% endif %}
+            <a href="{% url 'presupuestos:dashboard_pagos' %}" class="fiori-btn">
+                <i class="ph ph-arrow-left"></i> Volver a Pagos
+            </a>
+        </div>
     </div>
 
     <!-- Toolbar -->
     <div class="fiori-toolbar">
-        <form method="get" style="flex:1; max-width:400px;">
-            <input type="text" name="q" class="fiori-search"
-                placeholder="🔍 Buscar proveedor por nombre..." value="{{ search_query|default:'' }}">
+        <form method="get">
+            <input type="text" name="q" class="fiori-search" aria-label="Buscar proveedor"
+                placeholder="Buscar por nombre, R.T.N. o número..." value="{{ search_query|default:'' }}">
+            <select name="estado" class="fiori-select" aria-label="Filtrar por estado" onchange="this.form.submit()">
+                <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
+                <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Activos</option>
+                <option value="inactivos" {% if estado == 'inactivos' %}selected{% endif %}>Inactivos</option>
+            </select>
+            <button type="submit" class="fiori-btn"><i class="ph ph-magnifying-glass"></i> Buscar</button>
         </form>
-        <span style="font-size:0.78rem; color:var(--fiori-text-muted);">{{ proveedores.count }} proveedores</span>
+        <span style="font-size:0.78rem; color:var(--fiori-text-muted);">{{ total_proveedores }} proveedores</span>
     </div>
 
     <!-- Table -->
     <div class="fiori-table-container">
         <div class="fiori-table-header">
-            <span class="fiori-table-title">Listado de Proveedores <span class="fiori-table-count">({{ proveedores.count }})</span></span>
+            <span class="fiori-table-title">Listado de Proveedores <span class="fiori-table-count">({{ total_proveedores }})</span></span>
         </div>
         <table class="fiori-table">
             <thead>
                 <tr>
                     <th>Proveedor</th>
+                    <th>R.T.N.</th>
+                    <th>Contacto</th>
+                    <th style="text-align:center;">Estado</th>
                     <th style="text-align:center;">Requisiciones</th>
                     <th id="th-fecha" style="cursor:pointer; user-select:none;" title="Clic para ordenar">Última Requisición <span id="sort-indicator">▾</span></th>
                     <th style="text-align:right;">Monto Total Solicitado</th>
-                    <th></th>
+                    <th style="text-align:right;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in proveedores %}
-                <tr onclick="location.href='{% url 'presupuestos:detalle_proveedor' p.pk %}'">
+                <tr class="{% if not p.activo %}inactivo{% endif %}" onclick="location.href='{% url 'presupuestos:detalle_proveedor' p.pk %}'"
+                    data-id="{{ p.pk }}"
+                    data-nombre="{{ p.nombre }}"
+                    data-numero="{{ p.numero_proveedor|default:'' }}"
+                    data-rtn="{{ p.rtn|default:'' }}"
+                    data-domicilio="{{ p.domicilio|default:'' }}"
+                    data-contacto="{{ p.contacto|default:'' }}"
+                    data-telefono="{{ p.telefono|default:'' }}"
+                    data-email="{{ p.email|default:'' }}"
+                    data-activo="{% if p.activo %}1{% else %}0{% endif %}"
+                    data-requisiciones="{{ p.total_requisiciones }}">
                     <td>
                         <span class="fiori-link">{{ p.nombre }}</span>
+                        {% if p.numero_proveedor %}<div class="fiori-sub">N.º {{ p.numero_proveedor }}</div>{% endif %}
+                    </td>
+                    <td>{{ p.rtn|default:"-" }}</td>
+                    <td>
+                        {{ p.contacto|default:"-" }}
+                        {% if p.telefono %}<div class="fiori-sub">{{ p.telefono }}</div>{% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="fiori-badge {% if p.activo %}badge-activo{% else %}badge-inactivo{% endif %}">{% if p.activo %}Activo{% else %}Inactivo{% endif %}</span>
                     </td>
                     <td style="text-align:center;">
                         <span class="fiori-badge">{{ p.total_requisiciones }}</span>
@@ -162,20 +245,28 @@
                         {{ p.ultima_fecha_requisicion|date:"d/m/Y"|default:"-" }}
                     </td>
                     <td style="text-align:right;">
-                        <span class="fiori-amount">L.{{ p.monto_total_solicitado|floatformat:2|intcomma }}</span>
+                        <span class="fiori-amount">L.{{ p.monto_total_solicitado|default:0|floatformat:2|intcomma }}</span>
                     </td>
-                    <td style="text-align:right;">
-                        <a href="{% url 'presupuestos:detalle_proveedor' p.pk %}" class="fiori-link" title="Ver detalle">
-                            <i class="ph ph-arrow-right"></i>
+                    <td style="text-align:right; white-space:nowrap;">
+                        <a href="{% url 'presupuestos:detalle_proveedor' p.pk %}" class="fiori-icon-btn" title="Ver detalle" aria-label="Ver detalle de {{ p.nombre }}" onclick="event.stopPropagation()">
+                            <i class="ph ph-eye"></i>
                         </a>
+                        {% if puede_gestionar %}
+                        <button type="button" class="fiori-icon-btn" title="Editar" aria-label="Editar {{ p.nombre }}" onclick="event.stopPropagation(); abrirProveedor(this.closest('tr'))">
+                            <i class="ph ph-pencil-simple"></i>
+                        </button>
+                        <button type="button" class="fiori-icon-btn danger" title="Eliminar" aria-label="Eliminar {{ p.nombre }}" onclick="event.stopPropagation(); eliminarProveedor(this.closest('tr'))">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="5">
+                <tr style="cursor:default;">
+                    <td colspan="8">
                         <div class="fiori-empty">
                             <i class="ph ph-buildings" style="font-size:2.5rem; opacity:0.3; display:block; margin-bottom:0.5rem;"></i>
-                            No se encontraron proveedores activos con requisiciones.
+                            No se encontraron proveedores.
                         </div>
                     </td>
                 </tr>
@@ -186,6 +277,71 @@
 
 </div>
 
+{% if puede_gestionar %}
+<!-- Modal Crear / Editar Proveedor -->
+<div class="modal fade" id="modal-proveedor" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="modal-proveedor-titulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form id="form-proveedor" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title" id="modal-proveedor-titulo">Nuevo proveedor</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="prov-error" role="alert"></div>
+                    <input type="hidden" id="prov-id">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label" for="prov-nombre">Nombre del proveedor *</label>
+                            <input type="text" class="form-control" id="prov-nombre" maxlength="200" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="prov-numero">N.º de proveedor</label>
+                            <input type="text" class="form-control" id="prov-numero" maxlength="50">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="prov-rtn">R.T.N.</label>
+                            <input type="text" class="form-control" id="prov-rtn" maxlength="30">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="prov-contacto">Persona de contacto</label>
+                            <input type="text" class="form-control" id="prov-contacto" maxlength="200">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="prov-telefono">Teléfono</label>
+                            <input type="text" class="form-control" id="prov-telefono" maxlength="50">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="prov-email">Correo electrónico</label>
+                            <input type="email" class="form-control" id="prov-email">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="prov-activo">Estado</label>
+                            <select class="form-select" id="prov-activo">
+                                <option value="1">Activo</option>
+                                <option value="0">Inactivo</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="prov-domicilio">Domicilio</label>
+                            <textarea class="form-control" id="prov-domicilio" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="fiori-btn" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="fiori-btn fiori-btn-primary" id="prov-guardar">
+                        <i class="ph ph-floppy-disk"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function() {
     var sortDir = 'desc'; // default: más recientes primero
@@ -223,5 +379,125 @@
     }
 })();
 </script>
+
+{% if puede_gestionar %}
+<script>
+(function() {
+    var CSRF = '{{ csrf_token }}';
+    var URL_CREAR = "{% url 'presupuestos:proveedor_crear' %}";
+    var URL_EDITAR = "{% url 'presupuestos:proveedor_editar' 0 %}";
+    var URL_ELIMINAR = "{% url 'presupuestos:proveedor_eliminar' 0 %}";
+    var modalEl = document.getElementById('modal-proveedor');
+    var modal = new bootstrap.Modal(modalEl);
+    var form = document.getElementById('form-proveedor');
+    var errorBox = document.getElementById('prov-error');
+
+    function url(base, id) { return base.replace(/0\/(editar|eliminar)\/$/, id + '/$1/'); }
+    function $(id) { return document.getElementById(id); }
+
+    function mostrarError(msg) {
+        errorBox.textContent = msg || '';
+        errorBox.style.display = msg ? 'block' : 'none';
+    }
+
+    async function post(endpoint, body) {
+        var resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body || {})
+        });
+        var data;
+        try { data = await resp.json(); } catch (e) { data = { success: false, message: 'Respuesta inválida del servidor.' }; }
+        return data;
+    }
+
+    window.abrirProveedor = function(tr) {
+        mostrarError('');
+        form.reset();
+        var editar = !!tr;
+        $('modal-proveedor-titulo').textContent = editar ? 'Editar proveedor' : 'Nuevo proveedor';
+        $('prov-id').value = editar ? tr.dataset.id : '';
+        if (editar) {
+            $('prov-nombre').value = tr.dataset.nombre;
+            $('prov-numero').value = tr.dataset.numero;
+            $('prov-rtn').value = tr.dataset.rtn;
+            $('prov-contacto').value = tr.dataset.contacto;
+            $('prov-telefono').value = tr.dataset.telefono;
+            $('prov-email').value = tr.dataset.email;
+            $('prov-domicilio').value = tr.dataset.domicilio;
+            $('prov-activo').value = tr.dataset.activo;
+        } else {
+            $('prov-activo').value = '1';
+        }
+        modal.show();
+        modalEl.addEventListener('shown.bs.modal', function f() {
+            $('prov-nombre').focus();
+            modalEl.removeEventListener('shown.bs.modal', f);
+        });
+    };
+
+    form.addEventListener('submit', async function(ev) {
+        ev.preventDefault();
+        mostrarError('');
+        var id = $('prov-id').value;
+        var body = {
+            nombre: $('prov-nombre').value,
+            numero_proveedor: $('prov-numero').value,
+            rtn: $('prov-rtn').value,
+            contacto: $('prov-contacto').value,
+            telefono: $('prov-telefono').value,
+            email: $('prov-email').value,
+            domicilio: $('prov-domicilio').value,
+            activo: $('prov-activo').value === '1'
+        };
+        var btn = $('prov-guardar');
+        btn.disabled = true;
+        try {
+            var data = await post(id ? url(URL_EDITAR, id) : URL_CREAR, body);
+            if (data.success) {
+                modal.hide();
+                await Swal.fire({ icon: 'success', title: data.message, timer: 1400, showConfirmButton: false });
+                location.reload();
+            } else {
+                mostrarError(data.message || 'No se pudo guardar el proveedor.');
+            }
+        } catch (e) {
+            mostrarError('No se pudo conectar con el servidor.');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    window.eliminarProveedor = async function(tr) {
+        var reqs = parseInt(tr.dataset.requisiciones || '0', 10);
+        var aviso = reqs > 0
+            ? 'Tiene ' + reqs + ' requisición(es) asociada(s), por lo que no se podrá eliminar. Considera desactivarlo.'
+            : 'Esta acción no se puede deshacer.';
+        var r = await Swal.fire({
+            icon: 'warning',
+            title: '¿Eliminar "' + tr.dataset.nombre + '"?',
+            text: aviso,
+            showCancelButton: true,
+            confirmButtonText: 'Eliminar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#bb0000',
+            focusCancel: true
+        });
+        if (!r.isConfirmed) return;
+        try {
+            var data = await post(url(URL_ELIMINAR, tr.dataset.id));
+            if (data.success) {
+                await Swal.fire({ icon: 'success', title: data.message, timer: 1400, showConfirmButton: false });
+                location.reload();
+            } else {
+                Swal.fire({ icon: 'error', title: 'No se pudo eliminar', text: data.message });
+            }
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo conectar con el servidor.' });
+        }
+    };
+})();
+</script>
+{% endif %}
 </body>
 </html>

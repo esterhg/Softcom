@@ -647,21 +647,22 @@ def dashboard_proveedores(request):
     """
     Lista de proveedores que tienen requisiciones, con métricas resumidas.
     """
-    search_query = request.GET.get('q', '')
-    
-    # Proveedores con al menos una requisición
-    proveedores = Empresa.objects.annotate(
-        total_requisiciones=Count('requisiciones_asignadas'),
-        monto_total_solicitado=Sum('requisiciones_asignadas__cr8ca_totalenarticulos'),
-        ultima_fecha_requisicion=Max('requisiciones_asignadas__fecha')
-    ).filter(total_requisiciones__gt=0).order_by('-monto_total_solicitado')
+    from .permissions import puede_gestionar_proveedores
+    from .selectors.proveedores import listar_proveedores
 
-    if search_query:
-        proveedores = proveedores.filter(nombre__icontains=search_query)
+    search_query = request.GET.get('q', '')
+    estado = request.GET.get('estado', 'todos')
+    if estado not in ('todos', 'activos', 'inactivos'):
+        estado = 'todos'
+
+    proveedores = list(listar_proveedores(search_query, estado))
 
     context = {
         'proveedores': proveedores,
+        'total_proveedores': len(proveedores),
         'search_query': search_query,
+        'estado': estado,
+        'puede_gestionar': puede_gestionar_proveedores(request.user),
     }
     return render(request, 'presupuestos/proveedores/dashboard_prov.html', context)
 

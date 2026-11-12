@@ -34,6 +34,11 @@ def puede_aprobar_materiales(user):
     return _en_grupos(user, GRUPOS_ALMACEN)
 
 
+def puede_gestionar_proveedores(user):
+    """Crear, editar y eliminar proveedores: solo el grupo Procura."""
+    return _en_grupos(user, GRUPOS_PROCURA, permitir_superusuario=False)
+
+
 def _requerir(regla, mensaje):
     """Decorador: login + cumplir ``regla``; sin permiso responde 403."""
     def decorador(view):
