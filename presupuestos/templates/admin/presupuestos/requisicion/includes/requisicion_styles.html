@@ -222,6 +222,11 @@
         border-bottom: 1px solid #eef0f2;
     }
 
+    /* Tipo = Servicio: sin columna Material, solo ítems del servicio */
+    #card-step-2.modo-servicio .inline-row { grid-template-columns: 0 1fr 80px 100px 100px 60px; }
+    #card-step-2.modo-servicio .col-material { visibility: hidden; overflow: hidden; width: 0; }
+    #card-step-2.modo-servicio #step2-material-buttons { display: none; }
+
     .inline-row:hover {
         background: #f8fafc;
     }

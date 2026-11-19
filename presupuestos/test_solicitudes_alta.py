@@ -51,9 +51,9 @@ class ErroresRequisicionTests(SimpleTestCase):
 
     def test_servicio_exige_lugar(self, _):
         req = _req(tipo='SERVICIO', proveedor_id=None, articulos=[_art(material_id=None)])
-        req.ubicacion_id = None
+        req.nivel_id = None
         errores = validaciones.errores_requisicion(req)
-        self.assertTrue(any('ubicación' in e for e in errores))
+        self.assertTrue(any('nivel' in e for e in errores))
 
     def test_servicio_sigue_exigiendo_cantidad(self, _):
         req = _req(tipo='SERVICIO', proveedor_id=None, articulos=[_art(material_id=None, cantidad=0)])

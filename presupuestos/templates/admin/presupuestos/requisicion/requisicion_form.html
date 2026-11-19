@@ -228,8 +228,8 @@
                         </div>
 
                         <!-- Lugar del servicio (obligatorio si Tipo = Servicio) -->
-                        {{ form.nivel }}{{ form.ubicacion }}
-                        <div id="servicio-lugar-group" style="display:none; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        {{ form.nivel }}
+                        <div id="servicio-lugar-group" style="display:none; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div class="form-group">
                                 <label class="form-label" for="id_edificio">Edificio <span style="color:#bb0000;">*</span></label>
                                 {{ form.edificio }}
@@ -237,10 +237,6 @@
                             <div class="form-group">
                                 <label class="form-label" for="sel_nivel">Nivel <span style="color:#bb0000;">*</span></label>
                                 <select id="sel_nivel" class="form-control"><option value="">— Seleccionar nivel —</option></select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="sel_ubicacion">Ubicación <span style="color:#bb0000;">*</span></label>
-                                <select id="sel_ubicacion" class="form-control"><option value="">— Seleccionar ubicación —</option></select>
                             </div>
                         </div>
 
@@ -356,8 +352,8 @@
         <!-- Paso 2: Artículos -->
         <div class="form-card {% if current_step == 2 %}active{% endif %}" id="card-step-2">
             <div class="card-header">
-                <h3 class="card-title">📦 Paso 2: Artículos / Materiales</h3>
-                <div style="display:flex;gap:6px;">
+                <h3 class="card-title" id="step2-title">📦 Paso 2: Artículos / Materiales</h3>
+                <div style="display:flex;gap:6px;" id="step2-material-buttons">
                 <button type="button" class="btn-custom btn-primary-custom" id="open-material-selector"
                     style="padding: 6px 12px; font-size: 0.8rem;">🛒 Seleccionar Materiales</button>
                 {% if instance.pk and not is_readonly %}
@@ -373,7 +369,7 @@
                 {% include "admin/presupuestos/requisicion/includes/solicitudes_alta_aviso.html" with solicitudes=solicitudes_material tipo_solicitud="material" %}
                 <div class="inline-labels inline-row"
                     style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">
-                    <span>Material</span><span>Descripción /
+                    <span class="col-material">Material</span><span id="lbl-desc-articulo">Descripción /
                         Detalle</span><span>Cantidad</span><span>Costo Unit.</span><span>Total</span><span></span>
                 </div>
                 <div id="articles-container">
@@ -382,7 +378,7 @@
                         data-provider="{{ a_form.proveedor.value|default:'' }}" data-index="{{ forloop.counter0 }}">
                         {{ a_form.cr8ca_itemderequisicionid }}
                         <div style="display:none">{{ a_form.proveedor }}</div>
-                        <div style="display:flex; align-items:center; gap:4px;">
+                        <div class="col-material" style="display:flex; align-items:center; gap:4px;">
                             {{ a_form.material }}
                             <input type="text" class="form-control sku-display" value="{% if a_form.instance.material %}{{ a_form.instance.material.sku }}{% endif %}" readonly
                                 style="cursor:pointer; color:var(--primary); font-weight:600; flex:1;"
@@ -940,20 +936,36 @@
         if (!fpeGroup) return;
         fpeGroup.style.display = tipoSelect && tipoSelect.value === 'BIEN' ? 'block' : 'none';
     }
+    // ─── Paso 2 según Tipo: Servicio = ítems libres, sin materiales ──────────
+    function toggleModoServicio() {
+        const card = document.getElementById('card-step-2');
+        if (!card || !tipoSelect) return;
+        const esServicio = tipoSelect.value === 'SERVICIO';
+        card.classList.toggle('modo-servicio', esServicio);
+        const titulo = document.getElementById('step2-title');
+        if (titulo) titulo.textContent = esServicio ? '🛠️ Paso 2: Ítems del Servicio' : '📦 Paso 2: Artículos / Materiales';
+        const lbl = document.getElementById('lbl-desc-articulo');
+        if (lbl) lbl.textContent = esServicio ? 'Ítem incluido en el servicio' : 'Descripción / Detalle';
+        card.querySelectorAll('[name$="-cr8ca_articulo"]').forEach(i => {
+            i.placeholder = esServicio ? 'Describa el ítem del servicio' : 'Descripción del artículo';
+        });
+    }
+    if (tipoSelect) {
+        tipoSelect.addEventListener('change', toggleModoServicio);
+        toggleModoServicio();
+    }
     if (tipoSelect) {
         toggleFPE();
         tipoSelect.addEventListener('change', toggleFPE);
     }
 
-    // ─── Lugar del servicio: Edificio → Nivel → Ubicación ───────────────────
+    // ─── Lugar del servicio: Edificio → Nivel ───────────────────────────────
     (function () {
         const grupo = document.getElementById('servicio-lugar-group');
         const selEdif = document.getElementById('id_edificio');
         const selNivel = document.getElementById('sel_nivel');
-        const selUbi = document.getElementById('sel_ubicacion');
         const hidNivel = document.getElementById('id_nivel');
-        const hidUbi = document.getElementById('id_ubicacion');
-        if (!grupo || !selEdif || !selNivel || !selUbi || !hidNivel || !hidUbi) return;
+        if (!grupo || !selEdif || !selNivel || !hidNivel) return;
         const URL_HIJOS = "{% url 'inventarios:api_niveles_edificio' %}";
 
         function toggleLugar() {
@@ -978,19 +990,13 @@
                 .catch(() => {});
         }
         selEdif.addEventListener('change', () => {
-            hidNivel.value = ''; hidUbi.value = '';
+            hidNivel.value = '';
             cargar(selNivel, selEdif.value, '— Seleccionar nivel —', '');
-            cargar(selUbi, null, '— Seleccionar ubicación —', '');
         });
-        selNivel.addEventListener('change', () => {
-            hidNivel.value = selNivel.value; hidUbi.value = '';
-            cargar(selUbi, selNivel.value, '— Seleccionar ubicación —', '');
-        });
-        selUbi.addEventListener('change', () => { hidUbi.value = selUbi.value; });
+        selNivel.addEventListener('change', () => { hidNivel.value = selNivel.value; });
 
         // Estado inicial (valores guardados)
-        cargar(selNivel, selEdif.value, '— Seleccionar nivel —', hidNivel.value)
-            .then(() => cargar(selUbi, hidNivel.value, '— Seleccionar ubicación —', hidUbi.value));
+        cargar(selNivel, selEdif.value, '— Seleccionar nivel —', hidNivel.value);
         if (tipoSelect) tipoSelect.addEventListener('change', toggleLugar);
         toggleLugar();
     })();
