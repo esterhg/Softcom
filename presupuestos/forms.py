@@ -39,7 +39,7 @@ class RequisicionForm(forms.ModelForm):
             'cr8ca_motivo', 'cr8ca_comentarios', 'cr8ca_id_oc', 'wizard_step', 'estado_requisicion', 'cr8ca_totalenarticulos', 'isv',
             'moneda_req',
             'proveedor', 'proveedores_sugeridos', 'proveedores_sugeridos_notas', 'tipo', 'grupo', 'forma_pago',
-            'edificio', 'nivel', 'ubicacion',
+            'edificio', 'nivel',
         ]
         widgets = {
             'cr8ca_requisicion': forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
@@ -81,8 +81,7 @@ class RequisicionForm(forms.ModelForm):
             self.fields['edificio'].queryset = Ubicacion.objects.filter(tipo='EDIFICIO').order_by('nombre')
             self.fields['edificio'].widget.attrs.update({'class': 'form-control', 'id': 'id_edificio'})
             self.fields['edificio'].empty_label = '— Seleccionar edificio —'
-            for f in ('nivel', 'ubicacion'):
-                self.fields[f].widget = forms.HiddenInput(attrs={'id': f'id_{f}'})
+            self.fields['nivel'].widget = forms.HiddenInput(attrs={'id': 'id_nivel'})
         if 'cr8ca_requisicion' in self.fields:
             self.fields['cr8ca_requisicion'].required = False
         if 'estado_requisicion' in self.fields:
@@ -167,9 +166,9 @@ class RequisicionForm(forms.ModelForm):
             self.add_error(
                 'proveedor',
                 'Debe seleccionar un proveedor. Si no existe, solicite su alta a Procura.')
-        # Servicio: edificio, nivel y ubicación obligatorios
+        # Servicio: edificio y nivel obligatorios
         if cleaned.get('tipo') == 'SERVICIO':
-            for campo, nombre in (('edificio', 'el edificio'), ('nivel', 'el nivel'), ('ubicacion', 'la ubicación')):
+            for campo, nombre in (('edificio', 'el edificio'), ('nivel', 'el nivel')):
                 if not cleaned.get(campo):
                     self.add_error(campo, f'Para un servicio debe indicar {nombre}.')
         return cleaned

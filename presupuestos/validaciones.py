@@ -37,7 +37,7 @@ def errores_requisicion(req):
         errores.append(
             'Debe seleccionar un proveedor (Paso 1). Si no existe, solicite su alta a Procura.')
     if servicio:
-        faltan = [n for c, n in (('edificio_id', 'edificio'), ('nivel_id', 'nivel'), ('ubicacion_id', 'ubicación'))
+        faltan = [n for c, n in (('edificio_id', 'edificio'), ('nivel_id', 'nivel'))
                   if not getattr(req, c)]
         if faltan:
             errores.append(f"Para un servicio debe indicar: {', '.join(faltan)} (Paso 1).")
