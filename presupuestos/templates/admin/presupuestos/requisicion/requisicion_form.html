@@ -430,6 +430,12 @@
                     {% endfor %}
                 </div>
 
+                <!-- Solo visible cuando Tipo = Servicio: agregar ítems desglosados del servicio -->
+                <div id="add-article-servicio-wrap" style="display:none; margin-top: 10px;">
+                    <button type="button" class="btn-custom btn-outline-custom" id="add-article"
+                        style="padding: 6px 12px; font-size: 0.8rem;">➕ Agregar ítem</button>
+                </div>
+
                 <div style="margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--border);">
                     <div class="inline-row" style="font-weight: 600; font-size: 0.9rem;">
                         <span></span><span></span><span></span><span style="text-align: right;">Subtotal:</span>
@@ -946,10 +952,16 @@
         if (titulo) titulo.textContent = esServicio ? '🛠️ Paso 2: Ítems del Servicio' : '📦 Paso 2: Artículos / Materiales';
         const lbl = document.getElementById('lbl-desc-articulo');
         if (lbl) lbl.textContent = esServicio ? 'Ítem incluido en el servicio' : 'Descripción / Detalle';
+        const wrap = document.getElementById('add-article-servicio-wrap');
+        if (wrap) wrap.style.display = esServicio ? 'block' : 'none';
         card.querySelectorAll('[name$="-cr8ca_articulo"]').forEach(i => {
             i.placeholder = esServicio ? 'Describa el ítem del servicio' : 'Descripción del artículo';
         });
     }
+    // Las filas nuevas heredan el texto guía del modo actual
+    document.addEventListener('click', e => {
+        if (e.target.closest('#add-article')) setTimeout(toggleModoServicio, 0);
+    });
     if (tipoSelect) {
         tipoSelect.addEventListener('change', toggleModoServicio);
         toggleModoServicio();
